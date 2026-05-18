@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { doc, getDoc, getDocs, setDoc, onSnapshot, collection, query, where, limit, addDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { doc, getDoc, getDocs, setDoc, onSnapshot, collection, query, where, limit, addDoc, updateDoc, deleteDoc, orderBy } from 'firebase/firestore';
 import { auth, db, signIn, signOut, signInEmail, signUpEmail } from './lib/firebase';
 import { motion, AnimatePresence } from 'motion/react';
 import { LogIn, LogOut, Play, Trophy, Users, RefreshCcw, Hand, Plus, Lock, MoreVertical, Coins, ShoppingBag, X, Mail, Key, User as UserIcon, Menu, Settings, MessageSquare, Gift, MoreHorizontal, ChevronUp, Edit, Camera, Save, Check, Image as ImageIcon, Crown, ShieldCheck, Star } from 'lucide-react';
@@ -554,7 +554,7 @@ function AdminView({ onBack }: { onBack: () => void }) {
     const fetchUsers = async () => {
       const q = query(collection(db, 'users'), limit(100));
       const snap = await getDocs(q);
-      setUsers(snap.docs.map(d => ({ ...d.data(), uid: d.id } as UserProfile)));
+      setUsers(snap.docs.map(d => ({ ...d.data(), uid: d.id } as any as UserProfile)));
     };
     if (activeTab === 'users') fetchUsers();
   }, [activeTab]);
@@ -578,6 +578,17 @@ function AdminView({ onBack }: { onBack: () => void }) {
       setUsers(users.map(u => u.uid === userUid ? { ...u, totalWins: parseInt(amount) } : u));
     } catch (e) {
       handleFirestoreError(e, OperationType.UPDATE, `users/${userUid}`);
+    }
+  };
+
+  const handleDeleteUser = async (userUid: string) => {
+    if (!window.confirm("Permanently delete this user profile?")) return;
+    try {
+      await deleteDoc(doc(db, 'users', userUid));
+      setUsers(users.filter(u => u.uid !== userUid));
+      alert("User deleted from database (auth entry remains)");
+    } catch (e) {
+      handleFirestoreError(e, OperationType.DELETE, `users/${userUid}`);
     }
   };
 
@@ -719,6 +730,9 @@ function AdminView({ onBack }: { onBack: () => void }) {
                      </button>
                      <button onClick={() => handleUpdateWins(u.uid, u.totalWins)} className="px-3 py-2 bg-white/10 text-white/60 border border-white/20 rounded-xl text-[9px] font-black uppercase">
                         {u.totalWins} W
+                     </button>
+                     <button onClick={() => handleDeleteUser(u.uid)} className="p-2 bg-red-500/10 text-red-500 border border-red-500/20 rounded-xl">
+                        <X size={14} />
                      </button>
                   </div>
                </div>
@@ -1137,11 +1151,13 @@ function ProfileView({ user, profile, onBack, onLogout, setActiveTab }: { user: 
 function LeaderboardView({ profile, setActiveTab }: { profile: UserProfile, setActiveTab: (tab: any) => void }) {
   const [topPlayers, setTopPlayers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [category, setCategory] = useState<'chips' | 'totalWins'>('chips');
 
   useEffect(() => {
     const fetchLeaderboard = async () => {
+      setLoading(true);
       try {
-        const q = query(collection(db, 'users'), orderBy('chips', 'desc'), limit(25));
+        const q = query(collection(db, 'users'), orderBy(category, 'desc'), limit(25));
         const snap = await getDocs(q);
         setTopPlayers(snap.docs.map(d => d.data() as UserProfile));
       } catch (e) {
@@ -1151,12 +1167,12 @@ function LeaderboardView({ profile, setActiveTab }: { profile: UserProfile, setA
       }
     };
     fetchLeaderboard();
-  }, []);
+  }, [category]);
 
   return (
     <div className="min-h-screen bg-lobby-vintage p-6 sm:p-8 font-vintage flex flex-col items-center pb-32 overflow-y-auto">
       <FallingCards />
-      <header className="w-full max-w-lg mb-12 text-center z-10">
+      <header className="w-full max-w-lg mb-8 text-center z-10">
         <h1 className="text-5xl font-display font-black text-[#8b0000] tracking-tighter italic leading-none drop-shadow-sm">ELITE LIST</h1>
         <div className="mt-2 flex items-center justify-center gap-2">
           <Star size={12} className="text-yellow-600" fill="currentColor" />
@@ -1164,6 +1180,25 @@ function LeaderboardView({ profile, setActiveTab }: { profile: UserProfile, setA
           <Star size={12} className="text-yellow-600" fill="currentColor" />
         </div>
       </header>
+
+      <div className="w-full max-w-lg mb-8 z-10 flex bg-white/20 p-1 rounded-2xl border-2 border-[#868378]/20">
+        <button 
+          onClick={() => setCategory('chips')}
+          className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all
+            ${category === 'chips' ? 'bg-[#8b0000] text-white shadow-lg' : 'text-[#8b0000]/40 hover:text-[#8b0000]'}
+          `}
+        >
+          Rich List
+        </button>
+        <button 
+          onClick={() => setCategory('totalWins')}
+          className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all
+            ${category === 'totalWins' ? 'bg-[#8b0000] text-white shadow-lg' : 'text-[#8b0000]/40 hover:text-[#8b0000]'}
+          `}
+        >
+          Champions
+        </button>
+      </div>
 
       <div className="w-full max-w-lg z-10 space-y-3">
         {loading ? (
@@ -1197,8 +1232,8 @@ function LeaderboardView({ profile, setActiveTab }: { profile: UserProfile, setA
               </div>
               <div className="text-right">
                 <div className="flex items-center gap-1.5 text-yellow-600 font-display font-black italic text-lg">
-                   <Coins size={16} />
-                   <span>{player.chips.toLocaleString()}</span>
+                   {category === 'chips' ? <Coins size={16} /> : <Trophy size={16} />}
+                   <span>{category === 'chips' ? player.chips.toLocaleString() : player.totalWins}</span>
                 </div>
               </div>
             </motion.div>
@@ -2204,7 +2239,7 @@ function TriangleDownIcon({ size = 24 }: { size?: number }) {
   );
 }
 
-function CardComponent({ card, index = 0, isPile = false, skinUrl }: { card: Card, index?: number, isPile?: boolean, skinUrl?: string }) {
+function CardComponent({ card, index = 0, isPile = false, skinUrl }: { card: Card, index?: number, isPile?: boolean, skinUrl?: string, key?: any }) {
   const getSuitColor = (suit: string) => {
     switch (suit) {
       case 'hearts': case 'diamonds': case 'red': return 'text-[#d40000]';
