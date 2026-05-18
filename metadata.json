@@ -1,0 +1,8 @@
+{
+  "name": "JOKER DUEL: PRO",
+  "description": "Premium 1v1 card battler with a dark, high-stakes aesthetic. Real-time Joker and Uno variants with profile customization and ranked progression.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

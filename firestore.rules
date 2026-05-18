@@ -1,0 +1,58 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Global Helpers
+    function isSignedIn() { return request.auth != null; }
+    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+
+    function isAdmin() { return isSignedIn() && request.auth.token.email == 'pitop6988@gmail.com'; }
+
+    // User Profiles
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId) && (
+        incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL', 'totalWins', 'chips', 'level', 'xp', 'ownedSkins', 'activeSkinId'])
+      );
+    }
+
+    // Card Skins
+    match /cardSkins/{skinId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Games
+    match /games/{gameId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(gameId) 
+        && incoming().players.size() >= 1 
+        && incoming().players[0] == request.auth.uid
+        && incoming().status == 'waiting';
+      
+      allow update: if isSignedIn() && (
+        // Join Game Action
+        (existing().status == 'waiting' && incoming().status == 'active' 
+         && incoming().players.size() == 2 
+         && incoming().players[0] == existing().players[0]
+         && incoming().players[1] == request.auth.uid) ||
+        
+        // Gameplay Action
+        (existing().status == 'active' && request.auth.uid in existing().players) ||
+        
+        // Finished Action
+        (incoming().status == 'finished' && request.auth.uid in existing().players)
+      );
+      
+      allow delete: if false;
+    }
+  }
+}

@@ -1,0 +1,66 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "Public profile and stats for a user",
+      "type": "object",
+      "properties": {
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "totalWins": { "type": "integer" },
+        "chips": { "type": "integer" },
+        "ownedSkins": { "type": "array", "items": { "type": "string" } },
+        "activeSkinId": { "type": "string" }
+      },
+      "required": ["displayName", "chips"]
+    },
+    "CardSkin": {
+      "title": "Card Skin",
+      "description": "Customizable card back skin available in the shop",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "price": { "type": "integer" },
+        "rarity": { "type": "string" }
+      },
+      "required": ["name", "imageUrl", "price", "rarity"]
+    },
+    "Game": {
+      "title": "Game Session",
+      "description": "Represents a live game session between two players",
+      "type": "object",
+      "properties": {
+        "status": { "type": "string", "enum": ["waiting", "active", "finished"] },
+        "roomName": { "type": "string" },
+        "password": { "type": "string" },
+        "isPrivate": { "type": "boolean" },
+        "players": { "type": "array", "items": { "type": "string" } },
+        "playerNames": { "type": "object" },
+        "turn": { "type": "string" },
+        "deck": { "type": "array" },
+        "hands": { "type": "object" },
+        "pile": { "type": "array" },
+        "scores": { "type": "object" },
+        "winner": { "type": "string" },
+        "createdAt": { "type": "integer" },
+        "lastMoveAt": { "type": "integer" }
+      },
+      "required": ["status", "players", "createdAt", "roomName", "isPrivate"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "cardSkins/{skinId}": {
+      "schema": "CardSkin",
+      "description": "Available card skins in the shop"
+    },
+    "games/{gameId}": {
+      "schema": "Game",
+      "description": "Game sessions"
+    }
+  }
+}
