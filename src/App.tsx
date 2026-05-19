@@ -3,7 +3,10 @@ import { onAuthStateChanged, User } from 'firebase/auth';
 import { doc, getDoc, getDocs, setDoc, onSnapshot, collection, query, where, limit, addDoc, updateDoc, deleteDoc, orderBy } from 'firebase/firestore';
 import { auth, db, signIn, signOut, signInEmail, signUpEmail } from './lib/firebase';
 import { motion, AnimatePresence } from 'motion/react';
-import { LogIn, LogOut, Play, Trophy, Users, RefreshCcw, Hand, Plus, Lock, MoreVertical, Coins, ShoppingBag, X, Mail, Key, User as UserIcon, Menu, Settings, MessageSquare, Gift, MoreHorizontal, ChevronUp, Edit, Camera, Save, Check, Image as ImageIcon, Crown, ShieldCheck, Star, Eye } from 'lucide-react';
+import { LogIn, LogOut, Play, Trophy, Users, RefreshCcw, Hand, Plus, Lock, MoreVertical, Coins, ShoppingBag, X, Mail, Key, User as UserIcon, Menu, Settings, MessageSquare, Gift, MoreHorizontal, ChevronUp, Edit, Camera, Save, Check, Image as ImageIcon, Crown, ShieldCheck, Star, Eye, LayoutGrid } from 'lucide-react';
+import { Game, GameStatus, Card, UserProfile, CardSkin } from './types';
+import { createDeck, shuffle } from './gameLogic';
+import confetti from 'canvas-confetti';
 
 type Language = 'en' | 'ku';
 
@@ -43,6 +46,18 @@ const translations: Record<Language, any> = {
     editProfile: 'Edit Profile',
     saveChanges: 'Save Changes',
     cancel: 'Cancel',
+    sendGift: 'Send Gift',
+    myItems: 'My Items',
+    badges: 'Badges',
+    allBadges: 'All badges',
+    verifyAccount: 'Verify your account to earn your first Badge.',
+    gifts: 'Gifts',
+    giftsWall: 'Gifts Wall',
+    pointsReceived: 'Points Received',
+    pointsSent: 'Points Sent',
+    playerNumber: 'Player Number',
+    games: 'Games',
+    store: 'Store',
   },
   ku: {
     lobby: 'لۆبی',
@@ -79,12 +94,20 @@ const translations: Record<Language, any> = {
     editProfile: 'بۆردی پڕۆفایل',
     saveChanges: 'پاشەکەوت',
     cancel: 'لابردن',
+    sendGift: 'ناردنی دیاری',
+    myItems: 'کەلوپەلەکانم',
+    badges: 'نیشانەکان',
+    allBadges: 'ھەموو نیشانەکان',
+    verifyAccount: 'ھەژمارەکەت بپشکنە بۆ بەدەستھێنانی یەکەم نیشانە.',
+    gifts: 'دیارییەکان',
+    giftsWall: 'دیواری دیارییەکان',
+    pointsReceived: 'خاڵە وەرگیراوەکان',
+    pointsSent: 'خاڵە نێردراوەکان',
+    playerNumber: 'ژمارەی یاریزان',
+    games: 'یارییەکان',
+    store: 'بازاڕ',
   }
 };
-import { Game, GameStatus, Card, UserProfile, CardSkin } from './types';
-import { createDeck, shuffle } from './gameLogic';
-import confetti from 'canvas-confetti';
-
 enum OperationType {
   CREATE = 'create',
   UPDATE = 'update',
@@ -371,43 +394,48 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-[#0a2f26] relative overflow-hidden font-vintage">
-        {/* Background decorative elements */}
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_#1a7b3e_0%,_transparent_70%)] opacity-30" />
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[#0d0d0d] relative overflow-hidden font-vintage">
+        {/* Dark Red Curtain Gradient Background */}
+        <div className="absolute inset-0 bg-gradient-to-b from-[#8b0000]/20 to-black" />
         
         <div className="z-10 flex flex-col items-center gap-12 w-full max-w-sm px-8">
           <div className="flex flex-col items-center">
              <div className="relative mb-6">
                 <motion.div 
-                  initial={{ rotate: -10, scale: 0.8, opacity: 0 }}
-                  animate={{ rotate: 10, scale: 1, opacity: 1 }}
-                  transition={{ duration: 1, ease: "easeOut" }}
-                  className="text-[#ffcc00] filter drop-shadow-[0_0_15px_rgba(255,204,0,0.5)]"
+                  initial={{ scale: 0.8, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ duration: 0.8, ease: "easeOut" }}
+                  className="flex flex-col items-center"
                 >
-                   <Crown size={80} fill="currentColor" />
+                   <div className="flex gap-1 mb-2">
+                      <div className="w-12 h-16 bg-red-600 rounded-lg shadow-xl -rotate-12 flex items-center justify-center text-white text-4xl border-2 border-white/20">🃏</div>
+                      <div className="w-12 h-16 bg-[#ffcc00] rounded-lg shadow-xl rotate-12 flex items-center justify-center text-[#8b0000] text-4xl border-2 border-white/20">★</div>
+                   </div>
+                   <h1 className="text-7xl font-display font-black text-white tracking-tighter drop-shadow-[0_5px_15px_rgba(0,0,0,0.5)]">Jawaker</h1>
                 </motion.div>
-                <div className="absolute -top-4 -right-4">
-                   <div className="w-12 h-12 bg-[#8b0000] rounded-full border-4 border-[#ffcc00] flex items-center justify-center text-[#ffcc00] shadow-xl italic font-black text-xl">J</div>
-                </div>
              </div>
-             <h1 className="text-6xl font-display font-black text-white italic tracking-tighter drop-shadow-lg leading-none">Joker</h1>
-             <p className="text-[#ffcc00] font-black uppercase tracking-[1em] text-[10px] mt-2 translate-x-[0.5em]">Elite Duel</p>
           </div>
 
-          <div className="w-full space-y-4">
-             <p className="text-white/40 text-[10px] font-black uppercase tracking-[0.5em] text-center">Loading Assets...</p>
-             <div className="w-full h-3 bg-black/40 rounded-full border border-white/5 overflow-hidden p-0.5 shadow-inner">
-                <motion.div 
-                  initial={{ width: "0%" }}
-                  animate={{ width: "100%" }}
-                  transition={{ duration: 2, ease: "easeInOut" }}
-                  className="h-full bg-gradient-to-r from-yellow-600 via-yellow-400 to-yellow-600 rounded-full shadow-[0_0_10px_rgba(234,179,8,0.5)]"
-                />
+          <div className="w-full space-y-6 mt-20">
+             <div className="relative">
+                <p className="text-white font-black text-center text-lg mb-4">Loading...</p>
+                <div className="w-full h-2 bg-black/40 rounded-full border border-white/10 overflow-hidden">
+                   <motion.div 
+                     initial={{ width: "0%" }}
+                     animate={{ width: "100%" }}
+                     transition={{ duration: 3, ease: "linear" }}
+                     className="h-full bg-gradient-to-r from-yellow-600 via-yellow-400 to-yellow-600 rounded-full"
+                   />
+                </div>
              </div>
           </div>
         </div>
 
-        <div className="absolute bottom-12 text-white/10 text-[8px] font-black uppercase tracking-[0.8em]">JAWAKER STYLE</div>
+        {/* Thematic elements at bottom */}
+        <div className="absolute bottom-32 w-full flex justify-center gap-4 opacity-40">
+           <div className="w-16 h-24 bg-white/5 rounded-lg border border-white/10" />
+           <div className="w-16 h-24 bg-white/5 rounded-lg border border-white/10 rotate-12" />
+        </div>
       </div>
     );
   }
@@ -863,6 +891,7 @@ function ShopView({ user, profile, onBack, setActiveTab, language }: { user: Use
   const [showAdmin, setShowAdmin] = useState(false);
   const [adminPass, setAdminPass] = useState('');
   const [showPassInput, setShowPassInput] = useState(false);
+  const [previewSkin, setPreviewSkin] = useState<CardSkin | null>(null);
 
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(db, 'cardSkins'), (snapshot) => {
@@ -958,7 +987,7 @@ function ShopView({ user, profile, onBack, setActiveTab, language }: { user: Use
                     <button 
                       onClick={(e) => {
                         e.stopPropagation();
-                        alert("Skin Preview coming soon!");
+                        setPreviewSkin(skin);
                       }}
                       className="p-3 bg-black/60 backdrop-blur-md rounded-full text-white border border-white/20 hover:bg-white/20 transition-all"
                     >
@@ -1004,6 +1033,38 @@ function ShopView({ user, profile, onBack, setActiveTab, language }: { user: Use
       )}
 
       {setActiveTab && <TapBar activeTab="shop" setActiveTab={setActiveTab} language={language} />}
+
+      <AnimatePresence>
+        {previewSkin && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/90 backdrop-blur-md"
+            onClick={() => setPreviewSkin(null)}
+          >
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="relative w-full max-w-sm aspect-[2/3] rounded-[48px] overflow-hidden border-4 border-white/20 shadow-2xl"
+              onClick={e => e.stopPropagation()}
+            >
+              <img src={previewSkin.imageUrl} alt={previewSkin.name} className="w-full h-full object-cover" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex flex-col justify-end p-10 text-center">
+                 <h2 className="text-4xl font-display font-black text-white italic mb-2">{previewSkin.name}</h2>
+                 <p className="text-white/60 font-black uppercase tracking-[0.3em] text-xs">{previewSkin.rarity}</p>
+                 <button 
+                   onClick={() => setPreviewSkin(null)}
+                   className="mt-8 py-4 bg-white text-[#8b0000] rounded-2xl font-black text-xs uppercase tracking-widest"
+                 >
+                   CLOSE
+                 </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
@@ -1065,7 +1126,7 @@ function ProfileView({ user, profile, onBack, onLogout, setActiveTab, language, 
     }
   };
 
-  const handleSelectSkin = async (skinId: string) => {
+  const handleSelectSkinMarker = async (skinId: string) => {
     try {
       const userRef = doc(db, 'users', user.uid);
       await updateDoc(userRef, {
@@ -1094,185 +1155,122 @@ function ProfileView({ user, profile, onBack, onLogout, setActiveTab, language, 
   const ownedSkinsData = skins.filter(s => profile.ownedSkins?.includes(s.id));
 
   return (
-    <div className={`min-h-screen bg-lobby-vintage p-6 sm:p-8 font-vintage flex flex-col items-center pb-32 overflow-y-auto ${language === 'ku' ? 'rtl text-right' : ''}`}>
-      <FallingCards />
-      <header className="w-full max-w-lg flex justify-between items-center mb-12 z-20">
-        <button onClick={onBack} className="w-12 h-12 flex items-center justify-center rounded-full bg-white/40 text-[#8b0000] hover:bg-white/60 transition-colors shadow-sm"><X size={24} /></button>
-        <h1 className="text-2xl font-display font-black text-[#8b0000] italic tracking-widest">{t.dossier}</h1>
-        <div className="flex gap-2">
-           <button onClick={onOpenSettings} className="w-12 h-12 flex items-center justify-center rounded-full bg-white/40 text-[#8b0000] hover:bg-white/60 transition-colors shadow-sm">
-             <Settings size={20} />
-           </button>
-           <button onClick={onLogout} className="w-12 h-12 flex items-center justify-center rounded-full bg-[#8b0000] text-white hover:bg-red-800 transition-colors shadow-lg">
-             <LogOut size={20} />
-           </button>
-        </div>
+    <div className={`min-h-screen bg-[#1c1c1c] text-white p-6 font-sans flex flex-col items-center pb-32 overflow-y-auto ${language === 'ku' ? 'rtl text-right' : ''}`}>
+      <header className="w-full max-w-lg mb-8 flex justify-end gap-2 px-2 z-20">
+         <button onClick={onOpenSettings} className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 transition-colors">
+           <Settings size={22} className="text-zinc-400" />
+         </button>
+         <button onClick={onBack} className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 transition-colors">
+           <X size={22} className="text-zinc-400" />
+         </button>
       </header>
 
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-lg bg-white/40 border-4 border-[#868378] p-10 rounded-[56px] shadow-2xl flex flex-col items-center space-y-8 z-10"
-      >
-        <div className="relative">
-          <div className="w-40 h-40 rounded-full overflow-hidden border-8 border-white shadow-2xl relative">
-            <img 
-              src={newPhoto || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.uid}`} 
-              alt={profile.displayName} 
-              className="w-full h-full object-cover grayscale brightness-110" 
-            />
-            <div className="absolute inset-0 border-4 border-[#8b0000]/10 rounded-full" />
-          </div>
-          {isEditing && (
-            <div className="absolute -bottom-2 -right-2 flex flex-col gap-2">
+      <div className="flex flex-col items-center mb-10 w-full max-w-lg">
+         <div className="relative mb-4 group">
+            <div className="w-40 h-40 rounded-full border-[6px] border-zinc-800 shadow-2xl p-1 bg-gradient-to-b from-zinc-700 to-zinc-900 group-hover:scale-105 transition-transform duration-500">
+               <img 
+                 src={profile.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${profile.displayName}`} 
+                 alt="Profile" 
+                 className="w-full h-full rounded-full object-cover" 
+               />
+            </div>
+            {isEditing && (
               <button 
-                onClick={() => fileInputRef.current?.click()}
-                className="w-10 h-10 bg-[#8b0000] text-white rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition-transform cursor-pointer border-2 border-white"
+                onClick={() => setShowAvatars(!showAvatars)}
+                className="absolute bottom-2 right-2 w-10 h-10 bg-zinc-700 text-white rounded-full flex items-center justify-center border-2 border-zinc-900 shadow-xl"
               >
                 <Camera size={18} />
               </button>
-              <button 
-                onClick={() => setShowAvatars(!showAvatars)}
-                className="w-10 h-10 bg-yellow-500 text-black rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition-transform cursor-pointer border-2 border-white"
-              >
-                <ImageIcon size={18} />
-              </button>
-            </div>
-          )}
-          <input 
-            type="file" 
-            ref={fileInputRef} 
-            className="hidden" 
-            accept="image/*" 
-            onChange={handleFileChange} 
-          />
-        </div>
-
-        <AnimatePresence>
-          {isEditing && showAvatars && (
-            <motion.div 
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              className="w-full grid grid-cols-5 gap-2 overflow-hidden pb-4"
-            >
-              {PRESET_AVATARS.map((url, i) => (
-                <button 
-                  key={i}
-                  onClick={() => setNewPhoto(url)}
-                  className={`aspect-square rounded-xl overflow-hidden border-2 transition-all ${newPhoto === url ? 'border-[#8b0000] scale-110 shadow-lg' : 'border-black/5 opacity-60 hover:opacity-100'}`}
-                >
-                  <img src={url} alt="Avatar" className="w-full h-full object-cover grayscale" />
-                </button>
-              ))}
-            </motion.div>
-          )}
-        </AnimatePresence>
+            )}
+         </div>
         
-        <div className="w-full text-center">
-          {isEditing ? (
-            <div className="space-y-4">
-              <input 
-                type="text"
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                className="w-full bg-white/50 border-2 border-[#868378] rounded-xl px-4 py-3 text-center text-2xl font-display font-black text-[#8b0000] italic outline-none focus:border-[#8b0000] transition-colors"
-                placeholder="Name"
-              />
-              <div className="flex gap-4">
-                <button 
-                  onClick={() => setIsEditing(false)}
-                  className="flex-1 py-3 bg-white/60 text-[#8b0000] font-bold rounded-xl hover:bg-white/80 transition-all border border-[#868378]/20"
-                >
-                  CANCEL
-                </button>
-                <button 
-                  onClick={handleSave}
-                  disabled={saving}
-                  className="flex-1 py-3 bg-[#8b0000] text-white font-bold rounded-xl hover:bg-[#a00000] transition-all flex items-center justify-center gap-2"
-                >
-                  {saving ? <RefreshCcw className="animate-spin" size={18} /> : <><Save size={18} /> SAVE</>}
-                </button>
+         <div className="text-center w-full">
+            {isEditing ? (
+              <div className="flex flex-col items-center gap-3">
+                 <input 
+                   type="text" 
+                   value={newName} 
+                   onChange={(e) => setNewName(e.target.value)}
+                   className="bg-zinc-800 border-2 border-zinc-700 text-white text-2xl font-bold px-4 py-2 rounded-xl text-center outline-none focus:border-red-600"
+                 />
+                 <div className="flex gap-2">
+                    <button onClick={handleSave} className="px-6 py-2 bg-red-600 rounded-lg font-bold text-sm">SAVE</button>
+                    <button onClick={() => setIsEditing(false)} className="px-6 py-2 bg-zinc-800 rounded-lg font-bold text-sm">CANCEL</button>
+                 </div>
               </div>
+            ) : (
+              <div className="flex items-center justify-center gap-2">
+                 <h2 className="text-3xl font-black uppercase tracking-tight">{profile.displayName}</h2>
+                 <button onClick={() => setIsEditing(true)} className="text-zinc-500 hover:text-white"><Edit size={16} /></button>
+                 <span className="text-lg">🌍</span>
+              </div>
+            )}
+            <div className="mt-3 px-6 py-1.5 bg-zinc-950/50 border border-white/5 rounded-full inline-block">
+               <span className="text-xs font-bold text-zinc-400 capitalize">{t.level} {profile.level || 1}</span>
             </div>
-          ) : (
-            <>
-              <div className="flex items-center justify-center gap-4">
-                <h2 className="text-5xl font-display font-black text-[#8b0000] tracking-tighter italic leading-none">{profile.displayName}</h2>
-                <button 
-                  onClick={() => setIsEditing(true)}
-                  className="p-2 text-[#8b0000]/40 hover:text-[#8b0000] transition-colors"
-                >
-                  <Edit size={24} />
-                </button>
-              </div>
-              <div className="flex items-center justify-center gap-3 mt-3">
-                 <span className="w-8 h-[2px] bg-[#8b0000]/20" />
-                 <p className="text-[#8b0000]/60 font-bold uppercase tracking-[0.3em] text-[10px]">Rank: Professional Gambler</p>
-                 <span className="w-8 h-[2px] bg-[#8b0000]/20" />
-              </div>
-            </>
-          )}
-        </div>
+         </div>
+      </div>
 
-         <div className="w-full space-y-6">
-            <div className="bg-[#8b0000]/5 border-2 border-[#868378]/30 p-6 rounded-[32px] flex justify-between items-center">
-               <div>
-                  <p className="text-[10px] font-black text-[#8b0000]/40 uppercase tracking-widest">{t.chips}</p>
-                  <h4 className="text-2xl font-display font-black text-[#8b0000] italic leading-none">{profile.chips?.toLocaleString()} CHIPS</h4>
+      <div className="w-full max-w-lg grid grid-cols-2 gap-3 mb-8">
+         <button className="flex flex-col items-center justify-center p-6 bg-zinc-900/50 border border-white/5 rounded-2xl hover:bg-zinc-800/50 transition-colors group">
+            <div className="w-12 h-12 mb-3 flex items-center justify-center text-blue-400"><Gift size={24} /></div>
+            <span className="text-sm font-bold">{t.sendGift}</span>
+         </button>
+         <button className="flex flex-col items-center justify-center p-6 bg-zinc-900/50 border border-white/5 rounded-2xl hover:bg-zinc-800/50 transition-colors group" onClick={() => setActiveTab('shop')}>
+            <div className="w-12 h-12 mb-3 flex items-center justify-center text-purple-400"><ShoppingBag size={24} /></div>
+            <span className="text-sm font-bold">{t.myItems}</span>
+         </button>
+      </div>
+
+      <div className="w-full max-w-lg mb-8">
+         <div className="flex items-center justify-between px-2 mb-4">
+            <h3 className="text-lg font-black">{t.badges}</h3>
+            <button className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest px-3 py-1 bg-white/5 rounded-lg">{t.allBadges}</button>
+         </div>
+         <div className="bg-zinc-900/50 border border-white/5 rounded-3xl p-6">
+            <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar opacity-30 grayscale cursor-not-allowed">
+               {Array.from({ length: 8 }).map((_, i) => (
+                 <div key={i} className="flex-shrink-0 w-12 h-12 rounded-full bg-zinc-800 flex items-center justify-center border-2 border-zinc-700">
+                    <Star size={20} />
+                 </div>
+               ))}
+            </div>
+            <div className="mt-4 p-4 bg-zinc-800/50 rounded-2xl flex items-center gap-3 border border-zinc-700/50">
+               <div className="flex-1 text-[10px] font-bold text-zinc-400 text-center uppercase tracking-wider">{t.verifyAccount}</div>
+            </div>
+         </div>
+      </div>
+
+      <div className="w-full max-w-lg mb-8">
+         <div className="flex items-center justify-between px-2 mb-4">
+            <h3 className="text-lg font-black">{t.gifts}</h3>
+         </div>
+         <div className="bg-zinc-900/50 border border-white/5 rounded-3xl p-6">
+            <div className="flex gap-3 mb-6">
+               <button className="flex-1 py-3 bg-white/5 rounded-xl font-bold text-sm text-zinc-300">{t.giftsWall}</button>
+               <button className="flex-1 py-3 bg-green-600 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-2"><Gift size={16} /> {t.sendGift}</button>
+            </div>
+            <div className="grid grid-cols-4 gap-2 mb-6">
+               {Array.from({ length: 4 }).map((_, i) => (
+                 <div key={i} className="aspect-square bg-white/5 rounded-xl border border-white/5" />
+               ))}
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+               <div className="bg-white/5 p-3 rounded-xl border border-white/5">
+                  <p className="text-[10px] font-bold text-zinc-500 uppercase">{t.pointsReceived}</p>
+                  <p className="text-lg font-black text-green-500">0</p>
                </div>
-               <div className="w-12 h-12 bg-yellow-500 rounded-full flex items-center justify-center text-[#8b0000] shadow-lg">
-                  <Coins size={24} />
+               <div className="bg-white/5 p-3 rounded-xl border border-white/5">
+                  <p className="text-[10px] font-bold text-zinc-500 uppercase">{t.pointsSent}</p>
+                  <p className="text-lg font-black text-blue-500">0</p>
                </div>
             </div>
+         </div>
+      </div>
 
-            <div className="space-y-4">
-               <h3 className="text-center text-[10px] font-black text-[#8b0000]/40 uppercase tracking-[0.5em]">{t.mySkins}</h3>
-              {ownedSkinsData.length === 0 ? (
-                <div className="py-8 text-center bg-white/20 rounded-[32px] border-2 border-dashed border-[#868378]/20">
-                   <p className="text-[10px] font-black text-[#8b0000]/30 uppercase tracking-widest">Visit the shop to unlock skins</p>
-                   <button onClick={() => setActiveTab('shop')} className="mt-4 text-[#8b0000] font-black text-[10px] uppercase tracking-widest border-b border-[#8b0000]">Go to Boutique</button>
-                </div>
-              ) : (
-                <div className="grid grid-cols-4 gap-3">
-                   {ownedSkinsData.map(skin => (
-                     <button 
-                       key={skin.id}
-                       onClick={() => handleSelectSkin(skin.id)}
-                       className={`relative aspect-[2/3] rounded-xl overflow-hidden border-4 transition-all shadow-md group
-                         ${profile.activeSkinId === skin.id ? 'border-[#8b0000] scale-110 z-10 shadow-xl' : 'border-black/5 opacity-60 hover:opacity-100 hover:scale-105'}
-                       `}
-                     >
-                        <img src={skin.imageUrl} alt={skin.name} className="w-full h-full object-cover" />
-                        {profile.activeSkinId === skin.id && (
-                          <div className="absolute top-1 right-1 w-5 h-5 bg-[#8b0000] text-white rounded-full flex items-center justify-center shadow-lg">
-                             <Check size={12} />
-                          </div>
-                        )}
-                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                           <span className="text-[8px] font-black text-white px-2 py-1 bg-black/60 rounded-full uppercase">USE</span>
-                        </div>
-                     </button>
-                   ))}
-                </div>
-              )}
-           </div>
-
-           <div className="grid grid-cols-2 gap-4">
-              <div className="bg-[#8b0000] p-5 rounded-[32px] shadow-lg flex flex-col items-center">
-                 <Trophy size={28} className="text-white mb-2" />
-                 <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">Wins</span>
-                 <p className="text-2xl font-display font-black text-white italic">{profile.totalWins}</p>
-              </div>
-              <div className="bg-white/60 p-5 rounded-[32px] border-2 border-[#868378]/30 flex flex-col items-center">
-                 <Star size={28} className="text-[#8b0000] mb-2" />
-                 <span className="text-[10px] font-black text-[#8b0000]/40 uppercase tracking-widest">Level</span>
-                 <p className="text-2xl font-display font-black text-[#8b0000] italic">{profile.level}</p>
-              </div>
-           </div>
-        </div>
-      </motion.div>
-
+      <div id="player-num-marker" className="mt-4 mb-20 text-center">
+         <p className="text-xs font-bold text-zinc-600 uppercase tracking-[0.2em] mb-1">{t.playerNumber}: {user.uid.slice(0, 10).replace(/[^0-9]/g, '')}</p>
+      </div>
       <TapBar activeTab="profile" setActiveTab={setActiveTab} language={language} />
     </div>
   );
@@ -1300,21 +1298,20 @@ function LeaderboardView({ profile, setActiveTab, language }: { profile: UserPro
   }, []);
 
   return (
-    <div className={`min-h-screen bg-lobby-vintage p-6 sm:p-8 font-vintage flex flex-col items-center pb-32 overflow-y-auto ${language === 'ku' ? 'rtl text-right' : ''}`}>
-      <FallingCards />
-      <header className="w-full max-w-lg mb-8 text-center z-10">
-        <h1 className="text-5xl font-display font-black text-[#8b0000] tracking-tighter italic leading-none drop-shadow-sm">{t.eliteList}</h1>
+    <div className={`min-h-screen bg-[#1c1c1c] text-white p-6 font-sans flex flex-col items-center pb-32 overflow-y-auto ${language === 'ku' ? 'rtl text-right' : ''}`}>
+      <header className="w-full max-w-lg mb-8 text-center z-10 pt-4">
+        <h1 className="text-4xl font-black uppercase tracking-tight text-white">{t.eliteList}</h1>
         <div className="mt-2 flex items-center justify-center gap-2">
-          <Star size={12} className="text-yellow-600" fill="currentColor" />
-          <span className="text-[10px] font-black text-[#8b0000]/60 uppercase tracking-[0.6em]">{t.topPlayers}</span>
-          <Star size={12} className="text-yellow-600" fill="currentColor" />
+          <div className="h-[1px] w-8 bg-zinc-800" />
+          <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">{t.topPlayers}</span>
+          <div className="h-[1px] w-8 bg-zinc-800" />
         </div>
       </header>
 
       <div className="w-full max-w-lg z-10 space-y-3">
         {loading ? (
           <div className="py-20 flex justify-center">
-            <RefreshCcw className="animate-spin text-[#8b0000]/30" size={32} />
+            <RefreshCcw className="animate-spin text-zinc-800" size={32} />
           </div>
         ) : (
           topPlayers.map((player, i) => (
@@ -1323,27 +1320,27 @@ function LeaderboardView({ profile, setActiveTab, language }: { profile: UserPro
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: i * 0.05 }}
-              className={`flex items-center gap-4 p-4 rounded-[32px] border-2 transition-all
-                ${i === 0 ? 'bg-yellow-500/10 border-yellow-500 shadow-[0_0_25px_rgba(234,179,8,0.15)] scale-105' : 'bg-white/40 border-[#868378]/20'}
+              className={`flex items-center gap-4 p-4 rounded-2xl border transition-all
+                ${i === 0 ? 'bg-zinc-800/80 border-zinc-700 shadow-xl scale-[1.02]' : 'bg-zinc-900/40 border-white/5'}
               `}
             >
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center font-display font-black italic text-xl
-                ${i === 0 ? 'bg-yellow-500 text-[#8b0000]' : i === 1 ? 'bg-[#c0bba9] text-[#8b0000]' : i === 2 ? 'bg-[#8b4513] text-white' : 'text-[#8b0000]/40'}
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm
+                ${i === 0 ? 'bg-yellow-500 text-black' : i === 1 ? 'bg-zinc-400 text-black' : i === 2 ? 'bg-orange-700 text-white' : 'text-zinc-600'}
               `}>
                 {i + 1}
               </div>
-              <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-white shadow-md">
+              <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-zinc-800">
                  <img src={player.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${player.displayName}`} alt="" className="w-full h-full object-cover" />
               </div>
               <div className="flex-1">
-                <h4 className="font-display font-black text-[#8b0000] italic leading-tight text-lg">{player.displayName}</h4>
+                <h4 className="font-bold text-zinc-100 leading-tight">{player.displayName}</h4>
                 <div className="flex items-center gap-2">
-                   <p className="text-[9px] font-black text-[#8b0000]/50 uppercase tracking-widest">{player.totalWins} {t.victories}</p>
+                   <p className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest">{player.totalWins} {t.victories}</p>
                 </div>
               </div>
               <div className="text-right">
-                <div className="flex items-center gap-1.5 text-yellow-600 font-display font-black italic text-lg">
-                   <Trophy size={16} />
+                <div className="flex items-center gap-1.5 text-zinc-400 font-bold text-sm">
+                   <Trophy size={14} className="text-zinc-600" />
                    <span>{player.totalWins}</span>
                 </div>
               </div>
@@ -1360,18 +1357,18 @@ function LeaderboardView({ profile, setActiveTab, language }: { profile: UserPro
 function TapBar({ activeTab, setActiveTab, language }: { activeTab: string, setActiveTab: (tab: any) => void, language: Language }) {
   const t = translations[language];
   const tabs = [
-    { id: 'shop', icon: <ShoppingBag size={24} />, label: t.boutique },
-    { id: 'leaderboard', icon: <Trophy size={24} />, label: t.rank },
-    { id: 'home', icon: <div className="p-3 bg-[#1a7b3e] rounded-full shadow-[0_0_20px_rgba(26,123,62,0.4)] border-2 border-white/20 -translate-y-4 relative">
-       <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-4xl">🃏</div>
-       <Play size={24} className="text-white fill-current" />
-    </div>, label: t.lobby },
+    { id: 'shop', icon: <ShoppingBag size={24} />, label: t.store },
+    { id: 'leaderboard', icon: <LayoutGrid size={24} />, label: t.games },
+    { id: 'home', icon: <div className="p-3 bg-gradient-to-b from-green-500 to-green-700 rounded-full shadow-[0_0_20px_rgba(26,123,62,0.6)] border-2 border-white/20 -translate-y-4 relative">
+       <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-4xl mb-1 filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]">🤡</div>
+       <Play size={24} className="text-white fill-current translate-y-0.5" />
+    </div>, label: t.home },
     { id: 'clubs', icon: <ShieldCheck size={24} />, label: t.clubs },
-    { id: 'profile', icon: <UserIcon size={24} />, label: t.vault },
+    { id: 'profile', icon: <Trophy size={24} />, label: t.events },
   ];
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-[300] bg-zinc-950/95 backdrop-blur-xl border-t border-white/10 pb-6 pt-2">
+    <div className="fixed bottom-0 left-0 right-0 z-[300] bg-[#121212]/95 backdrop-blur-xl border-t border-white/5 pb-8 pt-2">
       <div className="max-w-md mx-auto flex justify-between items-center px-4">
         {tabs.map(tab => (
           <button 
@@ -1391,17 +1388,14 @@ function TapBar({ activeTab, setActiveTab, language }: { activeTab: string, setA
                     {tab.icon}
                  </motion.div>
                )}
-               {tab.id === 'leaderboard' && (
-                 <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-600 rounded-full border border-black text-[9px] font-black flex items-center justify-center text-white">1</div>
-               )}
             </div>
-            <span className={`text-[10px] font-black uppercase tracking-[0.05em] transition-all ${tab.id === 'home' ? '-mt-2' : ''}`}>
+            <span className={`text-[10px] font-bold uppercase tracking-tight transition-all ${tab.id === 'home' ? '-mt-2' : ''}`}>
               {tab.label}
             </span>
             {activeTab === tab.id && tab.id !== 'home' && (
               <motion.div 
-                layoutId="activeTabGlow"
-                className="absolute -bottom-1 w-12 h-1 bg-white/20 blur-sm rounded-full"
+                layoutId="activeTabIndicator"
+                className="absolute -bottom-1 w-8 h-1 bg-white rounded-full blur-[2px]"
               />
             )}
           </button>
@@ -1901,6 +1895,16 @@ function GameView({ user, game, onLeave, profile, skinsMap }: { user: User, game
     }
   }, [game.status, game.winner, user.uid, rewardClaimed]);
 
+  const endGame = async () => {
+    if (!window.confirm("Permanently delete this game room?")) return;
+    try {
+      await deleteDoc(doc(db, 'games', game.id));
+      onLeave();
+    } catch (e) {
+      handleFirestoreError(e, OperationType.DELETE, `games/${game.id}`);
+    }
+  };
+
   const playCard = async (cardIndex: number) => {
     if (!isMyTurn || game.status !== 'active') return;
     
@@ -1964,17 +1968,6 @@ function GameView({ user, game, onLeave, profile, skinsMap }: { user: User, game
     }
   };
 
-  const endGame = async () => {
-    if (window.confirm("End this game and delete the room?")) {
-      try {
-        await deleteDoc(doc(db, 'games', game.id));
-        onLeave();
-      } catch (e) {
-        handleFirestoreError(e, OperationType.DELETE, `games/${game.id}`);
-      }
-    }
-  };
-
   const canPlay = (card: Card, top: Card) => {
     if (!top) return true;
     if (game.gameType === 'uno') {
@@ -1989,7 +1982,6 @@ function GameView({ user, game, onLeave, profile, skinsMap }: { user: User, game
   };
 
   const onDragEnd = async (event: any, info: any, index: number) => {
-    // Relative threshold based on window height
     const threshold = window.innerHeight * 0.15;
     if (info.offset.y < -threshold) {
       playCard(index);
@@ -1997,307 +1989,141 @@ function GameView({ user, game, onLeave, profile, skinsMap }: { user: User, game
   };
 
   const getHandLayout = (index: number, total: number) => {
-    const isSmallHeight = window.innerHeight < 500;
-    // Wider fan for more cards
-    const angleRange = Math.min(total * 8, 90); 
+    const angleRange = Math.min(total * 6, 60); 
     const angleStep = angleRange / Math.max(total - 1, 1);
     const angle = (index - (total - 1) / 2) * angleStep;
-    
-    // Calculate 3D-like curve
-    const radius = 600; // Large radius for subtle curve
-    const rad = angle * (Math.PI / 180);
-    const x = Math.sin(rad) * radius * 0.8; // Compressed horizontally
-    const y = (1 - Math.cos(rad)) * radius * 0.4; // Subtle vertical arc
-    
-    return { x, y, rotate: angle };
+    const x = angle * 2;
+    return { x, y: Math.abs(angle) * 0.5, rotate: angle };
   };
 
   return (
-    <div className="fixed inset-0 bg-[#0a0a0a] overflow-hidden flex flex-col font-sans select-none touch-none">
-      {/* Top Navigation Bar - Similar to screenshot */}
-      <div className="absolute top-0 w-full h-14 bg-black/60 backdrop-blur-md border-b border-white/5 flex items-center justify-between px-4 z-[110]">
+    <div className="fixed inset-0 bg-[#232323] overflow-hidden flex flex-col font-sans select-none touch-none">
+      {/* Header */}
+      <div className="absolute top-0 w-full h-14 border-b border-white/5 flex items-center justify-between px-4 z-[110]">
         <div className="flex items-center gap-4">
-           <button className="text-white/60 hover:text-white transition-colors relative">
-             <Menu size={24} />
-             <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-600 rounded-full text-[10px] font-black flex items-center justify-center border border-black">1</div>
+           <button onClick={onLeave} className="text-white/60 hover:text-white relative">
+             <div className="flex gap-1 items-center bg-white/5 px-2 py-1 rounded-lg">
+                <Menu size={20} />
+                <div className="w-4 h-4 bg-red-600 rounded-full text-[9px] font-black flex items-center justify-center">1</div>
+             </div>
            </button>
-           <button className="text-white/60 hover:text-white transition-colors">
-             <RefreshCcw size={20} />
-           </button>
-           <button className="text-white/60 hover:text-white transition-colors">
-             <ShoppingBag size={20} />
-           </button>
+           <button className="text-white/60 hover:text-white"><RefreshCcw size={18} /></button>
         </div>
-        <GameLogo size="small" />
-        <div className="flex items-center gap-4">
-           <button className="text-white/60 hover:text-white transition-colors">
-             <UserIcon size={24} />
-           </button>
-           <button onClick={() => setShowMore(!showMore)} className="text-white/60 hover:text-white transition-colors">
-             <Settings size={24} />
-           </button>
+        <div className="text-white font-black tracking-[0.2em] italic uppercase text-sm">OONO</div>
+        <div className="flex items-center gap-3">
+           <div className="flex items-center gap-1 text-[10px] text-zinc-400 font-bold">
+              <Eye size={12} /> 2
+           </div>
+           <button className="text-white/60 hover:text-white"><Users size={20} /></button>
+           <button className="text-white/60 hover:text-white"><MessageSquare size={20} /></button>
         </div>
       </div>
 
-      {/* Main Game Surface with Screenshot-like frame */}
-      <div className="absolute inset-0 pt-14 pb-20 flex flex-col items-center justify-center bg-gradient-to-b from-[#2a2a2a] to-[#0a0a0a]">
-        <div className="relative w-full max-w-[500px] aspect-[2/3] max-h-[82vh] bg-[#1a7b3e] rounded-[48px] border-[14px] border-[#222] shadow-[0_0_100px_rgba(0,0,0,0.9),inset_0_0_80px_rgba(0,0,0,0.5)] overflow-hidden">
-          {/* Subtle gradient overlay for the field */}
-          <div className="absolute inset-0 bg-gradient-to-tr from-black/20 via-transparent to-black/20" />
-          
-          {/* Status Label (Round Info) */}
-          <div className="absolute top-6 left-6 z-50">
-             <div className="px-4 py-1.5 bg-black/60 backdrop-blur-md rounded-full border border-white/10 flex items-center gap-2 shadow-lg">
-                 <span className="text-white font-black italic text-[10px] sm:text-xs uppercase tracking-wider">Round: 1/5</span>
-             </div>
-          </div>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+         {/* Circular Game Field Background */}
+         <div className="relative w-80 h-80 rounded-full bg-[#1a1a1a] shadow-[inset_0_0_50px_rgba(0,0,0,0.8)] border border-white/5 flex items-center justify-center">
+            {/* Spinning Golden Arrows from OONO screenshot */}
+            <div className="absolute inset-4 rounded-full border-4 border-transparent border-t-yellow-500/20 border-r-yellow-500/20 rotate-45" />
+            <motion.div 
+               animate={{ rotate: 360 }}
+               transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+               className="absolute inset-[30px] rounded-full"
+            >
+               <div className="absolute top-0 left-1/2 -translate-x-1/2 w-4 h-4 text-yellow-500/40">▲</div>
+               <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-4 h-4 text-yellow-500/40 rotate-180">▲</div>
+            </motion.div>
 
-          {/* Opponent Avatar (Screenshot Style) */}
-          <div className="absolute top-10 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-2">
-             <div className="relative">
-                {/* Decorative Golden Ring */}
-                <div className="absolute -inset-1.5 bg-gradient-to-b from-yellow-300 to-yellow-600 rounded-full animate-pulse blur-[1px]" />
-                <div className="relative w-20 h-20 rounded-full border-[2px] border-black bg-neutral-800 overflow-hidden shadow-2xl">
-                   <img 
-                      src={opponentProfile?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${opponentId}`} 
-                      alt="Opponent" 
-                      className="w-full h-full object-cover" 
+            {/* Center Card */}
+            <div className="relative z-10 w-28 h-40">
+               <AnimatePresence>
+                 {game.pile.length > 0 && (
+                   <CardComponent 
+                     key={topCard.id} 
+                     card={topCard} 
+                     index={game.pile.length - 1} 
+                     isPile 
                    />
-                </div>
-                {!isMyTurn && (
-                  <motion.div 
-                    animate={{ scale: [1, 1.2, 1], opacity: [1, 0.7, 1] }}
-                    transition={{ duration: 1.5, repeat: Infinity }}
-                    className="absolute -top-1 right-2 w-5 h-5 bg-yellow-500 rounded-full border-2 border-black flex items-center justify-center"
-                  >
-                     <div className="w-2 h-2 bg-black rounded-full" />
-                  </motion.div>
-                )}
-             </div>
-             <div className="px-6 py-1 bg-black rounded-full border border-yellow-500/30 shadow-xl min-w-[100px] text-center flex items-center justify-center gap-2">
-                <Crown size={12} className="text-yellow-500" />
-                <span className="text-white font-black text-[10px] sm:text-xs uppercase tracking-widest truncate block">
-                  {game.playerNames[opponentId || ''] || 'RIVAL'}
-                </span>
-             </div>
-          </div>
-
-          {/* Table Center with Pile and Deck */}
-          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none pb-12">
-             {/* Opponent cards fanned at top */}
-             <div className="absolute top-24 flex justify-center scale-[0.65] origin-top">
-                {Array.from({ length: Math.min(opponentHandCount, 15) }).map((_, i) => (
-                   <CardBack 
-                     key={i} 
-                     skinUrl={opponentSkin}
-                     className="w-20 h-28 -mx-10 relative"
-                     style={{ 
-                       transform: `rotate(${180 + (i - (Math.min(opponentHandCount,15)-1)/2) * 4}deg) translateY(-30px)`,
-                       zIndex: i,
-                       transformOrigin: 'bottom'
-                     }}
-                   />
-                ))}
-             </div>
-
-             {/* Center Play Area */}
-             <div className="flex items-center gap-10 pointer-events-auto transform translate-y-12">
-               {/* Deck */}
-               <motion.div 
-                 whileHover={{ scale: 1.05 }}
-                 whileTap={{ scale: 0.95 }}
-                 className="relative w-24 h-34 cursor-pointer" 
-                 onClick={drawCard}
-               >
-                  <div className="absolute inset-0 translate-x-1 translate-y-1 bg-black/40 rounded-xl" />
-                  <CardBack skinUrl={mySkin} className="absolute inset-0" />
-                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center">
-                    <div className="text-white/20 text-4xl mb-2">🎴</div>
-                    <div className="text-white font-black text-[10px] bg-black/50 px-3 py-1 rounded-full border border-white/10 uppercase tracking-widest backdrop-blur-sm">
-                      {game.deck.length}
-                    </div>
-                  </div>
-               </motion.div>
-
-               {/* Center Pile */}
-               <div className="relative w-28 h-38 flex items-center justify-center">
-                 <div className="absolute inset-x-[-10px] inset-y-[-10px] bg-black/20 rounded-2xl border-2 border-dashed border-white/5 flex items-center justify-center">
-                    <span className="text-white/5 font-black italic text-[10px] tracking-[0.5em] rotate-45 select-none">DUEL AREA</span>
-                 </div>
-                 <AnimatePresence>
-                   {game.pile.map((card, i) => (
-                     <CardComponent 
-                        key={card.id + i} 
-                        card={card} 
-                        index={i} 
-                        isPile 
-                     />
-                   ))}
-                 </AnimatePresence>
-               </div>
-             </div>
-          </div>
-
-          {/* Match Status / Waiting Overlay */}
-          {game.status === 'waiting' && (
-            <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/60 backdrop-blur-[4px]">
-               <motion.div 
-                 animate={{ scale: [1, 1.05, 1] }}
-                 transition={{ duration: 2, repeat: Infinity }}
-                 className="flex flex-col items-center gap-6"
-               >
-                  <div className="relative w-20 h-20">
-                     <div className="absolute inset-0 border-4 border-yellow-500/20 rounded-full" />
-                     <div className="absolute inset-0 border-4 border-t-yellow-500 rounded-full animate-spin" />
-                  </div>
-                  <div className="flex flex-col items-center">
-                    <span className="text-yellow-500 font-display font-black italic tracking-[0.3em] text-2xl drop-shadow-[0_0_15px_rgba(234,179,8,0.5)]">FINDING</span>
-                    <span className="text-white/60 font-bold text-xs mt-1 uppercase tracking-widest">RIVAL...</span>
-                  </div>
-               </motion.div>
+                 )}
+               </AnimatePresence>
             </div>
-          )}
-        </div>
+
+            {/* Opponent Avatar in Circle */}
+            <div className="absolute -top-10 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center">
+               <div className="relative w-20 h-20 rounded-full border-[3px] border-zinc-700 overflow-hidden shadow-2xl">
+                  <img src={opponentProfile?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${opponentId}`} alt="" className="w-full h-full object-cover" />
+                  <div className="absolute inset-0 bg-black/20" />
+               </div>
+               <div className="mt-1 px-3 py-0.5 bg-black/60 rounded-full border border-white/10 text-[9px] font-bold text-white uppercase">{game.playerNames[opponentId || ''] || 'RIVAL'}</div>
+            </div>
+         </div>
+
+         {/* Draw Pile (Red deck in screenshot) */}
+         <div className="absolute bottom-40 left-10">
+            <button onClick={drawCard} className="relative group">
+               <div className="absolute -inset-1 bg-red-600/20 rounded-xl blur-lg transition-all group-hover:bg-red-600/40" />
+               <div className="w-16 h-22 bg-[#8b0000] rounded-xl border-2 border-white/20 shadow-xl flex items-center justify-center relative overflow-hidden">
+                  <div className="text-white/20 text-xs font-black rotate-45">OONO</div>
+                  <div className="absolute bottom-1 right-1 px-1 bg-black/40 rounded text-[8px] font-bold text-white">{game.deck.length}</div>
+               </div>
+            </button>
+         </div>
+
+         {/* Oono Challenge Button (Orange) */}
+         <div className="absolute bottom-40 right-10">
+            <button className="px-4 py-2 bg-gradient-to-b from-orange-400 to-orange-600 rounded-lg shadow-xl text-white font-black text-[10px] uppercase tracking-wider border border-white/20">Oono challenge</button>
+         </div>
       </div>
 
-      {/* Bottom Control Bar - From Screenshot */}
-      <div className="absolute bottom-0 w-full h-44 bg-[#0d0d0d] border-t border-white/10 flex flex-col pb-4 z-[120]">
-        <div className="flex-1 flex items-center justify-between px-6 pt-4">
-           {/* Local Player HUD (Bottom Left) */}
-           <div className="flex items-center gap-4">
-              <div className="relative">
-                {/* Silver Ring for local */}
-                <div className="absolute -inset-1 bg-gradient-to-b from-neutral-400 to-neutral-700 rounded-full blur-[1px]" />
-                <div className="relative w-16 h-16 rounded-full border-[3px] border-black bg-neutral-800 overflow-hidden shadow-2xl">
-                   <img 
-                     src={user.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.uid}`} 
-                     alt="Me" 
-                     className="w-full h-full object-cover" 
-                   />
-                </div>
-                {/* Name Badge */}
-                <div className="absolute -bottom-2 -left-2 -right-2 px-2 py-1 bg-black border border-white/10 rounded-md shadow-xl text-center flex items-center justify-center gap-1">
-                   <ShieldCheck size={10} className="text-neutral-400" />
-                   <span className="text-[10px] font-black text-white/80 uppercase tracking-widest truncate block">
-                     {user.displayName?.split(' ')[0] || 'PLAYER-1'}
-                   </span>
-                </div>
-              </div>
-              <div className="flex flex-col items-center gap-2">
-                 <button className="w-10 h-10 flex items-center justify-center bg-white/5 rounded-xl text-white/50 hover:text-white transition-all hover:bg-white/10">
-                    <MessageSquare size={20} />
-                 </button>
-                 <button className="w-10 h-10 flex items-center justify-center bg-white/5 rounded-xl text-white/50 hover:text-white transition-all hover:bg-white/10">
-                    <Gift size={20} />
-                 </button>
-              </div>
-           </div>
+      {/* Footer / Hand Area */}
+      <div className="absolute bottom-0 w-full h-44 bg-[#0d0d0d] border-t border-white/5 z-[120]">
+         <div className="flex h-full items-center px-6">
+            <div className="flex flex-col items-center gap-1 -translate-y-4">
+               <div className="relative w-16 h-16 rounded-full border-[3px] border-yellow-500 overflow-hidden shadow-2xl p-1 bg-[#1a1a1a]">
+                  <img src={user.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.uid}`} alt="" className="w-full h-full rounded-full" />
+                  <div className="absolute bottom-0 left-0 right-0 h-1/2 bg-gradient-to-t from-black/80 to-transparent flex items-end justify-center pb-0.5">
+                     <span className="text-[8px] font-black uppercase text-white truncate px-1">{user.displayName?.split(' ')[0]}</span>
+                  </div>
+               </div>
+               <div className="flex gap-2 mt-2">
+                  <button className="text-zinc-500"><MessageSquare size={20} /></button>
+                  <button className="text-zinc-500"><Gift size={20} /></button>
+               </div>
+            </div>
 
-           {/* Central Action HUD (Centered) */}
-           <div className="flex flex-col items-center gap-2">
-              <div className="flex bg-neutral-900 rounded-xl overflow-hidden border border-white/10 shadow-2xl">
-                 <div className="px-8 py-2 border-r border-white/10 flex flex-col items-center justify-center">
-                    <span className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em] leading-none mb-1">Sum</span>
-                    <span className="text-sm font-bold text-white tracking-widest">0/51</span>
-                 </div>
-                 <motion.button 
-                   whileHover={{ scale: 1.02 }}
-                   whileTap={{ scale: 0.98 }}
-                   onClick={skipTurn}
-                   disabled={!isMyTurn}
-                   className={`px-12 h-14 flex items-center justify-center font-black italic tracking-[0.1em] text-sm uppercase transition-all
-                     ${isMyTurn 
-                       ? 'bg-gradient-to-b from-[#ffcc00] to-[#cc9900] text-black shadow-[0_0_20px_rgba(255,204,0,0.3)]' 
-                       : 'bg-neutral-800 text-white/10 cursor-not-allowed'}
-                   `}
-                 >
-                    {game.gameType === 'joker' ? 'DROP A MELD' : 'PASS TURN'}
-                 </motion.button>
-              </div>
-              {isMyTurn && (
-                <motion.div 
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: [0.5, 1, 0.5] }}
-                  className="text-yellow-500 text-[10px] font-black uppercase tracking-[0.3em]"
-                >
-                  Your Turn
-                </motion.div>
-              )}
-           </div>
+            <div className="flex-1 relative h-32 ml-4">
+               <AnimatePresence>
+                  {myHand.map((card, i) => {
+                     const layout = getHandLayout(i, myHand.length);
+                     return (
+                        <motion.div
+                           key={card.id}
+                           drag={isMyTurn && canPlay(card, topCard)}
+                           dragElastic={0.1}
+                           dragConstraints={{ top: -400, bottom: 50, left: -200, right: 200 }}
+                           onDragEnd={(e, info) => onDragEnd(e, info, i)}
+                           initial={{ y: 100, opacity: 0 }}
+                           animate={{ x: layout.x, y: layout.y, rotate: layout.rotate, opacity: 1 }}
+                           whileHover={{ y: layout.y - 40, scale: 1.1, zIndex: 100 }}
+                           className="absolute left-1/2 top-4 -translate-x-1/2"
+                        >
+                           <CardComponent card={card} index={i} skinUrl={mySkin} />
+                        </motion.div>
+                     );
+                  })}
+               </AnimatePresence>
+            </div>
 
-           {/* Right Spacer / Other icons */}
-           <div className="flex flex-col gap-2">
-              <button onClick={() => setShowMore(!showMore)} className="w-10 h-10 flex items-center justify-center bg-white/5 rounded-xl text-white/50">
-                 <MoreHorizontal size={20} />
-              </button>
-              <div className="w-10 h-10" /> 
-           </div>
-        </div>
-
-        {/* Player's Cards (Docked at bottom) */}
-        <div className="absolute -top-16 left-0 right-0 h-32 flex items-center justify-center overflow-visible pointer-events-none">
-           <div className="relative w-full h-full flex items-center justify-center pointer-events-auto">
-             <AnimatePresence>
-               {myHand.map((card, i) => {
-                 const layout = getHandLayout(i, myHand.length);
-                 const playIsPossible = canPlay(card, topCard);
-                 
-                 return (
-                  <motion.div
-                    key={card.id}
-                    layoutId={card.id}
-                    drag={isMyTurn && playIsPossible}
-                    dragElastic={0.1}
-                    dragConstraints={{ top: -400, bottom: 50, left: -200, right: 200 }}
-                    onDragEnd={(e, info) => onDragEnd(e, info, i)}
-                    initial={{ y: 200, opacity: 0, rotate: layout.rotate }}
-                    animate={{ 
-                      x: layout.x * 0.75, 
-                      y: layout.y * 0.75, 
-                      rotate: layout.rotate,
-                      opacity: 1,
-                      scale: 0.9,
-                      transition: { 
-                        type: 'spring', 
-                        stiffness: 300, 
-                        damping: 25,
-                        delay: i * 0.03
-                      }
-                    }}
-                    exit={{ y: -300, opacity: 0, transition: { duration: 0.3 } }}
-                    whileHover={{ 
-                      y: (layout.y * 0.75) - 80,
-                      rotate: 0,
-                      scale: 1.15,
-                      zIndex: 2000,
-                      transition: { type: 'spring', stiffness: 500, damping: 20 }
-                    }}
-                    whileDrag={{ 
-                      scale: 1.25, 
-                      rotate: 0,
-                      zIndex: 3000,
-                    }}
-                    className={`absolute origin-bottom ${!isMyTurn || !playIsPossible ? 'brightness-50 grayscale-[0.3]' : 'cursor-grab active:cursor-grabbing'}`}
-                    style={{ zIndex: i + 100 }}
-                  >
-                    {isMyTurn && playIsPossible && (
-                      <motion.div 
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: [0, -10, 0] }}
-                        transition={{ duration: 1.5, repeat: Infinity }}
-                        className="absolute -top-10 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1"
-                      >
-                         <ChevronUp size={20} className="text-yellow-500" />
-                      </motion.div>
-                    )}
-                    <CardComponent card={card} skinUrl={mySkin} />
-                  </motion.div>
-                 );
-               })}
-             </AnimatePresence>
-           </div>
-        </div>
+            <div className="mb-8">
+               <motion.button 
+                 whileTap={{ scale: 0.9 }}
+                 className="px-10 py-5 bg-gradient-to-b from-yellow-400 to-yellow-600 rounded-xl shadow-2xl text-white font-black italic tracking-widest text-lg border-2 border-white/10"
+               >
+                  Oono
+               </motion.button>
+            </div>
+         </div>
       </div>
+
 
       {/* More Options Menu Overlay */}
       <AnimatePresence>
