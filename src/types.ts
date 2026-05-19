@@ -13,9 +13,27 @@ export interface UserProfile {
   chips: number;
   level: number;
   xp: number;
+  shortId?: string;
   ownedSkins?: string[];
   activeSkinId?: string;
   clubId?: string | null;
+  ownedEmojis?: string[];
+}
+
+export interface RadioTrack {
+  id: string;
+  name: string;
+  url: string;
+  createdAt: number;
+}
+
+export interface EmojiItem {
+  id: string;
+  name: string;
+  url: string;
+  price: number;
+  type: 'emoji' | 'gif';
+  createdAt: number;
 }
 
 export type Suit = 'hearts' | 'diamonds' | 'clubs' | 'spades' | 'joker' | 'red' | 'yellow' | 'green' | 'blue' | 'special';

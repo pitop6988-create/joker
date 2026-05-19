@@ -9,10 +9,36 @@
         "photoURL": { "type": "string" },
         "totalWins": { "type": "integer" },
         "chips": { "type": "integer" },
+        "shortId": { "type": "string" },
         "ownedSkins": { "type": "array", "items": { "type": "string" } },
-        "activeSkinId": { "type": "string" }
+        "activeSkinId": { "type": "string" },
+        "ownedEmojis": { "type": "array", "items": { "type": "string" } }
       },
       "required": ["displayName", "chips"]
+    },
+    "RadioTrack": {
+      "title": "Radio Track",
+      "description": "Music track for the radio",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "url": { "type": "string" },
+        "createdAt": { "type": "integer" }
+      },
+      "required": ["name", "url", "createdAt"]
+    },
+    "EmojiItem": {
+      "title": "Emoji Item",
+      "description": "Emoji or GIF available in the shop",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "url": { "type": "string" },
+        "price": { "type": "integer" },
+        "type": { "type": "string", "enum": ["emoji", "gif"] },
+        "createdAt": { "type": "integer" }
+      },
+      "required": ["name", "url", "price", "type", "createdAt"]
     },
     "CardSkin": {
       "title": "Card Skin",
@@ -100,6 +126,14 @@
     "clubs/{clubId}/messages/{messageId}": {
       "schema": "ClubMessage",
       "description": "Club chat messages"
+    },
+    "radioTracks/{trackId}": {
+      "schema": "RadioTrack",
+      "description": "Radio music tracks"
+    },
+    "emojiItems/{emojiId}": {
+      "schema": "EmojiItem",
+      "description": "Shop emojis and GIFs"
     }
   }
 }

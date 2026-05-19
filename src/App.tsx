@@ -3,7 +3,7 @@ import { onAuthStateChanged, User } from 'firebase/auth';
 import { doc, getDoc, getDocs, setDoc, onSnapshot, collection, query, where, limit, addDoc, updateDoc, deleteDoc, orderBy } from 'firebase/firestore';
 import { auth, db, signIn, signOut, signInEmail, signUpEmail } from './lib/firebase';
 import { motion, AnimatePresence } from 'motion/react';
-import { LogIn, LogOut, Play, Trophy, Users, RefreshCcw, Hand, Plus, Lock, MoreVertical, Coins, ShoppingBag, X, Mail, Key, User as UserIcon, Menu, Settings, MessageSquare, Gift, MoreHorizontal, ChevronUp, Edit, Camera, Save, Check, Image as ImageIcon, Crown, ShieldCheck, Star, Eye, LayoutGrid, ArrowLeft } from 'lucide-react';
+import { LogIn, LogOut, Play, Trophy, Users, RefreshCcw, Hand, Plus, Lock, MoreVertical, Coins, ShoppingBag, X, Mail, Key, User as UserIcon, Menu, Settings, MessageSquare, Gift, MoreHorizontal, ChevronUp, Edit, Camera, Save, Check, Image as ImageIcon, Crown, ShieldCheck, Star, Eye, LayoutGrid, ArrowLeft, Radio, Music, Volume2, VolumeX, Smile, Send } from 'lucide-react';
 import { Game, GameStatus, Card, UserProfile, CardSkin, Club, ClubMessage } from './types';
 import { createDeck, shuffle } from './gameLogic';
 import confetti from 'canvas-confetti';
@@ -161,6 +161,18 @@ export default function App() {
   const [activeClubId, setActiveClubId] = useState<string | null>(null);
   const [currentClub, setCurrentClub] = useState<Club | null>(null);
   const [showProfileEditor, setShowProfileEditor] = useState(false);
+  const [showRadioHub, setShowRadioHub] = useState(false);
+  const [isMusicOn, setIsMusicOn] = useState(true);
+  const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
+  const [radioTracks, setRadioTracks] = useState<RadioTrack[]>([]);
+  const [emojiItems, setEmojiItems] = useState<EmojiItem[]>([]);
+
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, 'emojiItems'), (snap) => {
+      setEmojiItems(snap.docs.map(d => ({ id: d.id, ...d.data() } as EmojiItem)));
+    });
+    return unsub;
+  }, []);
 
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(db, 'cardSkins'), (snapshot) => {
@@ -221,15 +233,48 @@ export default function App() {
     useEffect(() => {
       if (!user) return;
       const path = `users/${user.uid}`;
-      const unsubscribe = onSnapshot(doc(db, 'users', user.uid), (doc) => {
-        if (doc.exists()) {
-          setProfile(doc.data() as UserProfile);
+      const unsubscribe = onSnapshot(doc(db, 'users', user.uid), (snapshot) => {
+        if (snapshot.exists()) {
+          const data = snapshot.data();
+          if (!data.shortId) {
+            const shortId = Math.floor(Math.random() * 9000000 + 1000000).toString();
+            updateDoc(doc(db, 'users', user.uid), { shortId }).catch(console.error);
+          }
+          setProfile(data as UserProfile);
         }
       }, (error) => {
         handleFirestoreError(error, OperationType.GET, path);
       });
       return unsubscribe;
     }, [user]);
+
+  useEffect(() => {
+    const q = query(collection(db, 'radioTracks'), orderBy('createdAt', 'desc'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setRadioTracks(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as RadioTrack)));
+    });
+    return unsubscribe;
+  }, []);
+
+  const [audio] = useState(new Audio());
+
+  useEffect(() => {
+    (window as any).toggleRadioHub = () => setShowRadioHub(prev => !prev);
+  }, []);
+
+  useEffect(() => {
+    if (radioTracks.length > 0 && isMusicOn) {
+      if (audio.src !== radioTracks[currentTrackIndex]?.url) {
+        audio.src = radioTracks[currentTrackIndex]?.url;
+      }
+      audio.play().catch(console.error);
+      audio.onended = () => {
+        setCurrentTrackIndex((prev) => (prev + 1) % radioTracks.length);
+      };
+    } else {
+      audio.pause();
+    }
+  }, [currentTrackIndex, radioTracks, isMusicOn]);
 
   useEffect(() => {
     if (!activeGameId) {
@@ -605,26 +650,104 @@ export default function App() {
   }
 
   if (isSearching) {
-    return <SearchingView user={user} gameType={searchGameType} onCancel={() => setIsSearching(false)} />;
+    return (
+      <>
+        <SearchingView user={user} gameType={searchGameType} onCancel={() => setIsSearching(false)} />
+        <RadioHub 
+          tracks={radioTracks} 
+          active={showRadioHub} 
+          onClose={() => setShowRadioHub(false)} 
+          isMusicOn={isMusicOn} 
+          toggleMusic={() => setIsMusicOn(!isMusicOn)} 
+          currentTrackIndex={currentTrackIndex} 
+          setCurrentTrackIndex={setCurrentTrackIndex} 
+        />
+      </>
+    );
   }
 
   if (activeGameId && currentGame) {
-    return <GameView user={user} game={currentGame} onLeave={handleLeaveGame} profile={profile} skinsMap={skinsMap} />;
+    return (
+      <>
+        <GameView user={user} game={currentGame} onLeave={handleLeaveGame} profile={profile} skinsMap={skinsMap} emojiItems={emojiItems} />
+        <RadioHub 
+          tracks={radioTracks} 
+          active={showRadioHub} 
+          onClose={() => setShowRadioHub(false)} 
+          isMusicOn={isMusicOn} 
+          toggleMusic={() => setIsMusicOn(!isMusicOn)} 
+          currentTrackIndex={currentTrackIndex} 
+          setCurrentTrackIndex={setCurrentTrackIndex} 
+        />
+      </>
+    );
   }
 
   if (activeTab === 'shop') {
-    return <ShopView user={user} profile={profile!} onBack={() => setActiveTab('home')} setActiveTab={setActiveTab} language={language} />;
+    return (
+      <>
+        <ShopView user={user} profile={profile!} onBack={() => setActiveTab('home')} setActiveTab={setActiveTab} language={language} />
+        <RadioHub 
+          tracks={radioTracks} 
+          active={showRadioHub} 
+          onClose={() => setShowRadioHub(false)} 
+          isMusicOn={isMusicOn} 
+          toggleMusic={() => setIsMusicOn(!isMusicOn)} 
+          currentTrackIndex={currentTrackIndex} 
+          setCurrentTrackIndex={setCurrentTrackIndex} 
+        />
+      </>
+    );
   }
 
   if (activeTab === 'leaderboard') {
-    return <LeaderboardView profile={profile!} setActiveTab={setActiveTab} language={language} />;
+    return (
+      <>
+        <LeaderboardView profile={profile!} setActiveTab={setActiveTab} language={language} />
+        <RadioHub 
+          tracks={radioTracks} 
+          active={showRadioHub} 
+          onClose={() => setShowRadioHub(false)} 
+          isMusicOn={isMusicOn} 
+          toggleMusic={() => setIsMusicOn(!isMusicOn)} 
+          currentTrackIndex={currentTrackIndex} 
+          setCurrentTrackIndex={setCurrentTrackIndex} 
+        />
+      </>
+    );
   }
 
   if (activeTab === 'clubs') {
     if (profile?.clubId && currentClub) {
-      return <ClubDetailView club={currentClub} user={user} profile={profile} onLeave={handleLeaveClub} onPostMessage={handlePostClubMessage} onBack={() => setActiveTab('home')} />;
+      return (
+        <>
+          <ClubDetailView club={currentClub} user={user} profile={profile} onLeave={handleLeaveClub} onPostMessage={handlePostClubMessage} onBack={() => setActiveTab('home')} emojiItems={emojiItems} />
+          <RadioHub 
+            tracks={radioTracks} 
+            active={showRadioHub} 
+            onClose={() => setShowRadioHub(false)} 
+            isMusicOn={isMusicOn} 
+            toggleMusic={() => setIsMusicOn(!isMusicOn)} 
+            currentTrackIndex={currentTrackIndex} 
+            setCurrentTrackIndex={setCurrentTrackIndex} 
+          />
+        </>
+      );
     }
-    return <ClubsView user={user} profile={profile!} onJoinClub={handleJoinClub} onCreateClub={handleCreateClub} onBack={() => setActiveTab('home')} />;
+    return (
+      <>
+        <ClubsView user={user} profile={profile!} onJoinClub={handleJoinClub} onCreateClub={handleCreateClub} onBack={() => setActiveTab('home')} />
+        <RadioHub 
+          tracks={radioTracks} 
+          active={showRadioHub} 
+          onClose={() => setShowRadioHub(false)} 
+          isMusicOn={isMusicOn} 
+          toggleMusic={() => setIsMusicOn(!isMusicOn)} 
+          currentTrackIndex={currentTrackIndex} 
+          setCurrentTrackIndex={setCurrentTrackIndex} 
+        />
+      </>
+    );
   }
 
   if (activeTab === 'profile') {
@@ -639,15 +762,50 @@ export default function App() {
             onCancel={() => setShowProfileEditor(false)} 
           />
         )}
+        <RadioHub 
+          tracks={radioTracks} 
+          active={showRadioHub} 
+          onClose={() => setShowRadioHub(false)} 
+          isMusicOn={isMusicOn} 
+          toggleMusic={() => setIsMusicOn(!isMusicOn)} 
+          currentTrackIndex={currentTrackIndex} 
+          setCurrentTrackIndex={setCurrentTrackIndex} 
+        />
       </>
     );
   }
 
   if (activeTab === 'settings') {
-    return <SettingsView language={language} setLanguage={setLanguage} onBack={() => setActiveTab('profile')} />;
+    return (
+      <>
+        <SettingsView language={language} setLanguage={setLanguage} onBack={() => setActiveTab('profile')} />
+        <RadioHub 
+          tracks={radioTracks} 
+          active={showRadioHub} 
+          onClose={() => setShowRadioHub(false)} 
+          isMusicOn={isMusicOn} 
+          toggleMusic={() => setIsMusicOn(!isMusicOn)} 
+          currentTrackIndex={currentTrackIndex} 
+          setCurrentTrackIndex={setCurrentTrackIndex} 
+        />
+      </>
+    );
   }
 
-  return <LobbyView user={user} profile={profile} onStartSearch={startSearching} onJoin={joinGame} onLogout={signOut} onCreate={createGame} setActiveTab={setActiveTab} onClaimDaily={claimDailyReward} language={language} />;
+  return (
+    <>
+      <LobbyView user={user} profile={profile} onStartSearch={startSearching} onJoin={joinGame} onLogout={signOut} onCreate={createGame} setActiveTab={setActiveTab} onClaimDaily={claimDailyReward} language={language} />
+      <RadioHub 
+        tracks={radioTracks} 
+        active={showRadioHub} 
+        onClose={() => setShowRadioHub(false)} 
+        isMusicOn={isMusicOn} 
+        toggleMusic={() => setIsMusicOn(!isMusicOn)} 
+        currentTrackIndex={currentTrackIndex} 
+        setCurrentTrackIndex={setCurrentTrackIndex} 
+      />
+    </>
+  );
 }
 
 function AuthView({ onGoogleSignIn, onEmailSignIn, onEmailSignUp }: any) {
@@ -866,8 +1024,16 @@ function AdminView({ onBack }: { onBack: () => void }) {
   const [skinImage, setSkinImage] = useState('');
   const [saving, setSaving] = useState(false);
   const [users, setUsers] = useState<UserProfile[]>([]);
-  const [activeTab, setActiveAdminTab] = useState<'skins' | 'users'>('skins');
+  const [activeTab, setActiveAdminTab] = useState<'skins' | 'users' | 'radio' | 'emojis'>('skins');
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const [trackName, setTrackName] = useState('');
+  const [trackUrl, setTrackUrl] = useState('');
+  
+  const [emojiName, setEmojiName] = useState('');
+  const [emojiUrl, setEmojiUrl] = useState('');
+  const [emojiPrice, setEmojiPrice] = useState(500);
+  const [emojiType, setEmojiType] = useState<'emoji' | 'gif'>('emoji');
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -883,7 +1049,7 @@ function AdminView({ onBack }: { onBack: () => void }) {
     if (amount === null) return;
     try {
       await updateDoc(doc(db, 'users', userUid), { chips: parseInt(amount) });
-      setUsers(users.map(u => u.uid === userUid ? { ...u, chips: parseInt(amount) } : u));
+      setUsers(users.map(u => (u as any).uid === userUid ? { ...u, chips: parseInt(amount) } : u));
     } catch (e) {
       handleFirestoreError(e, OperationType.UPDATE, `users/${userUid}`);
     }
@@ -894,7 +1060,7 @@ function AdminView({ onBack }: { onBack: () => void }) {
     if (amount === null) return;
     try {
       await updateDoc(doc(db, 'users', userUid), { totalWins: parseInt(amount) });
-      setUsers(users.map(u => u.uid === userUid ? { ...u, totalWins: parseInt(amount) } : u));
+      setUsers(users.map(u => (u as any).uid === userUid ? { ...u, totalWins: parseInt(amount) } : u));
     } catch (e) {
       handleFirestoreError(e, OperationType.UPDATE, `users/${userUid}`);
     }
@@ -904,7 +1070,7 @@ function AdminView({ onBack }: { onBack: () => void }) {
     if (!window.confirm("Permanently delete this user profile?")) return;
     try {
       await deleteDoc(doc(db, 'users', userUid));
-      setUsers(users.filter(u => u.uid !== userUid));
+      setUsers(users.filter(u => (u as any).uid !== userUid));
       alert("User deleted from database (auth entry remains)");
     } catch (e) {
       handleFirestoreError(e, OperationType.DELETE, `users/${userUid}`);
@@ -916,10 +1082,13 @@ function AdminView({ onBack }: { onBack: () => void }) {
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        if (reader.result && (reader.result as string).length < 2000000) {
-          setSkinImage(reader.result as string);
+        const result = reader.result as string;
+        if (result.length < 2000000) {
+          if (activeTab === 'skins') setSkinImage(result);
+          if (activeTab === 'emojis') setEmojiUrl(result);
+          if (activeTab === 'radio') setTrackUrl(result);
         } else {
-          alert("Image too large! Try < 1MB");
+          alert("File too large! Try < 1MB");
         }
       };
       reader.readAsDataURL(file);
@@ -946,130 +1115,149 @@ function AdminView({ onBack }: { onBack: () => void }) {
     }
   };
 
+  const handleAddTrack = async () => {
+    if (!trackName || !trackUrl) return;
+    setSaving(true);
+    try {
+      await addDoc(collection(db, 'radioTracks'), {
+        name: trackName,
+        url: trackUrl,
+        createdAt: Date.now()
+      });
+      alert("Track added to Radio!");
+      setTrackName('');
+      setTrackUrl('');
+    } catch (e) {
+      handleFirestoreError(e, OperationType.CREATE, 'radioTracks');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleAddEmoji = async () => {
+    if (!emojiName || !emojiUrl) return;
+    setSaving(true);
+    try {
+      await addDoc(collection(db, 'emojiItems'), {
+        name: emojiName,
+        url: emojiUrl,
+        price: emojiPrice,
+        type: emojiType,
+        createdAt: Date.now()
+      });
+      alert("Emoji/GIF added to Shop!");
+      setEmojiName('');
+      setEmojiUrl('');
+    } catch (e) {
+      handleFirestoreError(e, OperationType.CREATE, 'emojiItems');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-[2000] bg-black text-white p-8 flex flex-col items-center overflow-y-auto">
-      <div className="w-full max-w-lg">
-        <div className="flex items-center justify-between mb-8">
+      <div className="w-full max-w-lg pb-32">
+        <div className="flex flex-col mb-8 gap-4">
            <div className="flex items-center gap-4">
               <button onClick={onBack} className="p-2 bg-white/10 rounded-full hover:bg-white/20"><X size={24} /></button>
               <h1 className="text-2xl font-black italic tracking-widest">ADMIN PANEL</h1>
            </div>
-           <div className="flex bg-white/10 rounded-xl p-1">
-              <button 
-                onClick={() => setActiveAdminTab('skins')}
-                className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${activeTab === 'skins' ? 'bg-white text-black' : 'text-white/40'}`}
-              >
-                Skins
-              </button>
-              <button 
-                onClick={() => setActiveAdminTab('users')}
-                className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${activeTab === 'users' ? 'bg-white text-black' : 'text-white/40'}`}
-              >
-                Users
-              </button>
+           <div className="flex bg-white/10 rounded-xl p-1 overflow-x-auto">
+              {['skins', 'users', 'radio', 'emojis'].map(tab => (
+                <button 
+                  key={tab}
+                  onClick={() => setActiveAdminTab(tab as any)}
+                  className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase transition-all whitespace-nowrap ${activeTab === tab ? 'bg-white text-black' : 'text-white/40 hover:text-white'}`}
+                >
+                  {tab}
+                </button>
+              ))}
            </div>
         </div>
 
         {activeTab === 'skins' ? (
           <div className="space-y-6">
-           <div>
+            <div>
               <label className="block text-[10px] font-black uppercase text-white/40 mb-2">Skin Name</label>
-              <input 
-                type="text" 
-                value={skinName}
-                onChange={(e) => setSkinName(e.target.value)}
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-yellow-500"
-              />
-           </div>
-           
-           <div>
+              <input type="text" value={skinName} onChange={(e) => setSkinName(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-yellow-500" />
+            </div>
+            <div>
               <label className="block text-[10px] font-black uppercase text-white/40 mb-2">Price (Chips)</label>
-              <input 
-                type="number" 
-                value={skinPrice}
-                onChange={(e) => setSkinPrice(Number(e.target.value))}
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-yellow-500"
-              />
-           </div>
-
-           <div>
+              <input type="number" value={skinPrice} onChange={(e) => setSkinPrice(Number(e.target.value))} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-yellow-500" />
+            </div>
+            <div>
               <label className="block text-[10px] font-black uppercase text-white/40 mb-2">Rarity</label>
-              <select 
-                value={skinRarity}
-                onChange={(e) => setSkinRarity(e.target.value as any)}
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-yellow-500"
-              >
+              <select value={skinRarity} onChange={(e) => setSkinRarity(e.target.value as any)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-yellow-500">
                 <option value="common">Common</option>
                 <option value="rare">Rare</option>
                 <option value="epic">Epic</option>
                 <option value="legendary">Legendary</option>
               </select>
-           </div>
-
-           <div>
-              <label className="block text-[10px] font-black uppercase text-white/40 mb-2">Skin Image (Back of card)</label>
-              <div 
-                onClick={() => fileInputRef.current?.click()}
-                className="w-full aspect-[2/3] bg-white/5 border-2 border-dashed border-white/10 rounded-2xl flex flex-col items-center justify-center cursor-pointer hover:border-yellow-500 transition-colors overflow-hidden relative group"
-              >
-                 {skinImage ? (
-                   <>
-                     <img src={skinImage} alt="Preview" className="w-full h-full object-cover" />
-                     <div className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                        <div className="flex flex-col items-center gap-2">
-                           <ImageIcon size={32} />
-                           <span className="text-[10px] font-black uppercase">Change Image</span>
-                        </div>
-                     </div>
-                   </>
-                 ) : (
-                   <>
-                     <Camera size={48} className="text-white/20 mb-2" />
-                     <span className="text-[10px] font-black uppercase opacity-20">Tap to Upload</span>
-                   </>
-                 )}
-              </div>
-              <input ref={fileInputRef} type="file" onChange={handleFileChange} className="hidden" accept="image/*" />
-              {skinImage && (
-                <div className="mt-4 flex flex-col items-center p-4 bg-white/5 rounded-2xl border border-white/5">
-                   <span className="text-[10px] font-black uppercase text-white/40 mb-3 tracking-widest">Live Card Preview</span>
-                   <div className="relative w-32 h-44 rounded-xl border-4 border-[#868378] overflow-hidden shadow-2xl rotate-2 hover:rotate-0 transition-transform">
-                      <img src={skinImage} alt="Skin Preview" className="w-full h-full object-cover" />
-                      <div className="absolute inset-0 bg-gradient-to-tr from-black/20 to-transparent pointer-events-none" />
-                   </div>
-                </div>
-              )}
-           </div>
-
-           <button 
-             onClick={handleAddSkin}
-             disabled={saving}
-             className="w-full py-4 bg-yellow-500 text-black font-black uppercase tracking-widest rounded-2xl hover:bg-yellow-400 transition-all shadow-[0_0_20px_rgba(234,179,8,0.3)] mb-12"
-           >
-              {saving ? 'ADDING...' : 'ADD SKIN'}
-           </button>
-         </div>
+            </div>
+            <div onClick={() => fileInputRef.current?.click()} className="w-full aspect-[2/3] bg-white/5 border-2 border-dashed border-white/10 rounded-2xl flex flex-col items-center justify-center cursor-pointer hover:border-yellow-500 transition-colors overflow-hidden">
+               {skinImage ? <img src={skinImage} alt="" className="w-full h-full object-cover" /> : <Camera size={48} className="opacity-20" />}
+            </div>
+            <input ref={fileInputRef} type="file" onChange={handleFileChange} className="hidden" accept="image/*" />
+            <button onClick={handleAddSkin} disabled={saving} className="w-full py-4 bg-yellow-500 text-black font-black uppercase tracking-widest rounded-2xl hover:bg-yellow-400 disabled:opacity-50">
+               {saving ? 'ADDING...' : 'ADD SKIN'}
+            </button>
+          </div>
+        ) : activeTab === 'radio' ? (
+          <div className="space-y-6">
+            <div>
+              <label className="block text-[10px] font-black uppercase text-white/40 mb-2">Track Name</label>
+              <input type="text" value={trackName} onChange={(e) => setTrackName(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-yellow-500" />
+            </div>
+            <div onClick={() => fileInputRef.current?.click()} className="w-full py-12 bg-white/5 border-2 border-dashed border-white/10 rounded-2xl flex flex-col items-center justify-center cursor-pointer hover:border-yellow-500 transition-colors">
+               {trackUrl ? <Music size={48} className="text-yellow-500" /> : <Music size={48} className="opacity-20" />}
+               <span className="text-[10px] font-black uppercase mt-2 opacity-40">{trackUrl ? 'Audio Loaded' : 'Upload MP3/OGG (Max 2MB)'}</span>
+            </div>
+            <input ref={fileInputRef} type="file" onChange={handleFileChange} className="hidden" accept="audio/*" />
+            <button onClick={handleAddTrack} disabled={saving} className="w-full py-4 bg-yellow-500 text-black font-black uppercase tracking-widest rounded-2xl hover:bg-yellow-400 disabled:opacity-50">
+               {saving ? 'ADDING...' : 'ADD TO RADIO'}
+            </button>
+          </div>
+        ) : activeTab === 'emojis' ? (
+          <div className="space-y-6">
+            <div>
+              <label className="block text-[10px] font-black uppercase text-white/40 mb-2">Emoji/GIF Name</label>
+              <input type="text" value={emojiName} onChange={(e) => setEmojiName(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-yellow-500" />
+            </div>
+            <div>
+              <label className="block text-[10px] font-black uppercase text-white/40 mb-2">Price (Chips)</label>
+              <input type="number" value={emojiPrice} onChange={(e) => setEmojiPrice(Number(e.target.value))} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-yellow-500" />
+            </div>
+            <div>
+              <label className="block text-[10px] font-black uppercase text-white/40 mb-2">Type</label>
+              <select value={emojiType} onChange={(e) => setEmojiType(e.target.value as any)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-yellow-500">
+                <option value="emoji">Emoji</option>
+                <option value="gif">GIF</option>
+              </select>
+            </div>
+            <div onClick={() => fileInputRef.current?.click()} className="w-full aspect-square bg-white/5 border-2 border-dashed border-white/10 rounded-2xl flex flex-col items-center justify-center cursor-pointer hover:border-yellow-500 transition-colors overflow-hidden">
+               {emojiUrl ? <img src={emojiUrl} alt="" className="max-w-full max-h-full object-contain" /> : <Smile size={48} className="opacity-20" />}
+            </div>
+            <input ref={fileInputRef} type="file" onChange={handleFileChange} className="hidden" accept="image/*,image/gif" />
+            <button onClick={handleAddEmoji} disabled={saving} className="w-full py-4 bg-yellow-500 text-black font-black uppercase tracking-widest rounded-2xl hover:bg-yellow-400 disabled:opacity-50">
+               {saving ? 'ADDING...' : 'ADD TO SHOP'}
+            </button>
+          </div>
         ) : (
-          <div className="space-y-4 pb-20">
+          <div className="space-y-4">
              {users.map(u => (
-               <div key={u.uid} className="bg-white/5 border border-white/10 p-4 rounded-2xl flex items-center gap-4">
+               <div key={(u as any).uid} className="bg-white/5 border border-white/10 p-4 rounded-2xl flex items-center gap-4">
                   <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-white/10">
                      <img src={u.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${u.displayName}`} alt="" className="w-full h-full object-cover" />
                   </div>
                   <div className="flex-1">
                      <p className="font-black text-xs uppercase tracking-widest leading-none mb-1">{u.displayName}</p>
-                     <p className="text-[10px] text-white/40 leading-none">{u.email}</p>
+                     <p className="text-[10px] text-white/40 leading-none">{(u as any).email}</p>
                   </div>
                   <div className="flex gap-2">
-                     <button onClick={() => handleUpdateChips(u.uid, u.chips)} className="px-3 py-2 bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 rounded-xl text-[9px] font-black uppercase">
-                        ${u.chips}
-                     </button>
-                     <button onClick={() => handleUpdateWins(u.uid, u.totalWins)} className="px-3 py-2 bg-white/10 text-white/60 border border-white/20 rounded-xl text-[9px] font-black uppercase">
-                        {u.totalWins} W
-                     </button>
-                     <button onClick={() => handleDeleteUser(u.uid)} className="p-2 bg-red-500/10 text-red-500 border border-red-500/20 rounded-xl">
-                        <X size={14} />
-                     </button>
+                     <button onClick={() => handleUpdateChips((u as any).uid, u.chips)} className="px-3 py-2 bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 rounded-xl text-[9px] font-black uppercase">${u.chips}</button>
+                     <button onClick={() => handleUpdateWins((u as any).uid, u.totalWins)} className="px-3 py-2 bg-white/10 text-white/60 border border-white/20 rounded-xl text-[9px] font-black uppercase">{u.totalWins} W</button>
+                     <button onClick={() => handleDeleteUser((u as any).uid)} className="p-2 bg-red-500/10 text-red-500 border border-red-500/20 rounded-xl"><X size={14} /></button>
                   </div>
                </div>
              ))}
@@ -1083,21 +1271,26 @@ function AdminView({ onBack }: { onBack: () => void }) {
 function ShopView({ user, profile, onBack, setActiveTab, language }: { user: User, profile: UserProfile, onBack: () => void, setActiveTab?: (tab: any) => void, language: Language }) {
   const t = translations[language];
   const [skins, setSkins] = useState<CardSkin[]>([]);
+  const [emojis, setEmojis] = useState<EmojiItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdmin, setShowAdmin] = useState(false);
   const [adminPass, setAdminPass] = useState('');
   const [showPassInput, setShowPassInput] = useState(false);
   const [previewSkin, setPreviewSkin] = useState<CardSkin | null>(null);
+  const [activeShopTab, setActiveShopTab] = useState<'skins' | 'chips' | 'emojis'>('skins');
 
   useEffect(() => {
-    const unsubscribe = onSnapshot(collection(db, 'cardSkins'), (snapshot) => {
-      const skinsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CardSkin));
-      setSkins(skinsData);
+    const unsubscribeSkins = onSnapshot(collection(db, 'cardSkins'), (snapshot) => {
+      setSkins(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CardSkin)));
       setLoading(false);
-    }, (error) => {
-      handleFirestoreError(error, OperationType.GET, 'cardSkins');
     });
-    return unsubscribe;
+    const unsubscribeEmojis = onSnapshot(collection(db, 'emojiItems'), (snapshot) => {
+      setEmojis(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as EmojiItem)));
+    });
+    return () => {
+      unsubscribeSkins();
+      unsubscribeEmojis();
+    };
   }, []);
 
   const handleBuy = async (skin: CardSkin) => {
@@ -1122,6 +1315,52 @@ function ShopView({ user, profile, onBack, setActiveTab, language }: { user: Use
       handleFirestoreError(e, OperationType.UPDATE, `users/${user.uid}`);
     }
   };
+
+  const handleBuyEmoji = async (emoji: EmojiItem) => {
+    if (!user || !profile) return;
+    if (profile.ownedEmojis?.includes(emoji.id)) {
+      alert("Already owned!");
+      return;
+    }
+    if (profile.chips < emoji.price) {
+      alert("Insufficient chips!");
+      return;
+    }
+
+    const userRef = doc(db, 'users', user.uid);
+    try {
+      await updateDoc(userRef, {
+        chips: profile.chips - emoji.price,
+        ownedEmojis: [...(profile.ownedEmojis || []), emoji.id]
+      });
+      alert("Emoji purchased!");
+    } catch (e) {
+      handleFirestoreError(e, OperationType.UPDATE, `users/${user.uid}`);
+    }
+  };
+
+  const handleCoinPurchase = async (amount: number) => {
+    if (!user) return;
+    const pass = prompt(`Purchase ${amount.toLocaleString()} chips. Enter Password:`);
+    if (pass === 'EMAD8912') {
+      try {
+        await updateDoc(doc(db, 'users', user.uid), {
+          chips: (profile.chips || 0) + amount
+        });
+        alert(`Successfully added ${amount} chips!`);
+      } catch (e) {
+        handleFirestoreError(e, OperationType.UPDATE, `users/${user.uid}`);
+      }
+    } else {
+      alert("Incorrect password!");
+    }
+  };
+
+  const coinPackages = [
+    { amount: 500, price: "$0.99" },
+    { amount: 4000, price: "$4.99" },
+    { amount: 12000, price: "$12.99" },
+  ];
 
   const checkAdmin = () => {
     if (adminPass === 'EMAD8912') {
@@ -1165,65 +1404,138 @@ function ShopView({ user, profile, onBack, setActiveTab, language }: { user: Use
         </div>
       </header>
 
+      <div className="flex bg-white/40 border-4 border-[#868378] rounded-[32px] p-1.5 mb-12 self-center z-20">
+         <button 
+           onClick={() => setActiveShopTab('skins')}
+           className={`px-8 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${activeShopTab === 'skins' ? 'bg-[#8b0000] text-white shadow-lg' : 'text-[#8b0000]/60 hover:text-[#8b0000]'}`}
+         >
+           Skins
+         </button>
+         <button 
+           onClick={() => setActiveShopTab('emojis')}
+           className={`px-8 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${activeShopTab === 'emojis' ? 'bg-[#8b0000] text-white shadow-lg' : 'text-[#8b0000]/60 hover:text-[#8b0000]'}`}
+         >
+           Emojis
+         </button>
+         <button 
+           onClick={() => setActiveShopTab('chips')}
+           className={`px-8 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${activeShopTab === 'chips' ? 'bg-[#8b0000] text-white shadow-lg' : 'text-[#8b0000]/60 hover:text-[#8b0000]'}`}
+         >
+           Chips
+         </button>
+      </div>
+
       {loading ? (
         <div className="flex-1 flex items-center justify-center">
            <RefreshCcw className="animate-spin text-[#8b0000]" size={40} />
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 z-10 w-full max-w-6xl mx-auto">
-          {skins.map(skin => (
-            <motion.div 
-              key={skin.id} 
-              whileHover={{ y: -10 }}
-              className="bg-white/40 border-4 border-[#868378] p-6 rounded-[48px] flex flex-col items-center gap-4 shadow-xl hover:border-[#8b0000] transition-colors group relative overflow-hidden"
-            >
-               <div className="w-full aspect-[2/3] rounded-[32px] overflow-hidden border-2 border-black/5 shadow-inner relative">
-                  <img src={skin.imageUrl} alt={skin.name} className="w-full h-full object-cover" />
-                  <div className="absolute top-4 right-4 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setPreviewSkin(skin);
-                      }}
-                      className="p-3 bg-black/60 backdrop-blur-md rounded-full text-white border border-white/20 hover:bg-white/20 transition-all"
-                    >
-                      <Eye size={20} />
-                    </button>
+        <div className="w-full max-w-6xl mx-auto z-10">
+          {activeShopTab === 'skins' && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+              {skins.map(skin => (
+                <motion.div 
+                  key={skin.id} 
+                  whileHover={{ y: -10 }}
+                  className="bg-white/40 border-4 border-[#868378] p-6 rounded-[48px] flex flex-col items-center gap-4 shadow-xl hover:border-[#8b0000] transition-colors group relative overflow-hidden"
+                >
+                   <div className="w-full aspect-[2/3] rounded-[32px] overflow-hidden border-2 border-black/5 shadow-inner relative">
+                      <img src={skin.imageUrl} alt={skin.name} className="w-full h-full object-cover" />
+                      <div className="absolute top-4 right-4 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setPreviewSkin(skin);
+                          }}
+                          className="p-3 bg-black/60 backdrop-blur-md rounded-full text-white border border-white/20 hover:bg-white/20 transition-all"
+                        >
+                          <Eye size={20} />
+                        </button>
+                      </div>
+                   </div>
+                   <div className="text-center">
+                      <h3 className="text-2xl font-display font-black text-[#8b0000] italic tracking-tight">{skin.name}</h3>
+                      <div className={`text-[8px] font-black uppercase tracking-[0.2em] px-2 py-0.5 rounded-full border mb-2 inline-block
+                        ${skin.rarity === 'legendary' ? 'bg-yellow-500/10 border-yellow-500 text-yellow-700' :
+                          skin.rarity === 'epic' ? 'bg-purple-500/10 border-purple-500 text-purple-700' :
+                          skin.rarity === 'rare' ? 'bg-blue-500/10 border-blue-500 text-blue-700' :
+                          'bg-green-500/10 border-green-500 text-green-700'}
+                      `}>
+                        {skin.rarity}
+                      </div>
+                   </div>
+                   
+                   <button 
+                     onClick={() => handleBuy(skin)}
+                     disabled={profile.ownedSkins?.includes(skin.id)}
+                     className={`w-full py-4 rounded-2xl flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-all text-xs font-black uppercase tracking-widest
+                        ${profile.ownedSkins?.includes(skin.id) 
+                          ? 'bg-white/40 text-[#8b0000]/20 cursor-not-allowed border-2 border-[#868378]' 
+                          : 'bg-[#8b0000] text-white hover:bg-[#a00000]'}
+                     `}
+                   >
+                      {profile.ownedSkins?.includes(skin.id) ? (
+                        <><Check size={18} /> OWNED</>
+                      ) : (
+                        <><Coins size={18} /> {skin.price.toLocaleString()}</>
+                      )}
+                   </button>
+                </motion.div>
+              ))}
+            </div>
+          )}
+
+          {activeShopTab === 'emojis' && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-6">
+              {emojis.map(emoji => (
+                <motion.div 
+                  key={emoji.id}
+                  whileHover={{ scale: 1.05 }}
+                  className="bg-white/40 border-4 border-[#868378] p-4 rounded-[32px] flex flex-col items-center gap-3 relative"
+                >
+                  <div className="w-16 h-16 flex items-center justify-center">
+                    <img src={emoji.url} alt={emoji.name} className="max-w-full max-h-full object-contain" />
                   </div>
-               </div>
-               <div className="text-center">
-                  <h3 className="text-2xl font-display font-black text-[#8b0000] italic tracking-tight">{skin.name}</h3>
-                  <div className={`text-[8px] font-black uppercase tracking-[0.2em] px-2 py-0.5 rounded-full border mb-2 inline-block
-                    ${skin.rarity === 'legendary' ? 'bg-yellow-500/10 border-yellow-500 text-yellow-700' :
-                      skin.rarity === 'epic' ? 'bg-purple-500/10 border-purple-500 text-purple-700' :
-                      skin.rarity === 'rare' ? 'bg-blue-500/10 border-blue-500 text-blue-700' :
-                      'bg-green-500/10 border-green-500 text-green-700'}
-                  `}>
-                    {skin.rarity}
+                  <div className="text-center">
+                    <h4 className="text-[10px] font-black uppercase text-[#8b0000] mb-2">{emoji.name}</h4>
+                    {profile.ownedEmojis?.includes(emoji.id) ? (
+                      <div className="text-[8px] font-black text-[#8b0000]/20 uppercase">Collected</div>
+                    ) : (
+                      <button 
+                        onClick={() => handleBuyEmoji(emoji)}
+                        className="py-1.5 px-4 bg-[#8b0000] text-white rounded-xl text-[10px] font-black flex items-center gap-1 shadow-md hover:bg-[#a00000] transition-all"
+                      >
+                         <Coins size={10} /> {emoji.price}
+                      </button>
+                    )}
                   </div>
-               </div>
-               
-               <button 
-                 onClick={() => handleBuy(skin)}
-                 disabled={profile.ownedSkins?.includes(skin.id)}
-                 className={`w-full py-4 rounded-2xl flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-all text-xs font-black uppercase tracking-widest
-                    ${profile.ownedSkins?.includes(skin.id) 
-                      ? 'bg-white/40 text-[#8b0000]/20 cursor-not-allowed border-2 border-[#868378]' 
-                      : 'bg-[#8b0000] text-white hover:bg-[#a00000]'}
-                 `}
-               >
-                  {profile.ownedSkins?.includes(skin.id) ? (
-                    <><Check size={18} /> OWNED</>
-                  ) : (
-                    <><Coins size={18} /> {skin.price.toLocaleString()}</>
-                  )}
-               </button>
-            </motion.div>
-          ))}
-          {skins.length === 0 && (
-             <div className="col-span-full py-20 text-center opacity-30 font-display font-black italic tracking-widest text-[#8b0000] text-2xl">
-                NO COLLECTIONS AVAILABLE YET
-             </div>
+                </motion.div>
+              ))}
+            </div>
+          )}
+
+          {activeShopTab === 'chips' && (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 max-w-4xl mx-auto">
+              {coinPackages.map(pkg => (
+                <motion.div
+                  key={pkg.amount}
+                  whileHover={{ y: -10 }}
+                  onClick={() => handleCoinPurchase(pkg.amount)}
+                  className="group cursor-pointer bg-white/40 border-4 border-[#868378] p-8 rounded-[48px] flex flex-col items-center gap-6 shadow-xl hover:border-yellow-600 transition-all text-center"
+                >
+                   <div className="w-20 h-20 bg-yellow-500 rounded-[24px] flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                      <Coins size={40} className="text-[#8b0000]" />
+                   </div>
+                   <div>
+                      <h3 className="text-4xl font-display font-black text-[#8b0000] italic tracking-tight">{pkg.amount.toLocaleString()}</h3>
+                      <p className="text-[#8b0000]/40 font-black text-[10px] uppercase tracking-widest mt-1">Chips Package</p>
+                   </div>
+                   <div className="w-full py-4 bg-[#8b0000] text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg">
+                      {pkg.price}
+                   </div>
+                </motion.div>
+              ))}
+            </div>
           )}
         </div>
       )}
@@ -1330,6 +1642,7 @@ function ProfileView({ user, profile, onBack, onLogout, setActiveTab, language, 
                <button onClick={onEditProfile} className="text-zinc-500 hover:text-white"><Edit size={16} /></button>
                <span className="text-lg">🌍</span>
             </div>
+            <p className="text-xs font-black text-white/40 mt-1 uppercase tracking-[0.3em]">ID: {profile.shortId || '-------'}</p>
             <div className="mt-3 px-6 py-1.5 bg-zinc-950/50 border border-white/5 rounded-full inline-block">
                <span className="text-xs font-bold text-zinc-400 capitalize">{t.level} {profile.level || 1}</span>
             </div>
@@ -1687,6 +2000,7 @@ function LobbyView({ user, profile, onStartSearch, onJoin, onLogout, onCreate, s
             </div>
             <div className="flex flex-col">
               <span className="text-sm font-black text-white uppercase tracking-tight leading-none">{profile?.displayName?.split(' ')[0]}</span>
+              <span className="text-[10px] font-black text-white/40 mt-1 uppercase tracking-wider">ID: {profile?.shortId || '-------'}</span>
               <div className="flex items-center gap-2 mt-1.5">
                 <div className="w-16 h-1 bg-white/10 rounded-full overflow-hidden">
                   <motion.div 
@@ -1705,6 +2019,14 @@ function LobbyView({ user, profile, onStartSearch, onJoin, onLogout, onCreate, s
              <Coins size={20} className="drop-shadow-[0_0_8px_rgba(234,179,8,0.5)]" />
              <span className="text-xl tracking-tight">{profile?.chips?.toLocaleString() || 0}</span>
           </div>
+          <motion.button
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+            onClick={() => (window as any).toggleRadioHub?.()}
+            className="w-11 h-11 rounded-full bg-white/[0.03] border border-white/10 flex items-center justify-center text-white/40 hover:text-white transition-colors"
+          >
+            <Radio size={20} />
+          </motion.button>
           <motion.button
             whileHover={{ scale: 1.1, rotate: 90 }}
             whileTap={{ scale: 0.9 }}
@@ -2016,15 +2338,69 @@ function LobbyView({ user, profile, onStartSearch, onJoin, onLogout, onCreate, s
   );
 }
 
-function GameView({ user, game, onLeave, profile, skinsMap }: { user: User, game: Game, onLeave: () => void, profile: UserProfile | null, skinsMap: Record<string, CardSkin> }) {
+function GameView({ user, game, onLeave, profile, skinsMap, emojiItems }: { 
+  user: User, 
+  game: Game, 
+  onLeave: () => void, 
+  profile: UserProfile | null, 
+  skinsMap: Record<string, CardSkin>,
+  emojiItems: EmojiItem[]
+}) {
   const [showMore, setShowMore] = useState(false);
   const [rewardClaimed, setRewardClaimed] = useState(false);
   const [opponentProfile, setOpponentProfile] = useState<UserProfile | null>(null);
+  const [showChat, setShowChat] = useState(false);
+  const [chatText, setChatText] = useState('');
+  const [messages, setMessages] = useState<any[]>([]);
+  const chatScrollRef = React.useRef<HTMLDivElement>(null);
+
   const isMyTurn = game.turn === user.uid;
   const opponentId = game.players.find(p => p !== user.uid);
   const myHand = game.hands[user.uid] || [];
   const opponentHandCount = game.hands[opponentId || '']?.length || 0;
   const topCard = game.pile[game.pile.length - 1];
+
+  const ownedEmojis = emojiItems.filter(e => profile?.ownedEmojis?.includes(e.id));
+
+  useEffect(() => {
+    const q = query(collection(db, `games/${game.id}/chat`), orderBy('createdAt', 'asc'), limit(50));
+    const unsub = onSnapshot(q, (snap) => {
+      setMessages(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
+    return unsub;
+  }, [game.id]);
+
+  useEffect(() => {
+    if (chatScrollRef.current) chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
+  }, [messages, showChat]);
+
+  const handleSendChat = async () => {
+    if (!chatText.trim()) return;
+    try {
+      await addDoc(collection(db, `games/${game.id}/chat`), {
+        userId: user.uid,
+        userName: profile?.displayName || 'Player',
+        text: chatText,
+        createdAt: Date.now()
+      });
+      setChatText('');
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleEmojiSelect = async (url: string) => {
+    try {
+      await addDoc(collection(db, `games/${game.id}/chat`), {
+        userId: user.uid,
+        userName: profile?.displayName || 'Player',
+        text: `emoji:${url}`,
+        createdAt: Date.now()
+      });
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   useEffect(() => {
     if (opponentId) {
@@ -2268,9 +2644,60 @@ function GameView({ user, game, onLeave, profile, skinsMap }: { user: User, game
               <Eye size={12} /> 2
            </div>
            <button className="text-white/60 hover:text-white"><Users size={20} /></button>
-           <button className="text-white/60 hover:text-white"><MessageSquare size={20} /></button>
+           <button onClick={() => setShowChat(!showChat)} className="text-white/60 hover:text-white relative">
+              <MessageSquare size={20} />
+              {messages.length > 0 && <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-600 rounded-full border-2 border-black" />}
+           </button>
         </div>
       </div>
+
+      <AnimatePresence>
+        {showChat && (
+          <motion.div 
+            initial={{ x: '100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '100%' }}
+            className="fixed inset-y-0 right-0 w-80 bg-black/95 backdrop-blur-xl z-[200] border-l border-white/10 flex flex-col"
+          >
+             <div className="p-4 border-b border-white/10 flex items-center justify-between">
+                <h3 className="text-xs font-black uppercase text-white/40 tracking-widest">Game Chat</h3>
+                <button onClick={() => setShowChat(false)} className="text-white/40 hover:text-white"><X size={20} /></button>
+             </div>
+             
+             <div ref={chatScrollRef} className="flex-1 overflow-y-auto p-4 space-y-4">
+                {messages.map(msg => (
+                   <div key={msg.id} className={`flex flex-col ${msg.userId === user.uid ? 'items-end' : 'items-start'}`}>
+                      <span className="text-[10px] font-bold text-white/20 mb-1">{msg.userName}</span>
+                      <div className={`px-4 py-2 rounded-2xl text-sm ${msg.userId === user.uid ? 'bg-[#8b0000] text-white rounded-tr-none' : 'bg-white/10 text-white rounded-tl-none'}`}>
+                         {msg.text?.startsWith('emoji:') ? (
+                           <img src={msg.text.split('emoji:')[1]} alt="" className="w-16 h-16 object-contain" />
+                         ) : msg.text}
+                      </div>
+                   </div>
+                ))}
+             </div>
+
+             <div className="p-4 border-t border-white/10 flex flex-col gap-2">
+                <div className="flex gap-2 items-center">
+                   <div className="flex-1 relative flex items-center">
+                      <input 
+                        type="text" 
+                        value={chatText}
+                        onChange={e => setChatText(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && handleSendChat()}
+                        placeholder="Type message..."
+                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-[#8b0000] pr-10"
+                      />
+                      <div className="absolute right-2">
+                         <ChatEmojiPicker ownedEmojis={ownedEmojis} onSelect={handleEmojiSelect} />
+                      </div>
+                   </div>
+                   <button onClick={handleSendChat} className="p-2 bg-[#8b0000] text-white rounded-xl"><Send size={18} /></button>
+                </div>
+             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <div className="absolute inset-0 flex flex-col items-center justify-center">
          {game.gameType === 'dama' ? (
@@ -2917,10 +3344,19 @@ function ClubCreateForm({ chips, onSubmit }: any) {
   );
 }
 
-function ClubDetailView({ club, user, profile, onLeave, onPostMessage, onBack }: any) {
+function ClubDetailView({ club, user, profile, onLeave, onPostMessage, onBack, emojiItems }: { 
+  club: Club, 
+  user: User, 
+  profile: UserProfile, 
+  onLeave: () => void, 
+  onPostMessage: (t: string) => void, 
+  onBack: () => void,
+  emojiItems: EmojiItem[]
+}) {
   const [messages, setMessages] = useState<ClubMessage[]>([]);
   const [text, setText] = useState('');
   const scrollRef = React.useRef<HTMLDivElement>(null);
+  const ownedEmojis = emojiItems.filter(e => profile.ownedEmojis?.includes(e.id));
 
   useEffect(() => {
     const path = `clubs/${club.id}/messages`;
@@ -2941,6 +3377,10 @@ function ClubDetailView({ club, user, profile, onLeave, onPostMessage, onBack }:
     if (!text.trim()) return;
     onPostMessage(text);
     setText('');
+  };
+
+  const handleEmojiSelect = (url: string) => {
+    onPostMessage(`emoji:${url}`);
   };
 
   return (
@@ -2999,7 +3439,9 @@ function ClubDetailView({ club, user, profile, onLeave, onPostMessage, onBack }:
                             {msg.userId === user.uid ? 'You' : msg.userName}
                          </span>
                          <div className={`px-5 py-3 rounded-3xl text-sm font-medium ${msg.userId === user.uid ? 'bg-[#8b0000] text-white rounded-tr-none' : 'bg-white/5 text-white/80 rounded-tl-none'}`}>
-                            {msg.text}
+                            {msg.text?.startsWith('emoji:') ? (
+                              <img src={msg.text.split('emoji:')[1]} alt="" className="w-20 h-20 object-contain" />
+                            ) : msg.text}
                          </div>
                       </div>
                    </div>
@@ -3007,19 +3449,24 @@ function ClubDetailView({ club, user, profile, onLeave, onPostMessage, onBack }:
              </div>
 
              <div className="p-6 bg-white/[0.02] border-t border-white/5">
-                <div className="flex gap-4">
-                   <input 
-                     value={text} 
-                     onChange={e => setText(e.target.value)}
-                     onKeyDown={e => e.key === 'Enter' && handleSend()}
-                     placeholder="Broadcast a message..." 
-                     className="flex-1 bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white font-medium focus:outline-none focus:border-[#8b0000]/30 transition-all" 
-                   />
+                <div className="flex gap-4 items-center">
+                   <div className="flex-1 relative flex items-center">
+                      <input 
+                        value={text} 
+                        onChange={e => setText(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && handleSend()}
+                        placeholder="Broadcast a message..." 
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white font-medium focus:outline-none focus:border-[#8b0000]/30 transition-all pr-12" 
+                      />
+                      <div className="absolute right-4 text-white/40 hover:text-white transition-colors">
+                         <ChatEmojiPicker ownedEmojis={ownedEmojis} onSelect={handleEmojiSelect} />
+                      </div>
+                   </div>
                    <button 
                      onClick={handleSend}
                      className="w-14 h-14 bg-[#8b0000] text-white rounded-2xl flex items-center justify-center hover:bg-[#a00000] transition-all shadow-xl"
                    >
-                      <ChevronUp size={24} />
+                      <Send size={20} />
                    </button>
                 </div>
              </div>
@@ -3141,5 +3588,141 @@ function CardComponent({ card, index = 0, isPile = false, skinUrl }: { card: Car
         </div>
       )}
     </motion.div>
+  );
+}
+
+function RadioHub({ tracks, active, onClose, isMusicOn, toggleMusic, currentTrackIndex, setCurrentTrackIndex }: { 
+  tracks: RadioTrack[], 
+  active: boolean, 
+  onClose: () => void,
+  isMusicOn: boolean,
+  toggleMusic: () => void,
+  currentTrackIndex: number,
+  setCurrentTrackIndex: (idx: number) => void
+}) {
+  if (!active) return null;
+  
+  const currentTrack = tracks[currentTrackIndex];
+
+  return (
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-6 bg-black/60 backdrop-blur-sm shadow-2xl">
+      <motion.div 
+        initial={{ scale: 0.9, opacity: 0, y: 20 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        className="w-full max-w-md bg-[#0f0f12] border-2 border-white/10 rounded-[40px] overflow-hidden shadow-2xl flex flex-col items-center p-8"
+      >
+        <div className="w-full flex justify-between items-center mb-10">
+           <div className="flex items-center gap-3">
+              <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+              <span className="text-[10px] font-black uppercase text-white/40 tracking-[0.4em]">LIVE RADIO</span>
+           </div>
+           <button onClick={onClose} className="p-2 bg-white/5 rounded-full hover:bg-white/10 transition-colors"><X size={20} className="text-white/40" /></button>
+        </div>
+
+        <div className="relative w-48 h-48 mb-10 group">
+           <div className={`absolute inset-0 bg-yellow-500 rounded-full opacity-20 blur-2xl transition-all duration-1000 ${isMusicOn ? 'scale-125' : 'scale-75'}`} />
+           <div className={`w-full h-full rounded-full border-4 border-white/10 flex items-center justify-center bg-black overflow-hidden relative ${isMusicOn ? 'animate-[spin_10s_linear_infinite]' : ''}`}>
+              <div className="absolute inset-0 bg-gradient-to-tr from-[#8b0000]/40 to-transparent" />
+              <Music size={64} className="text-white relative z-10" />
+           </div>
+           <div className="absolute bottom-2 right-2 p-3 bg-[#8b0000] rounded-full shadow-lg border-2 border-white/20">
+              <Radio size={20} className="text-white" />
+           </div>
+        </div>
+
+        <div className="text-center mb-10 space-y-2">
+           <h2 className="text-2xl font-black text-white italic tracking-tighter uppercase whitespace-nowrap overflow-hidden text-ellipsis px-4">
+              {currentTrack?.name || 'Radio Offline'}
+           </h2>
+           <p className="text-[#8b0000] font-black text-[10px] uppercase tracking-[0.3em]">PRO SYNDICATE TUNES</p>
+        </div>
+
+        <div className="w-full flex flex-col gap-8">
+           <div className="flex items-center justify-center gap-8">
+              <button 
+                onClick={() => setCurrentTrackIndex((currentTrackIndex - 1 + tracks.length) % (tracks.length || 1))}
+                className="p-4 bg-white/5 rounded-full text-white/60 hover:text-white transition-all transform hover:scale-110"
+              >
+                <MoreHorizontal size={24} />
+              </button>
+              <button 
+                onClick={toggleMusic}
+                className="w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-xl shadow-white/10 transform active:scale-90 transition-all"
+              >
+                {isMusicOn ? <Volume2 size={32} className="text-black" /> : <VolumeX size={32} className="text-black" />}
+              </button>
+              <button 
+                onClick={() => setCurrentTrackIndex((currentTrackIndex + 1) % (tracks.length || 1))}
+                className="p-4 bg-white/5 rounded-full text-white/60 hover:text-white transition-all transform hover:scale-110"
+              >
+                <MoreHorizontal size={24} className="rotate-180" />
+              </button>
+           </div>
+
+           <div className="flex flex-col gap-3">
+              <div className="flex justify-between text-[8px] font-black text-white/20 uppercase tracking-widest">
+                 <span>{isMusicOn ? 'Broadcasting' : 'Muted'}</span>
+                 <span>{Math.floor(tracks.length)} Channels</span>
+              </div>
+              <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
+                 <motion.div 
+                   animate={{ x: isMusicOn ? ['-100%', '100%'] : '0%' }}
+                   transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+                   className="w-1/2 h-full bg-[#8b0000] rounded-full" 
+                 />
+              </div>
+           </div>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+function ChatEmojiPicker({ ownedEmojis, onSelect }: { ownedEmojis: EmojiItem[], onSelect: (url: string) => void }) {
+  const [active, setActive] = useState(false);
+
+  return (
+    <div className="relative">
+      <button 
+        onClick={() => setActive(!active)}
+        className="p-2 text-white/40 hover:text-white transition-colors"
+      >
+        <Smile size={20} />
+      </button>
+      <AnimatePresence>
+        {active && (
+          <motion.div 
+            initial={{ opacity: 0, y: 10, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 10, scale: 0.9 }}
+            className="absolute bottom-12 right-0 bg-[#1a1a1e] border-2 border-white/10 rounded-3xl p-4 shadow-2xl z-[100] w-64"
+          >
+            <div className="grid grid-cols-4 gap-2 max-h-48 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-white/10">
+               {ownedEmojis.length === 0 && (
+                 <div className="col-span-4 py-4 text-center text-[8px] font-black text-white/20 uppercase tracking-widest">
+                    No Emojis Owned
+                 </div>
+               )}
+               {ownedEmojis.map(emoji => (
+                 <button 
+                    key={emoji.id}
+                    onClick={() => {
+                      onSelect(emoji.url);
+                      setActive(false);
+                    }}
+                    className="aspect-square bg-white/5 rounded-xl flex items-center justify-center hover:bg-white/10 transition-all p-2 group"
+                 >
+                    <img src={emoji.url} alt={emoji.name} className="max-w-full max-h-full object-contain group-hover:scale-110 transition-transform" />
+                 </button>
+               ))}
+            </div>
+            <div className="mt-4 pt-4 border-t border-white/5 flex justify-between items-center">
+               <span className="text-[8px] font-black text-white/20 uppercase">Emoji Hub</span>
+               <ShoppingBag size={12} className="text-white/20" />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 }

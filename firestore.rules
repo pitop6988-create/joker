@@ -49,12 +49,24 @@ service cloud.firestore {
       allow read: if isSignedIn();
       allow create: if isOwner(userId) && isValidUser(incoming());
       allow update: if isOwner(userId) && isValidUser(incoming()) && (
-        incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL', 'totalWins', 'chips', 'level', 'xp', 'ownedSkins', 'activeSkinId', 'clubId'])
+        incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL', 'totalWins', 'chips', 'level', 'xp', 'ownedSkins', 'activeSkinId', 'clubId', 'shortId', 'ownedEmojis'])
       );
     }
 
     // Card Skins
     match /cardSkins/{skinId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Radio
+    match /radioTracks/{trackId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Emojis/GIFs
+    match /emojiItems/{emojiId} {
       allow read: if true;
       allow write: if isAdmin();
     }
