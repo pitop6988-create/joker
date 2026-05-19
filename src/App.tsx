@@ -3,7 +3,84 @@ import { onAuthStateChanged, User } from 'firebase/auth';
 import { doc, getDoc, getDocs, setDoc, onSnapshot, collection, query, where, limit, addDoc, updateDoc, deleteDoc, orderBy } from 'firebase/firestore';
 import { auth, db, signIn, signOut, signInEmail, signUpEmail } from './lib/firebase';
 import { motion, AnimatePresence } from 'motion/react';
-import { LogIn, LogOut, Play, Trophy, Users, RefreshCcw, Hand, Plus, Lock, MoreVertical, Coins, ShoppingBag, X, Mail, Key, User as UserIcon, Menu, Settings, MessageSquare, Gift, MoreHorizontal, ChevronUp, Edit, Camera, Save, Check, Image as ImageIcon, Crown, ShieldCheck, Star } from 'lucide-react';
+import { LogIn, LogOut, Play, Trophy, Users, RefreshCcw, Hand, Plus, Lock, MoreVertical, Coins, ShoppingBag, X, Mail, Key, User as UserIcon, Menu, Settings, MessageSquare, Gift, MoreHorizontal, ChevronUp, Edit, Camera, Save, Check, Image as ImageIcon, Crown, ShieldCheck, Star, Eye } from 'lucide-react';
+
+type Language = 'en' | 'ku';
+
+const translations: Record<Language, any> = {
+  en: {
+    lobby: 'Lobby',
+    boutique: 'Boutique',
+    rank: 'Rank',
+    vault: 'Vault',
+    eliteList: 'ELITE LIST',
+    topPlayers: 'TOP PLAYERS',
+    champions: 'Champions',
+    victories: 'Victories',
+    settings: 'Settings',
+    language: 'Language',
+    preview: 'Preview',
+    owned: 'Owned',
+    buy: 'Buy',
+    logout: 'Log Out',
+    dossier: 'PLAYER DOSSIER',
+    wins: 'Wins',
+    level: 'Level',
+    chips: 'Chips',
+    rankProf: 'Rank: Professional Gambler',
+    mySkins: 'MY SKINS',
+    clubs: 'Clubs',
+    events: 'Events',
+    home: 'Home',
+    findingRival: 'FINDING RIVAL',
+    loadingAssets: 'Loading Assets...',
+    abandonDuel: 'ABANDON DUEL',
+    visitShop: 'Visit the shop to unlock skins',
+    gotoBoutique: 'Go to Boutique',
+    use: 'USE',
+    victoriesCount: 'Victories',
+    wealth: 'Total Wealth',
+    editProfile: 'Edit Profile',
+    saveChanges: 'Save Changes',
+    cancel: 'Cancel',
+  },
+  ku: {
+    lobby: 'لۆبی',
+    boutique: 'دوکان',
+    rank: 'پلەبەندی',
+    vault: 'پڕۆفایل',
+    eliteList: 'لیستی نوخبە',
+    topPlayers: 'باشترین یاریزانەکان',
+    champions: 'پاڵەوانەکان',
+    victories: 'سەرکەوتن',
+    settings: 'ڕێکخستنەکان',
+    language: 'زمان',
+    preview: 'ببینە',
+    owned: 'ھەتە',
+    buy: 'کڕین',
+    logout: 'چوونەدەرەوە',
+    dossier: 'دۆسیەی یاریزان',
+    wins: 'سەرکەوتن',
+    level: 'ئاست',
+    chips: 'چێپ',
+    rankProf: 'پلە: قومارچی پرۆفیشناڵ',
+    mySkins: 'سکنەکانم',
+    clubs: 'کڵەبەکان',
+    events: 'چالاکییەکان',
+    home: 'سەرەتا',
+    findingRival: 'بەدوای یاریزاندا دەگەڕێت...',
+    loadingAssets: 'کەلوپەلەکان بار دەکرێن...',
+    abandonDuel: 'پاشەکشە',
+    visitShop: 'سەردانی دوکان بکە بۆ سکن',
+    gotoBoutique: 'بڕۆ بۆ دوکان',
+    use: 'بەکارھێنان',
+    victoriesCount: 'سەرکەوتن',
+    wealth: 'سامانی گشتی',
+    editProfile: 'بۆردی پڕۆفایل',
+    saveChanges: 'پاشەکەوت',
+    cancel: 'لابردن',
+  }
+};
 import { Game, GameStatus, Card, UserProfile, CardSkin } from './types';
 import { createDeck, shuffle } from './gameLogic';
 import confetti from 'canvas-confetti';
@@ -52,9 +129,11 @@ export default function App() {
   const [activeGameId, setActiveGameId] = useState<string | null>(null);
   const [currentGame, setCurrentGame] = useState<Game | null>(null);
   const [isSearching, setIsSearching] = useState(false);
-  const [activeTab, setActiveTab] = useState<'home' | 'shop' | 'profile'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'shop' | 'profile' | 'leaderboard' | 'settings'>('home');
   const [searchGameType, setSearchGameType] = useState<'uno' | 'joker'>('uno');
   const [skinsMap, setSkinsMap] = useState<Record<string, CardSkin>>({});
+  const [skins, setSkins] = useState<CardSkin[]>([]);
+  const [language, setLanguage] = useState<Language>('en');
 
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(db, 'cardSkins'), (snapshot) => {
@@ -292,14 +371,43 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-black">
-        <motion.div
-          animate={{ scale: [1, 1.2, 1], rotate: [0, 180, 360] }}
-          transition={{ duration: 2, repeat: Infinity }}
-          className="text-cyan-500"
-        >
-          <Play size={64} fill="currentColor" />
-        </motion.div>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[#0a2f26] relative overflow-hidden font-vintage">
+        {/* Background decorative elements */}
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_#1a7b3e_0%,_transparent_70%)] opacity-30" />
+        
+        <div className="z-10 flex flex-col items-center gap-12 w-full max-w-sm px-8">
+          <div className="flex flex-col items-center">
+             <div className="relative mb-6">
+                <motion.div 
+                  initial={{ rotate: -10, scale: 0.8, opacity: 0 }}
+                  animate={{ rotate: 10, scale: 1, opacity: 1 }}
+                  transition={{ duration: 1, ease: "easeOut" }}
+                  className="text-[#ffcc00] filter drop-shadow-[0_0_15px_rgba(255,204,0,0.5)]"
+                >
+                   <Crown size={80} fill="currentColor" />
+                </motion.div>
+                <div className="absolute -top-4 -right-4">
+                   <div className="w-12 h-12 bg-[#8b0000] rounded-full border-4 border-[#ffcc00] flex items-center justify-center text-[#ffcc00] shadow-xl italic font-black text-xl">J</div>
+                </div>
+             </div>
+             <h1 className="text-6xl font-display font-black text-white italic tracking-tighter drop-shadow-lg leading-none">Joker</h1>
+             <p className="text-[#ffcc00] font-black uppercase tracking-[1em] text-[10px] mt-2 translate-x-[0.5em]">Elite Duel</p>
+          </div>
+
+          <div className="w-full space-y-4">
+             <p className="text-white/40 text-[10px] font-black uppercase tracking-[0.5em] text-center">Loading Assets...</p>
+             <div className="w-full h-3 bg-black/40 rounded-full border border-white/5 overflow-hidden p-0.5 shadow-inner">
+                <motion.div 
+                  initial={{ width: "0%" }}
+                  animate={{ width: "100%" }}
+                  transition={{ duration: 2, ease: "easeInOut" }}
+                  className="h-full bg-gradient-to-r from-yellow-600 via-yellow-400 to-yellow-600 rounded-full shadow-[0_0_10px_rgba(234,179,8,0.5)]"
+                />
+             </div>
+          </div>
+        </div>
+
+        <div className="absolute bottom-12 text-white/10 text-[8px] font-black uppercase tracking-[0.8em]">JAWAKER STYLE</div>
       </div>
     );
   }
@@ -317,18 +425,22 @@ export default function App() {
   }
 
   if (activeTab === 'shop') {
-    return <ShopView user={user} profile={profile!} onBack={() => setActiveTab('home')} setActiveTab={setActiveTab} />;
+    return <ShopView user={user} profile={profile!} onBack={() => setActiveTab('home')} setActiveTab={setActiveTab} language={language} />;
   }
 
   if (activeTab === 'leaderboard') {
-    return <LeaderboardView profile={profile!} setActiveTab={setActiveTab} />;
+    return <LeaderboardView profile={profile!} setActiveTab={setActiveTab} language={language} />;
   }
 
   if (activeTab === 'profile') {
-    return <ProfileView user={user} profile={profile!} onBack={() => setActiveTab('home')} onLogout={signOut} setActiveTab={setActiveTab} />;
+    return <ProfileView user={user} profile={profile!} onBack={() => setActiveTab('home')} onLogout={signOut} setActiveTab={setActiveTab} language={language} onOpenSettings={() => setActiveTab('settings')} />;
   }
 
-  return <LobbyView user={user} profile={profile} onStartSearch={startSearching} onJoin={joinGame} onLogout={signOut} onCreate={createGame} setActiveTab={setActiveTab} onClaimDaily={claimDailyReward} />;
+  if (activeTab === 'settings') {
+    return <SettingsView language={language} setLanguage={setLanguage} onBack={() => setActiveTab('profile')} />;
+  }
+
+  return <LobbyView user={user} profile={profile} onStartSearch={startSearching} onJoin={joinGame} onLogout={signOut} onCreate={createGame} setActiveTab={setActiveTab} onClaimDaily={claimDailyReward} language={language} />;
 }
 
 function AuthView({ onGoogleSignIn, onEmailSignIn, onEmailSignUp }: any) {
@@ -744,7 +856,8 @@ function AdminView({ onBack }: { onBack: () => void }) {
   );
 }
 
-function ShopView({ user, profile, onBack, setActiveTab }: { user: User, profile: UserProfile, onBack: () => void, setActiveTab?: (tab: any) => void }) {
+function ShopView({ user, profile, onBack, setActiveTab, language }: { user: User, profile: UserProfile, onBack: () => void, setActiveTab?: (tab: any) => void, language: Language }) {
+  const t = translations[language];
   const [skins, setSkins] = useState<CardSkin[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdmin, setShowAdmin] = useState(false);
@@ -839,8 +952,19 @@ function ShopView({ user, profile, onBack, setActiveTab }: { user: User, profile
               whileHover={{ y: -10 }}
               className="bg-white/40 border-4 border-[#868378] p-6 rounded-[48px] flex flex-col items-center gap-4 shadow-xl hover:border-[#8b0000] transition-colors group relative overflow-hidden"
             >
-               <div className="w-full aspect-[2/3] rounded-[32px] overflow-hidden border-2 border-black/5 shadow-inner">
+               <div className="w-full aspect-[2/3] rounded-[32px] overflow-hidden border-2 border-black/5 shadow-inner relative">
                   <img src={skin.imageUrl} alt={skin.name} className="w-full h-full object-cover" />
+                  <div className="absolute top-4 right-4 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        alert("Skin Preview coming soon!");
+                      }}
+                      className="p-3 bg-black/60 backdrop-blur-md rounded-full text-white border border-white/20 hover:bg-white/20 transition-all"
+                    >
+                      <Eye size={20} />
+                    </button>
+                  </div>
                </div>
                <div className="text-center">
                   <h3 className="text-2xl font-display font-black text-[#8b0000] italic tracking-tight">{skin.name}</h3>
@@ -879,7 +1003,7 @@ function ShopView({ user, profile, onBack, setActiveTab }: { user: User, profile
         </div>
       )}
 
-      {setActiveTab && <TapBar activeTab="shop" setActiveTab={setActiveTab} />}
+      {setActiveTab && <TapBar activeTab="shop" setActiveTab={setActiveTab} language={language} />}
     </div>
   )
 }
@@ -901,7 +1025,8 @@ function CardBack({ skinUrl, className = "", style = {} }: { skinUrl?: string, c
   );
 }
 
-function ProfileView({ user, profile, onBack, onLogout, setActiveTab }: { user: User, profile: UserProfile, onBack: () => void, onLogout: () => void, setActiveTab: (tab: any) => void }) {
+function ProfileView({ user, profile, onBack, onLogout, setActiveTab, language, onOpenSettings }: { user: User, profile: UserProfile, onBack: () => void, onLogout: () => void, setActiveTab: (tab: any) => void, language: Language, onOpenSettings: () => void }) {
+  const t = translations[language];
   const [isEditing, setIsEditing] = useState(false);
   const [newName, setNewName] = useState(profile.displayName);
   const [newPhoto, setNewPhoto] = useState(profile.photoURL);
@@ -969,14 +1094,19 @@ function ProfileView({ user, profile, onBack, onLogout, setActiveTab }: { user: 
   const ownedSkinsData = skins.filter(s => profile.ownedSkins?.includes(s.id));
 
   return (
-    <div className="min-h-screen bg-lobby-vintage p-6 sm:p-8 font-vintage flex flex-col items-center pb-32 overflow-y-auto">
+    <div className={`min-h-screen bg-lobby-vintage p-6 sm:p-8 font-vintage flex flex-col items-center pb-32 overflow-y-auto ${language === 'ku' ? 'rtl text-right' : ''}`}>
       <FallingCards />
       <header className="w-full max-w-lg flex justify-between items-center mb-12 z-20">
         <button onClick={onBack} className="w-12 h-12 flex items-center justify-center rounded-full bg-white/40 text-[#8b0000] hover:bg-white/60 transition-colors shadow-sm"><X size={24} /></button>
-        <h1 className="text-2xl font-display font-black text-[#8b0000] italic tracking-widest">PLAYER DOSSIER</h1>
-        <button onClick={onLogout} className="w-12 h-12 flex items-center justify-center rounded-full bg-[#8b0000] text-white hover:bg-red-800 transition-colors shadow-lg">
-          <LogOut size={20} />
-        </button>
+        <h1 className="text-2xl font-display font-black text-[#8b0000] italic tracking-widest">{t.dossier}</h1>
+        <div className="flex gap-2">
+           <button onClick={onOpenSettings} className="w-12 h-12 flex items-center justify-center rounded-full bg-white/40 text-[#8b0000] hover:bg-white/60 transition-colors shadow-sm">
+             <Settings size={20} />
+           </button>
+           <button onClick={onLogout} className="w-12 h-12 flex items-center justify-center rounded-full bg-[#8b0000] text-white hover:bg-red-800 transition-colors shadow-lg">
+             <LogOut size={20} />
+           </button>
+        </div>
       </header>
 
       <motion.div 
@@ -1085,19 +1215,19 @@ function ProfileView({ user, profile, onBack, onLogout, setActiveTab }: { user: 
           )}
         </div>
 
-        <div className="w-full space-y-6">
-           <div className="bg-[#8b0000]/5 border-2 border-[#868378]/30 p-6 rounded-[32px] flex justify-between items-center">
-              <div>
-                 <p className="text-[10px] font-black text-[#8b0000]/40 uppercase tracking-widest">Total Wealth</p>
-                 <h4 className="text-2xl font-display font-black text-[#8b0000] italic leading-none">{profile.chips?.toLocaleString()} CHIPS</h4>
-              </div>
-              <div className="w-12 h-12 bg-yellow-500 rounded-full flex items-center justify-center text-[#8b0000] shadow-lg">
-                 <Coins size={24} />
-              </div>
-           </div>
+         <div className="w-full space-y-6">
+            <div className="bg-[#8b0000]/5 border-2 border-[#868378]/30 p-6 rounded-[32px] flex justify-between items-center">
+               <div>
+                  <p className="text-[10px] font-black text-[#8b0000]/40 uppercase tracking-widest">{t.chips}</p>
+                  <h4 className="text-2xl font-display font-black text-[#8b0000] italic leading-none">{profile.chips?.toLocaleString()} CHIPS</h4>
+               </div>
+               <div className="w-12 h-12 bg-yellow-500 rounded-full flex items-center justify-center text-[#8b0000] shadow-lg">
+                  <Coins size={24} />
+               </div>
+            </div>
 
-           <div className="space-y-4">
-              <h3 className="text-center text-[10px] font-black text-[#8b0000]/40 uppercase tracking-[0.5em]">MY SKINS</h3>
+            <div className="space-y-4">
+               <h3 className="text-center text-[10px] font-black text-[#8b0000]/40 uppercase tracking-[0.5em]">{t.mySkins}</h3>
               {ownedSkinsData.length === 0 ? (
                 <div className="py-8 text-center bg-white/20 rounded-[32px] border-2 border-dashed border-[#868378]/20">
                    <p className="text-[10px] font-black text-[#8b0000]/30 uppercase tracking-widest">Visit the shop to unlock skins</p>
@@ -1143,21 +1273,21 @@ function ProfileView({ user, profile, onBack, onLogout, setActiveTab }: { user: 
         </div>
       </motion.div>
 
-      <TapBar activeTab="profile" setActiveTab={setActiveTab} />
+      <TapBar activeTab="profile" setActiveTab={setActiveTab} language={language} />
     </div>
   );
 }
 
-function LeaderboardView({ profile, setActiveTab }: { profile: UserProfile, setActiveTab: (tab: any) => void }) {
+function LeaderboardView({ profile, setActiveTab, language }: { profile: UserProfile, setActiveTab: (tab: any) => void, language: Language }) {
   const [topPlayers, setTopPlayers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
-  const [category, setCategory] = useState<'chips' | 'totalWins'>('chips');
+  const t = translations[language];
 
   useEffect(() => {
     const fetchLeaderboard = async () => {
       setLoading(true);
       try {
-        const q = query(collection(db, 'users'), orderBy(category, 'desc'), limit(25));
+        const q = query(collection(db, 'users'), orderBy('totalWins', 'desc'), limit(25));
         const snap = await getDocs(q);
         setTopPlayers(snap.docs.map(d => d.data() as UserProfile));
       } catch (e) {
@@ -1167,38 +1297,19 @@ function LeaderboardView({ profile, setActiveTab }: { profile: UserProfile, setA
       }
     };
     fetchLeaderboard();
-  }, [category]);
+  }, []);
 
   return (
-    <div className="min-h-screen bg-lobby-vintage p-6 sm:p-8 font-vintage flex flex-col items-center pb-32 overflow-y-auto">
+    <div className={`min-h-screen bg-lobby-vintage p-6 sm:p-8 font-vintage flex flex-col items-center pb-32 overflow-y-auto ${language === 'ku' ? 'rtl text-right' : ''}`}>
       <FallingCards />
       <header className="w-full max-w-lg mb-8 text-center z-10">
-        <h1 className="text-5xl font-display font-black text-[#8b0000] tracking-tighter italic leading-none drop-shadow-sm">ELITE LIST</h1>
+        <h1 className="text-5xl font-display font-black text-[#8b0000] tracking-tighter italic leading-none drop-shadow-sm">{t.eliteList}</h1>
         <div className="mt-2 flex items-center justify-center gap-2">
           <Star size={12} className="text-yellow-600" fill="currentColor" />
-          <span className="text-[10px] font-black text-[#8b0000]/60 uppercase tracking-[0.6em]">TOP PLAYERS</span>
+          <span className="text-[10px] font-black text-[#8b0000]/60 uppercase tracking-[0.6em]">{t.topPlayers}</span>
           <Star size={12} className="text-yellow-600" fill="currentColor" />
         </div>
       </header>
-
-      <div className="w-full max-w-lg mb-8 z-10 flex bg-white/20 p-1 rounded-2xl border-2 border-[#868378]/20">
-        <button 
-          onClick={() => setCategory('chips')}
-          className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all
-            ${category === 'chips' ? 'bg-[#8b0000] text-white shadow-lg' : 'text-[#8b0000]/40 hover:text-[#8b0000]'}
-          `}
-        >
-          Rich List
-        </button>
-        <button 
-          onClick={() => setCategory('totalWins')}
-          className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all
-            ${category === 'totalWins' ? 'bg-[#8b0000] text-white shadow-lg' : 'text-[#8b0000]/40 hover:text-[#8b0000]'}
-          `}
-        >
-          Champions
-        </button>
-      </div>
 
       <div className="w-full max-w-lg z-10 space-y-3">
         {loading ? (
@@ -1227,13 +1338,13 @@ function LeaderboardView({ profile, setActiveTab }: { profile: UserProfile, setA
               <div className="flex-1">
                 <h4 className="font-display font-black text-[#8b0000] italic leading-tight text-lg">{player.displayName}</h4>
                 <div className="flex items-center gap-2">
-                   <p className="text-[9px] font-black text-[#8b0000]/50 uppercase tracking-widest">{player.totalWins} Victories</p>
+                   <p className="text-[9px] font-black text-[#8b0000]/50 uppercase tracking-widest">{player.totalWins} {t.victories}</p>
                 </div>
               </div>
               <div className="text-right">
                 <div className="flex items-center gap-1.5 text-yellow-600 font-display font-black italic text-lg">
-                   {category === 'chips' ? <Coins size={16} /> : <Trophy size={16} />}
-                   <span>{category === 'chips' ? player.chips.toLocaleString() : player.totalWins}</span>
+                   <Trophy size={16} />
+                   <span>{player.totalWins}</span>
                 </div>
               </div>
             </motion.div>
@@ -1241,48 +1352,94 @@ function LeaderboardView({ profile, setActiveTab }: { profile: UserProfile, setA
         )}
       </div>
 
-      <TapBar activeTab="leaderboard" setActiveTab={setActiveTab} />
+      <TapBar activeTab="leaderboard" setActiveTab={setActiveTab} language={language} />
     </div>
   );
 }
 
-function TapBar({ activeTab, setActiveTab }: { activeTab: string, setActiveTab: (tab: any) => void }) {
+function TapBar({ activeTab, setActiveTab, language }: { activeTab: string, setActiveTab: (tab: any) => void, language: Language }) {
+  const t = translations[language];
   const tabs = [
-    { id: 'home', icon: <Play size={20} />, label: 'Lobby' },
-    { id: 'shop', icon: <ShoppingBag size={20} />, label: 'Bazaar' },
-    { id: 'leaderboard', icon: <Trophy size={20} />, label: 'Rank' },
-    { id: 'profile', icon: <UserIcon size={20} />, label: 'Vault' },
+    { id: 'shop', icon: <ShoppingBag size={24} />, label: t.boutique },
+    { id: 'leaderboard', icon: <Trophy size={24} />, label: t.rank },
+    { id: 'home', icon: <div className="p-3 bg-[#1a7b3e] rounded-full shadow-[0_0_20px_rgba(26,123,62,0.4)] border-2 border-white/20 -translate-y-4 relative">
+       <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-4xl">🃏</div>
+       <Play size={24} className="text-white fill-current" />
+    </div>, label: t.lobby },
+    { id: 'clubs', icon: <ShieldCheck size={24} />, label: t.clubs },
+    { id: 'profile', icon: <UserIcon size={24} />, label: t.vault },
   ];
 
   return (
-    <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[300] w-[calc(100%-2rem)] max-w-sm">
-      <div className="bg-[#c0bba9]/90 backdrop-blur-xl border-4 border-[#868378] rounded-[32px] p-2 flex justify-around items-center shadow-[0_20px_50px_rgba(0,0,0,0.3)]">
+    <div className="fixed bottom-0 left-0 right-0 z-[300] bg-zinc-950/95 backdrop-blur-xl border-t border-white/10 pb-6 pt-2">
+      <div className="max-w-md mx-auto flex justify-between items-center px-4">
         {tabs.map(tab => (
           <button 
             key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
+            onClick={() => tab.id !== 'clubs' && setActiveTab(tab.id)}
             className={`
-              relative flex flex-col items-center gap-1.5 py-3 px-6 rounded-[24px] transition-all duration-300
-              ${activeTab === tab.id ? 'bg-[#8b0000] text-white shadow-lg' : 'text-[#8b0000]/60 hover:bg-black/5'}
+              relative flex flex-col items-center gap-1 transition-all duration-300 flex-1
+              ${activeTab === tab.id ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'}
+              ${tab.id === 'clubs' ? 'opacity-40 cursor-not-allowed' : ''}
             `}
           >
-            <motion.div
-              animate={{ scale: activeTab === tab.id ? 1.1 : 1 }}
-            >
-              {React.cloneElement(tab.icon as React.ReactElement, { fill: activeTab === tab.id ? 'currentColor' : 'none' })}
-            </motion.div>
-            <span className={`text-[9px] font-black uppercase tracking-[0.2em] transition-all ${activeTab === tab.id ? 'opacity-100' : 'opacity-60'}`}>
+            <div className="relative">
+               {tab.id === 'home' ? (
+                 tab.icon
+               ) : (
+                 <motion.div animate={{ scale: activeTab === tab.id ? 1.1 : 1 }}>
+                    {tab.icon}
+                 </motion.div>
+               )}
+               {tab.id === 'leaderboard' && (
+                 <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-600 rounded-full border border-black text-[9px] font-black flex items-center justify-center text-white">1</div>
+               )}
+            </div>
+            <span className={`text-[10px] font-black uppercase tracking-[0.05em] transition-all ${tab.id === 'home' ? '-mt-2' : ''}`}>
               {tab.label}
             </span>
-            {activeTab === tab.id && (
+            {activeTab === tab.id && tab.id !== 'home' && (
               <motion.div 
-                layoutId="activeTab"
-                className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-white rounded-full"
+                layoutId="activeTabGlow"
+                className="absolute -bottom-1 w-12 h-1 bg-white/20 blur-sm rounded-full"
               />
             )}
           </button>
         ))}
       </div>
+    </div>
+  );
+}
+
+function SettingsView({ language, setLanguage, onBack }: { language: Language, setLanguage: (l: Language) => void, onBack: () => void }) {
+  const t = translations[language];
+  return (
+    <div className={`min-h-screen bg-lobby-vintage p-6 sm:p-8 font-vintage flex flex-col items-center pb-32 overflow-y-auto ${language === 'ku' ? 'rtl text-right' : ''}`}>
+       <FallingCards />
+       <header className="w-full max-w-lg flex items-center gap-4 mb-12 z-20">
+         <button onClick={onBack} className="w-12 h-12 flex items-center justify-center rounded-full bg-white/40 text-[#8b0000] hover:bg-white/60 transition-colors shadow-sm"><X size={24} /></button>
+         <h1 className="text-2xl font-display font-black text-[#8b0000] italic tracking-widest">{t.settings}</h1>
+       </header>
+
+       <div className="w-full max-w-lg bg-white/40 border-4 border-[#868378] p-8 rounded-[40px] shadow-2xl z-10 space-y-8">
+          <div>
+             <label className="text-[10px] font-black text-[#8b0000]/40 uppercase ml-2 block tracking-widest mb-4">{t.language}</label>
+             <div className="grid grid-cols-2 gap-4">
+               <button 
+                 onClick={() => setLanguage('en')}
+                 className={`py-4 rounded-2xl font-bold border-2 transition-all ${language === 'en' ? 'bg-[#8b0000] text-white border-[#8b0000]' : 'bg-white/40 text-[#8b0000] border-transparent'}`}
+               >
+                 English
+               </button>
+               <button 
+                 onClick={() => setLanguage('ku')}
+                 className={`py-4 rounded-2xl font-bold border-2 transition-all ${language === 'ku' ? 'bg-[#8b0000] text-white border-[#8b0000]' : 'bg-white/40 text-[#8b0000] border-transparent'}`}
+               >
+                 کوردی
+               </button>
+             </div>
+          </div>
+       </div>
     </div>
   );
 }
@@ -1351,7 +1508,8 @@ function SearchingView({ user, gameType, onCancel }: { user: User, gameType: str
   );
 }
 
-function LobbyView({ user, profile, onStartSearch, onJoin, onLogout, onCreate, setActiveTab, onClaimDaily }: any) {
+function LobbyView({ user, profile, onStartSearch, onJoin, onLogout, onCreate, setActiveTab, onClaimDaily, language }: any) {
+  const t = translations[language];
   const [games, setGames] = useState<Game[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedGameForJoin, setSelectedGameForJoin] = useState<Game | null>(null);
@@ -1538,7 +1696,7 @@ function LobbyView({ user, profile, onStartSearch, onJoin, onLogout, onCreate, s
         </div>
       </div>
 
-      <TapBar activeTab="home" setActiveTab={setActiveTab} />
+      <TapBar activeTab="home" setActiveTab={setActiveTab} language={language} />
 
       {/* Create Room Modal */}
       <AnimatePresence>
