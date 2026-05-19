@@ -153,7 +153,7 @@ export default function App() {
   const [currentGame, setCurrentGame] = useState<Game | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [activeTab, setActiveTab] = useState<'home' | 'shop' | 'profile' | 'leaderboard' | 'settings'>('home');
-  const [searchGameType, setSearchGameType] = useState<'uno' | 'joker'>('uno');
+  const [searchGameType, setSearchGameType] = useState<'uno' | 'joker' | 'dama'>('uno');
   const [skinsMap, setSkinsMap] = useState<Record<string, CardSkin>>({});
   const [skins, setSkins] = useState<CardSkin[]>([]);
   const [language, setLanguage] = useState<Language>('en');
@@ -258,7 +258,7 @@ export default function App() {
     }
   };
 
-  const startSearching = async (gameType: 'uno' | 'joker' = 'uno') => {
+  const startSearching = async (gameType: 'uno' | 'joker' | 'dama' = 'uno') => {
     if (!user || !profile) return;
     if (profile.chips <= 0) {
       alert("You need chips to play!");
@@ -290,7 +290,7 @@ export default function App() {
     }, 3000);
   };
 
-  const createGame = async (roomName: string, password?: string, gameType: 'uno' | 'joker' = 'uno') => {
+  const createGame = async (roomName: string, password?: string, gameType: 'uno' | 'joker' | 'dama' = 'uno') => {
     if (!user || !profile) return;
     if (profile.chips <= 0) {
       alert("You need chips to play!");
@@ -353,6 +353,23 @@ export default function App() {
     const hand2 = deck.splice(0, 16);
     const firstPile = deck.splice(0, 1);
 
+    let board: (string | null)[] | undefined = undefined;
+    if (gameData.gameType === 'dama') {
+      board = Array(64).fill(null);
+      // Top player pieces
+      for (let r = 1; r < 3; r++) {
+        for (let c = 0; c < 8; c++) {
+          board[r * 8 + c] = player1Id;
+        }
+      }
+      // Bottom player pieces
+      for (let r = 5; r < 7; r++) {
+        for (let c = 0; c < 8; c++) {
+          board[r * 8 + c] = player2Id;
+        }
+      }
+    }
+
     try {
       await updateDoc(gameRef, {
         status: 'active',
@@ -364,6 +381,7 @@ export default function App() {
           [player2Id]: hand2
         },
         pile: firstPile,
+        board: board || null,
         scores: { [player1Id]: 0, [player2Id]: 0 },
         turn: Math.random() > 0.5 ? player1Id : player2Id
       });
@@ -1510,7 +1528,7 @@ function LobbyView({ user, profile, onStartSearch, onJoin, onLogout, onCreate, s
   const [joinPassword, setJoinPassword] = useState('');
   const [roomName, setRoomName] = useState('');
   const [password, setPassword] = useState('');
-  const [selectedType, setSelectedType] = useState<'uno' | 'joker'>('uno');
+  const [selectedType, setSelectedType] = useState<'uno' | 'joker' | 'dama'>('uno');
 
   useEffect(() => {
     const q = query(collection(db, 'games'), where('status', '==', 'waiting'), limit(10));
@@ -1588,41 +1606,58 @@ function LobbyView({ user, profile, onStartSearch, onJoin, onLogout, onCreate, s
             </motion.button>
           )}
 
-          <div className="flex flex-col lg:flex-row gap-10 items-center z-10 w-full max-w-5xl px-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 z-10 w-full max-w-6xl px-4">
             {/* Uno Selection */}
             <div className="flex-1 w-full text-center group cursor-pointer" onClick={() => onStartSearch('uno')}>
               <motion.div 
                 whileHover={{ y: -10, scale: 1.02 }}
-                className="w-full h-64 bg-gradient-to-br from-white/60 to-white/20 border-4 border-[#868378] rounded-[48px] flex flex-col items-center justify-center shadow-2xl relative overflow-hidden group-hover:border-[#8b0000] transition-colors"
+                className="w-full h-48 sm:h-64 bg-gradient-to-br from-white/60 to-white/20 border-4 border-[#868378] rounded-[48px] flex flex-col items-center justify-center shadow-2xl relative overflow-hidden group-hover:border-[#8b0000] transition-colors"
               >
                 <div className="absolute inset-0 bg-[#8b0000]/5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                <div className="text-7xl sm:text-8xl font-display font-black text-[#8b0000] italic pointer-events-none tracking-tighter">UNO</div>
-                <div className="text-[#8b0000]/60 font-bold uppercase tracking-[0.3em] text-xs mt-4">Ranked 1V1 Arena</div>
-                <div className="mt-4 flex gap-1">
-                  {[1, 2, 3, 4].map(i => <div key={i} className="w-2 h-2 rounded-full bg-[#8b0000]/20" />)}
-                </div>
-                <div className="absolute top-4 right-4 p-3 bg-[#8b0000] text-white rounded-full shadow-lg transform translate-x-12 group-hover:translate-x-0 transition-transform duration-300">
-                  <Play size={24} fill="currentColor" />
+                <div className="text-6xl sm:text-7xl font-display font-black text-[#8b0000] italic pointer-events-none tracking-tighter">UNO</div>
+                <div className="text-[#8b0000]/60 font-bold uppercase tracking-[0.3em] text-[10px] mt-2">Ranked 1V1 Arena</div>
+                <div className="absolute top-4 right-4 p-2 bg-[#8b0000] text-white rounded-full shadow-lg transform translate-x-12 group-hover:translate-x-0 transition-transform duration-300">
+                  <Play size={18} fill="currentColor" />
                 </div>
               </motion.div>
-              <p className="mt-6 text-[#8b0000] font-bold uppercase tracking-[0.2em] text-sm opacity-60 group-hover:opacity-100 transition-opacity">Enter Tournament</p>
+              <p className="mt-4 text-[#8b0000] font-bold uppercase tracking-[0.2em] text-xs opacity-60 group-hover:opacity-100 transition-opacity">Tournament</p>
             </div>
 
             {/* Joker Selection */}
             <div className="flex-1 w-full text-center group cursor-pointer" onClick={() => onStartSearch('joker')}>
               <motion.div 
                 whileHover={{ y: -10, scale: 1.02 }}
-                className="w-full h-64 bg-gradient-to-br from-white/60 to-white/20 border-4 border-yellow-500/50 rounded-[48px] flex flex-col items-center justify-center shadow-2xl relative overflow-hidden group-hover:border-yellow-500 transition-colors"
+                className="w-full h-48 sm:h-64 bg-gradient-to-br from-white/60 to-white/20 border-4 border-yellow-500/50 rounded-[48px] flex flex-col items-center justify-center shadow-2xl relative overflow-hidden group-hover:border-yellow-500 transition-colors"
               >
                 <div className="absolute inset-0 bg-yellow-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                <div className="text-8xl text-yellow-600 pointer-events-none drop-shadow-md">★</div>
-                <div className="text-yellow-600 font-display italic text-4xl uppercase tracking-tighter mt-2">JOKER</div>
-                <div className="text-yellow-600/60 font-bold uppercase tracking-[0.3em] text-[10px] mt-2">Classic High Stakes</div>
-                <div className="absolute top-4 right-4 p-3 bg-yellow-500 text-black rounded-full shadow-lg transform translate-x-12 group-hover:translate-x-0 transition-transform duration-300">
-                  <Play size={24} fill="currentColor" />
+                <div className="text-6xl sm:text-7xl text-yellow-600 pointer-events-none drop-shadow-md">★</div>
+                <div className="text-yellow-600 font-display italic text-3xl uppercase tracking-tighter mt-1">JOKER</div>
+                <div className="text-yellow-600/60 font-bold uppercase tracking-[0.3em] text-[10px] mt-1">High Stakes</div>
+                <div className="absolute top-4 right-4 p-2 bg-yellow-500 text-black rounded-full shadow-lg transform translate-x-12 group-hover:translate-x-0 transition-transform duration-300">
+                  <Play size={18} fill="currentColor" />
                 </div>
               </motion.div>
-              <p className="mt-6 text-yellow-600 font-bold uppercase tracking-[0.2em] text-sm opacity-60 group-hover:opacity-100 transition-opacity">Place Your Bets</p>
+              <p className="mt-4 text-yellow-600 font-bold uppercase tracking-[0.2em] text-xs opacity-60 group-hover:opacity-100 transition-opacity">Place Bets</p>
+            </div>
+
+            {/* Dama Selection */}
+            <div className="flex-1 w-full text-center group cursor-pointer" onClick={() => onStartSearch('dama')}>
+              <motion.div 
+                whileHover={{ y: -10, scale: 1.02 }}
+                className="w-full h-48 sm:h-64 bg-gradient-to-br from-[#4e342e]/80 to-[#3e2723]/60 border-4 border-[#795548]/50 rounded-[48px] flex flex-col items-center justify-center shadow-2xl relative overflow-hidden group-hover:border-[#ffcc00] transition-colors"
+              >
+                <div className="absolute inset-0 bg-[#ffcc00]/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                <div className="grid grid-cols-2 gap-1 mb-2 opacity-60">
+                   <div className="w-8 h-8 bg-[#ffcc00] rounded-full shadow-lg" />
+                   <div className="w-8 h-8 bg-black/60 rounded-full shadow-lg" />
+                </div>
+                <div className="text-[#ffcc00] font-display italic text-3xl uppercase tracking-tighter">DAMA</div>
+                <div className="text-[#ffcc00]/60 font-bold uppercase tracking-[0.3em] text-[10px] mt-2">Elite Checkers</div>
+                <div className="absolute top-4 right-4 p-2 bg-[#ffcc00] text-black rounded-full shadow-lg transform translate-x-12 group-hover:translate-x-0 transition-transform duration-300">
+                  <Play size={18} fill="currentColor" />
+                </div>
+              </motion.div>
+              <p className="mt-4 text-[#795548] font-bold uppercase tracking-[0.2em] text-xs opacity-60 group-hover:opacity-100 transition-opacity">Master Board</p>
             </div>
           </div>
 
@@ -1662,8 +1697,13 @@ function LobbyView({ user, profile, onStartSearch, onJoin, onLogout, onCreate, s
                     className="group flex justify-between items-center bg-white/60 p-6 rounded-[32px] border-2 border-[#868378]/20 backdrop-blur-md hover:border-[#8b0000] hover:bg-white/80 transition-all shadow-sm"
                  >
                     <div className="flex items-center gap-6">
-                      <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-inner ${g.gameType === 'uno' ? 'bg-[#8b0000]/10 text-[#8b0000]' : 'bg-yellow-500/10 text-yellow-600'}`}>
-                        {g.gameType === 'uno' ? <div className="text-xl font-display font-black italic">U</div> : <div className="text-xl">★</div>}
+                      <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-inner 
+                        ${g.gameType === 'uno' ? 'bg-[#8b0000]/10 text-[#8b0000]' : 
+                          g.gameType === 'joker' ? 'bg-yellow-500/10 text-yellow-600' :
+                          'bg-[#795548]/10 text-[#795548]'}`}>
+                        {g.gameType === 'uno' ? <div className="text-xl font-display font-black italic">U</div> : 
+                         g.gameType === 'joker' ? <div className="text-xl">★</div> :
+                         <LayoutGrid size={24} />}
                       </div>
                       <div className="flex flex-col">
                         <div className="flex items-center gap-3">
@@ -1726,6 +1766,12 @@ function LobbyView({ user, profile, onStartSearch, onJoin, onLogout, onCreate, s
                       className={`flex-1 py-5 rounded-[24px] font-display font-black italic transition-all border-4 ${selectedType === 'joker' ? 'bg-yellow-500 text-black border-yellow-500 shadow-xl' : 'bg-white/40 text-[#8b0000] border-transparent hover:bg-white/60'}`}
                     >
                       JOKER
+                    </button>
+                    <button 
+                      onClick={() => setSelectedType('dama')}
+                      className={`flex-1 py-5 rounded-[24px] font-display font-black italic transition-all border-4 ${selectedType === 'dama' ? 'bg-[#795548] text-white border-[#795548]' : 'bg-white/40 text-[#8b0000] border-transparent hover:bg-white/60'}`}
+                    >
+                      DAMA
                     </button>
                   </div>
                 </div>
@@ -1974,10 +2020,42 @@ function GameView({ user, game, onLeave, profile, skinsMap }: { user: User, game
       if (card.suit === 'special') return true;
       if (top.suit === 'special') return true;
       return card.suit === top.suit || card.rank === top.rank;
-    } else {
+    } else if (game.gameType === 'joker') {
       if (card.suit === 'joker') return true;
       if (top.suit === 'joker') return true;
       return card.suit === top.suit || card.rank === top.rank;
+    }
+    return false;
+  };
+
+  const handleDamaMove = async (fromR: number, fromC: number, toR: number, toC: number) => {
+    if (!isMyTurn || game.status !== 'active') return;
+    if (!game.board) return;
+
+    const newBoard = [...game.board];
+    const piece = newBoard[fromR * 8 + fromC];
+    
+    if (piece !== user.uid) return;
+    if (newBoard[toR * 8 + toC] !== null) return;
+
+    // Basic Dama move: 1 step horizontal or vertical (no diagonals in Turkish Dama unless king)
+    const dr = Math.abs(toR - fromR);
+    const dc = Math.abs(toC - fromC);
+    
+    if ((dr === 1 && dc === 0) || (dr === 0 && dc === 1)) {
+        // Move piece
+        newBoard[toR * 8 + toC] = piece;
+        newBoard[fromR * 8 + fromC] = null;
+        
+        try {
+          await updateDoc(doc(db, 'games', game.id), {
+            board: newBoard,
+            turn: opponentId,
+            lastMoveAt: Date.now()
+          });
+        } catch (e) {
+          handleFirestoreError(e, OperationType.UPDATE, `games/${game.id}`);
+        }
     }
   };
 
@@ -1997,7 +2075,7 @@ function GameView({ user, game, onLeave, profile, skinsMap }: { user: User, game
   };
 
   return (
-    <div className="fixed inset-0 bg-[#232323] overflow-hidden flex flex-col font-sans select-none touch-none">
+    <div className={`fixed inset-0 overflow-hidden flex flex-col font-sans select-none touch-none ${game.gameType === 'dama' ? 'bg-[#1a1a1a]' : game.gameType === 'joker' ? 'bg-[#1a1a1a]' : 'bg-[#232323]'}`}>
       {/* Header */}
       <div className="absolute top-0 w-full h-14 border-b border-white/5 flex items-center justify-between px-4 z-[110]">
         <div className="flex items-center gap-4">
@@ -2009,7 +2087,9 @@ function GameView({ user, game, onLeave, profile, skinsMap }: { user: User, game
            </button>
            <button className="text-white/60 hover:text-white"><RefreshCcw size={18} /></button>
         </div>
-        <div className="text-white font-black tracking-[0.2em] italic uppercase text-sm">OONO</div>
+        <div className="text-white font-black tracking-[0.2em] italic uppercase text-sm">
+           {game.gameType === 'uno' ? 'OONO' : game.gameType === 'joker' ? 'JOKER' : 'DAMA'}
+        </div>
         <div className="flex items-center gap-3">
            <div className="flex items-center gap-1 text-[10px] text-zinc-400 font-bold">
               <Eye size={12} /> 2
@@ -2020,109 +2100,85 @@ function GameView({ user, game, onLeave, profile, skinsMap }: { user: User, game
       </div>
 
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-         {/* Circular Game Field Background */}
-         <div className="relative w-80 h-80 rounded-full bg-[#1a1a1a] shadow-[inset_0_0_50px_rgba(0,0,0,0.8)] border border-white/5 flex items-center justify-center">
-            {/* Spinning Golden Arrows from OONO screenshot */}
-            <div className="absolute inset-4 rounded-full border-4 border-transparent border-t-yellow-500/20 border-r-yellow-500/20 rotate-45" />
-            <motion.div 
-               animate={{ rotate: 360 }}
-               transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-               className="absolute inset-[30px] rounded-full"
-            >
-               <div className="absolute top-0 left-1/2 -translate-x-1/2 w-4 h-4 text-yellow-500/40">▲</div>
-               <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-4 h-4 text-yellow-500/40 rotate-180">▲</div>
-            </motion.div>
-
-            {/* Center Card */}
-            <div className="relative z-10 w-28 h-40">
-               <AnimatePresence>
-                 {game.pile.length > 0 && (
-                   <CardComponent 
-                     key={topCard.id} 
-                     card={topCard} 
-                     index={game.pile.length - 1} 
-                     isPile 
-                   />
-                 )}
-               </AnimatePresence>
-            </div>
-
-            {/* Opponent Avatar in Circle */}
-            <div className="absolute -top-10 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center">
-               <div className="relative w-20 h-20 rounded-full border-[3px] border-zinc-700 overflow-hidden shadow-2xl">
-                  <img src={opponentProfile?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${opponentId}`} alt="" className="w-full h-full object-cover" />
-                  <div className="absolute inset-0 bg-black/20" />
-               </div>
-               <div className="mt-1 px-3 py-0.5 bg-black/60 rounded-full border border-white/10 text-[9px] font-bold text-white uppercase">{game.playerNames[opponentId || ''] || 'RIVAL'}</div>
-            </div>
-         </div>
-
-         {/* Draw Pile (Red deck in screenshot) */}
-         <div className="absolute bottom-40 left-10">
-            <button onClick={drawCard} className="relative group">
-               <div className="absolute -inset-1 bg-red-600/20 rounded-xl blur-lg transition-all group-hover:bg-red-600/40" />
-               <div className="w-16 h-22 bg-[#8b0000] rounded-xl border-2 border-white/20 shadow-xl flex items-center justify-center relative overflow-hidden">
-                  <div className="text-white/20 text-xs font-black rotate-45">OONO</div>
-                  <div className="absolute bottom-1 right-1 px-1 bg-black/40 rounded text-[8px] font-bold text-white">{game.deck.length}</div>
-               </div>
-            </button>
-         </div>
-
-         {/* Oono Challenge Button (Orange) */}
-         <div className="absolute bottom-40 right-10">
-            <button className="px-4 py-2 bg-gradient-to-b from-orange-400 to-orange-600 rounded-lg shadow-xl text-white font-black text-[10px] uppercase tracking-wider border border-white/20">Oono challenge</button>
-         </div>
+         {game.gameType === 'dama' ? (
+           <DamaBoard game={game} user={user} onMove={handleDamaMove} opponentProfile={opponentProfile} opponentId={opponentId!} />
+         ) : game.gameType === 'joker' ? (
+           <JokerField game={game} user={user} drawCard={drawCard} topCard={topCard} opponentProfile={opponentProfile} opponentId={opponentId!} />
+         ) : (
+           <UnoField game={game} user={user} drawCard={drawCard} topCard={topCard} opponentProfile={opponentProfile} opponentId={opponentId!} />
+         )}
       </div>
 
       {/* Footer / Hand Area */}
-      <div className="absolute bottom-0 w-full h-44 bg-[#0d0d0d] border-t border-white/5 z-[120]">
-         <div className="flex h-full items-center px-6">
-            <div className="flex flex-col items-center gap-1 -translate-y-4">
-               <div className="relative w-16 h-16 rounded-full border-[3px] border-yellow-500 overflow-hidden shadow-2xl p-1 bg-[#1a1a1a]">
-                  <img src={user.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.uid}`} alt="" className="w-full h-full rounded-full" />
-                  <div className="absolute bottom-0 left-0 right-0 h-1/2 bg-gradient-to-t from-black/80 to-transparent flex items-end justify-center pb-0.5">
-                     <span className="text-[8px] font-black uppercase text-white truncate px-1">{user.displayName?.split(' ')[0]}</span>
-                  </div>
-               </div>
-               <div className="flex gap-2 mt-2">
-                  <button className="text-zinc-500"><MessageSquare size={20} /></button>
-                  <button className="text-zinc-500"><Gift size={20} /></button>
-               </div>
-            </div>
+      {game.gameType !== 'dama' && (
+        <div className="absolute bottom-0 w-full h-44 bg-[#0d0d0d] border-t border-white/5 z-[120]">
+           <div className="flex h-full items-center px-6">
+              <div className="flex flex-col items-center gap-1 -translate-y-4">
+                 <div className="relative w-16 h-16 rounded-full border-[3px] border-yellow-500 overflow-hidden shadow-2xl p-1 bg-[#1a1a1a]">
+                    <img src={user.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.uid}`} alt="" className="w-full h-full rounded-full" />
+                    <div className="absolute bottom-0 left-0 right-0 h-1/2 bg-gradient-to-t from-black/80 to-transparent flex items-end justify-center pb-0.5">
+                       <span className="text-[8px] font-black uppercase text-white truncate px-1">{user.displayName?.split(' ')[0]}</span>
+                    </div>
+                 </div>
+                 <div className="flex gap-2 mt-2">
+                    <button className="text-zinc-500"><MessageSquare size={20} /></button>
+                    <button className="text-zinc-500"><Gift size={20} /></button>
+                 </div>
+              </div>
 
-            <div className="flex-1 relative h-32 ml-4">
-               <AnimatePresence>
-                  {myHand.map((card, i) => {
-                     const layout = getHandLayout(i, myHand.length);
-                     return (
-                        <motion.div
-                           key={card.id}
-                           drag={isMyTurn && canPlay(card, topCard)}
-                           dragElastic={0.1}
-                           dragConstraints={{ top: -400, bottom: 50, left: -200, right: 200 }}
-                           onDragEnd={(e, info) => onDragEnd(e, info, i)}
-                           initial={{ y: 100, opacity: 0 }}
-                           animate={{ x: layout.x, y: layout.y, rotate: layout.rotate, opacity: 1 }}
-                           whileHover={{ y: layout.y - 40, scale: 1.1, zIndex: 100 }}
-                           className="absolute left-1/2 top-4 -translate-x-1/2"
-                        >
-                           <CardComponent card={card} index={i} skinUrl={mySkin} />
-                        </motion.div>
-                     );
-                  })}
-               </AnimatePresence>
-            </div>
+              <div className="flex-1 relative h-32 ml-4">
+                 <AnimatePresence mode="popLayout">
+                    {myHand.map((card, i) => {
+                       const layout = getHandLayout(i, myHand.length);
+                       return (
+                          <motion.div
+                             key={card.id}
+                             drag={isMyTurn && canPlay(card, topCard)}
+                             dragElastic={0.1}
+                             dragConstraints={{ top: -400, bottom: 50, left: -200, right: 200 }}
+                             onDragEnd={(e, info) => onDragEnd(e, info, i)}
+                             initial={{ y: 100, opacity: 0 }}
+                             animate={{ x: layout.x, y: layout.y, rotate: layout.rotate, opacity: 1 }}
+                             whileHover={{ y: layout.y - 40, scale: 1.1, zIndex: 100 }}
+                             className="absolute left-1/2 top-4 -translate-x-1/2"
+                          >
+                             <CardComponent card={card} index={i} skinUrl={mySkin} />
+                          </motion.div>
+                       );
+                    })}
+                 </AnimatePresence>
+              </div>
 
-            <div className="mb-8">
-               <motion.button 
-                 whileTap={{ scale: 0.9 }}
-                 className="px-10 py-5 bg-gradient-to-b from-yellow-400 to-yellow-600 rounded-xl shadow-2xl text-white font-black italic tracking-widest text-lg border-2 border-white/10"
-               >
-                  Oono
-               </motion.button>
-            </div>
-         </div>
-      </div>
+              <div className="flex flex-col items-center gap-2 mb-8">
+                 {game.gameType === 'joker' && (
+                    <div className="flex bg-black/40 rounded-lg overflow-hidden border border-white/10 mb-2">
+                       <div className="px-6 py-2 border-r border-white/10 text-white/40 text-[10px] font-black uppercase tracking-widest">Sum</div>
+                       <div className="px-6 py-2 text-white font-black text-xs tracking-widest">0/51</div>
+                    </div>
+                 )}
+                 <motion.button 
+                   whileTap={{ scale: 0.9 }}
+                   className={`px-10 py-5 rounded-xl shadow-2xl text-white font-black italic tracking-widest text-lg border-2 border-white/10 ${game.gameType === 'joker' ? 'bg-[#8b0000] drop-shadow-[0_0_15px_rgba(139,0,0,0.5)]' : 'bg-gradient-to-b from-yellow-400 to-yellow-600'}`}
+                 >
+                    {game.gameType === 'uno' ? 'Oono' : 'Drop a meld'}
+                 </motion.button>
+              </div>
+           </div>
+        </div>
+      )}
+
+      {game.gameType === 'dama' && (
+        <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-[120]">
+           <div className="flex flex-col items-center gap-1">
+                 <div className="relative w-16 h-16 rounded-full border-[3px] border-yellow-500 overflow-hidden shadow-2xl p-1 bg-[#1a1a1a]">
+                    <img src={user.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.uid}`} alt="" className="w-full h-full rounded-full" />
+                 </div>
+                 <div className="mt-1 px-3 py-1 bg-yellow-500 text-black rounded-full font-black text-[10px] uppercase shadow-lg">
+                    {user.displayName}
+                 </div>
+           </div>
+        </div>
+      )}
 
 
       {/* More Options Menu Overlay */}
@@ -2220,6 +2276,173 @@ function TriangleDownIcon({ size = 24 }: { size?: number }) {
     <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
       <path d="M12 21L2 5H22L12 21Z" />
     </svg>
+  );
+}
+
+function UnoField({ game, user, drawCard, topCard, opponentProfile, opponentId }: any) {
+  return (
+    <div className="relative w-80 h-80 rounded-full bg-[#1a1a1a] shadow-[inset_0_0_50px_rgba(0,0,0,0.8)] border border-white/5 flex items-center justify-center">
+        {/* Spinning Golden Arrows */}
+        <div className="absolute inset-4 rounded-full border-4 border-transparent border-t-yellow-500/20 border-r-yellow-500/20 rotate-45" />
+        <motion.div 
+           animate={{ rotate: 360 }}
+           transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+           className="absolute inset-[30px] rounded-full"
+        >
+           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-4 h-4 text-yellow-500/40">▲</div>
+           <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-4 h-4 text-yellow-500/40 rotate-180">▲</div>
+        </motion.div>
+
+        {/* Center Card */}
+        <div className="relative z-10 w-28 h-40">
+           <AnimatePresence mode="popLayout">
+             {game.pile.length > 0 && (
+               <CardComponent 
+                 key={topCard.id} 
+                 card={topCard} 
+                 index={game.pile.length - 1} 
+                 isPile 
+               />
+             )}
+           </AnimatePresence>
+        </div>
+
+        {/* Opponent Avatar in Circle */}
+        <div className="absolute -top-10 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center">
+           <div className="relative w-20 h-20 rounded-full border-[3px] border-zinc-700 overflow-hidden shadow-2xl">
+              <img src={opponentProfile?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${opponentId}`} alt="" className="w-full h-full object-cover" />
+              <div className="absolute inset-0 bg-black/20" />
+           </div>
+           <div className="mt-1 px-3 py-0.5 bg-black/60 rounded-full border border-white/10 text-[9px] font-bold text-white uppercase">{game.playerNames[opponentId || ''] || 'RIVAL'}</div>
+        </div>
+
+        {/* Draw Pile */}
+        <div className="absolute -left-16 bottom-10">
+           <button onClick={drawCard} className="relative group">
+              <div className="absolute -inset-1 bg-red-600/20 rounded-xl blur-lg transition-all group-hover:bg-red-600/40" />
+              <div className="w-14 h-20 bg-[#8b0000] rounded-xl border-2 border-white/20 shadow-xl flex items-center justify-center relative overflow-hidden">
+                 <div className="text-white/20 text-[8px] font-black rotate-45">OONO</div>
+                 <div className="absolute bottom-1 right-1 px-1 bg-black/40 rounded text-[6px] font-bold text-white">{game.deck.length}</div>
+              </div>
+           </button>
+        </div>
+
+        {/* Oono Challenge */}
+        <div className="absolute -right-16 bottom-10">
+           <button className="px-3 py-1.5 bg-gradient-to-b from-orange-400 to-orange-600 rounded-lg shadow-xl text-white font-black text-[8px] uppercase tracking-wider border border-white/20">Oono challenge</button>
+        </div>
+    </div>
+  );
+}
+
+function JokerField({ game, user, drawCard, topCard, opponentProfile, opponentId }: any) {
+  return (
+    <div className="relative w-full h-[60vh] flex flex-col items-center justify-center bg-transparent">
+        {/* Green Felt Table */}
+        <div className="relative w-[90%] max-w-sm h-full rounded-[60px] bg-gradient-to-b from-[#2e7d32] to-[#1b5e20] shadow-[0_20px_50px_rgba(0,0,0,0.5),inset_0_0_100px_rgba(0,0,0,0.5)] border-[6px] border-[#3e2723] overflow-hidden flex flex-col items-center py-10">
+            {/* Table Details */}
+            <div className="absolute inset-4 rounded-[40px] border-2 border-white/10" />
+            
+            {/* Round info */}
+            <div className="z-10 px-4 py-1.5 bg-black/40 rounded-full border border-white/10 text-[10px] font-black text-white/60 tracking-widest uppercase mb-10">
+               Round: 1/5
+            </div>
+
+            {/* Center Pile */}
+            <div className="flex-1 flex items-center justify-center gap-2">
+                 <div className="w-20 h-28 bg-[#8b0000] rounded-xl border-2 border-white/20 shadow-xl relative overflow-hidden rotate-[-5deg]">
+                    <div className="absolute inset-0 flex items-center justify-center opacity-10">★</div>
+                 </div>
+                 {topCard && (
+                    <div className="w-20 h-28 rotate-[5deg] scale-105">
+                       <CardComponent card={topCard} isPile />
+                    </div>
+                 )}
+            </div>
+
+            {/* Icons to guide drop */}
+            <div className="flex gap-4 mt-6 opacity-30 text-white">
+               <ChevronUp size={24} className="animate-bounce" />
+               <ChevronUp size={24} className="animate-bounce delay-100" />
+            </div>
+
+            {/* Opponent at top of table */}
+            <div className="absolute -top-6 flex flex-col items-center gap-1">
+               <div className="relative w-20 h-20 rounded-full border-4 border-yellow-600 overflow-hidden shadow-2xl bg-[#1a1a1a] p-1">
+                  <img src={opponentProfile?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${opponentId}`} alt="" className="w-full h-full rounded-full" />
+               </div>
+               <div className="px-5 py-1 bg-yellow-600 text-black rounded-full font-black text-[10px] uppercase shadow-lg">
+                  {game.playerNames[opponentId] || 'RIVAL'}
+               </div>
+            </div>
+        </div>
+    </div>
+  );
+}
+
+function DamaBoard({ game, user, onMove, opponentProfile, opponentId }: any) {
+  const [selected, setSelected] = useState<[number, number] | null>(null);
+  const board = game.board || Array(64).fill(null);
+
+  const handleCellClick = (r: number, c: number) => {
+    if (selected) {
+      onMove(selected[0], selected[1], r, c);
+      setSelected(null);
+    } else {
+      if (board[r * 8 + c] === user.uid) {
+        setSelected([r, c]);
+      }
+    }
+  };
+
+  return (
+    <div className="flex flex-col items-center gap-10">
+       {/* Opponent Area */}
+       <div className="flex flex-col items-center gap-2">
+           <div className="relative w-20 h-20 rounded-full border-4 border-zinc-700 overflow-hidden shadow-22 bg-[#1a1a1a]">
+               <img src={opponentProfile?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${opponentId}`} alt="" className="w-full h-full object-cover" />
+           </div>
+           <div className="px-4 py-1 bg-black/60 border border-white/10 text-white rounded-full font-bold text-xs uppercase">
+               {game.playerNames[opponentId]}
+           </div>
+       </div>
+
+       {/* Dama Table */}
+       <div className="p-4 bg-[#3e2723] rounded-2xl shadow-2xl border-4 border-[#2b1b17]">
+          <div className="grid grid-cols-8 gap-1 bg-[#2b1b17] p-1 border-2 border-black/40">
+             {Array.from({ length: 8 }).map((_, r) => 
+               Array.from({ length: 8 }).map((_, c) => {
+                 const cell = board[r * 8 + c];
+                 const isSelected = selected?.[0] === r && selected?.[1] === c;
+                 
+                 return (
+                   <div 
+                     key={`${r}-${c}`}
+                     onClick={() => handleCellClick(r, c)}
+                     className={`w-10 h-10 flex items-center justify-center transition-all cursor-pointer
+                       ${(r + c) % 2 === 0 ? 'bg-[#d7ccc8]' : 'bg-[#5d4037]'}
+                       ${isSelected ? 'ring-4 ring-yellow-400 z-10 scale-110' : ''}
+                       hover:brightness-110
+                     `}
+                   >
+                     {cell && (
+                       <motion.div 
+                         initial={{ scale: 0.8, opacity: 0 }}
+                         animate={{ scale: 1, opacity: 1 }}
+                         className={`w-8 h-8 rounded-full shadow-lg flex items-center justify-center border-2 
+                           ${cell === opponentId ? 'bg-black/80 border-black/20' : 'bg-[#ffcc00] border-[#e6b800]'}
+                         `}
+                       >
+                          <div className={`w-6 h-6 rounded-full border border-white/10 ${cell === opponentId ? 'bg-zinc-800' : 'bg-yellow-600'}`} />
+                       </motion.div>
+                     )}
+                   </div>
+                 );
+               })
+             )}
+          </div>
+       </div>
+    </div>
   );
 }
 

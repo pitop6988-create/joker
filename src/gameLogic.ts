@@ -1,7 +1,9 @@
 import { Card, Suit, Rank } from './types';
 
-export const createDeck = (gameType: 'uno' | 'joker' = 'uno'): Card[] => {
+export const createDeck = (gameType: 'uno' | 'joker' | 'dama' = 'uno'): Card[] => {
   const deck: Card[] = [];
+
+  if (gameType === 'dama') return []; // No cards for Dama
 
   if (gameType === 'uno') {
     const colors: Suit[] = ['red', 'yellow', 'green', 'blue'];
