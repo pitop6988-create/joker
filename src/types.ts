@@ -15,6 +15,7 @@ export interface UserProfile {
   xp: number;
   ownedSkins?: string[];
   activeSkinId?: string;
+  clubId?: string | null;
 }
 
 export type Suit = 'hearts' | 'diamonds' | 'clubs' | 'spades' | 'joker' | 'red' | 'yellow' | 'green' | 'blue' | 'special';
@@ -28,6 +29,29 @@ export interface Card {
 }
 
 export type GameStatus = 'waiting' | 'active' | 'finished';
+
+export interface ClubMessage {
+  id: string;
+  userId: string;
+  userName: string;
+  userPhoto?: string;
+  text: string;
+  createdAt: number;
+}
+
+export interface Club {
+  id: string;
+  name: string;
+  description: string;
+  logo: string;
+  ownerId: string;
+  members: string[]; // List of user UIDs
+  password?: string;
+  isPrivate: boolean;
+  maxMembers: number; // 1-30
+  chipsPool: number;
+  createdAt: number;
+}
 
 export interface Game {
   id: string;

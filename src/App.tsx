@@ -3,8 +3,8 @@ import { onAuthStateChanged, User } from 'firebase/auth';
 import { doc, getDoc, getDocs, setDoc, onSnapshot, collection, query, where, limit, addDoc, updateDoc, deleteDoc, orderBy } from 'firebase/firestore';
 import { auth, db, signIn, signOut, signInEmail, signUpEmail } from './lib/firebase';
 import { motion, AnimatePresence } from 'motion/react';
-import { LogIn, LogOut, Play, Trophy, Users, RefreshCcw, Hand, Plus, Lock, MoreVertical, Coins, ShoppingBag, X, Mail, Key, User as UserIcon, Menu, Settings, MessageSquare, Gift, MoreHorizontal, ChevronUp, Edit, Camera, Save, Check, Image as ImageIcon, Crown, ShieldCheck, Star, Eye, LayoutGrid } from 'lucide-react';
-import { Game, GameStatus, Card, UserProfile, CardSkin } from './types';
+import { LogIn, LogOut, Play, Trophy, Users, RefreshCcw, Hand, Plus, Lock, MoreVertical, Coins, ShoppingBag, X, Mail, Key, User as UserIcon, Menu, Settings, MessageSquare, Gift, MoreHorizontal, ChevronUp, Edit, Camera, Save, Check, Image as ImageIcon, Crown, ShieldCheck, Star, Eye, LayoutGrid, ArrowLeft } from 'lucide-react';
+import { Game, GameStatus, Card, UserProfile, CardSkin, Club, ClubMessage } from './types';
 import { createDeck, shuffle } from './gameLogic';
 import confetti from 'canvas-confetti';
 
@@ -145,6 +145,7 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
   throw new Error(JSON.stringify(errInfo));
 }
 
+
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -152,11 +153,14 @@ export default function App() {
   const [activeGameId, setActiveGameId] = useState<string | null>(null);
   const [currentGame, setCurrentGame] = useState<Game | null>(null);
   const [isSearching, setIsSearching] = useState(false);
-  const [activeTab, setActiveTab] = useState<'home' | 'shop' | 'profile' | 'leaderboard' | 'settings'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'shop' | 'profile' | 'leaderboard' | 'settings' | 'clubs'>('home');
   const [searchGameType, setSearchGameType] = useState<'uno' | 'joker' | 'dama'>('uno');
   const [skinsMap, setSkinsMap] = useState<Record<string, CardSkin>>({});
   const [skins, setSkins] = useState<CardSkin[]>([]);
   const [language, setLanguage] = useState<Language>('en');
+  const [activeClubId, setActiveClubId] = useState<string | null>(null);
+  const [currentClub, setCurrentClub] = useState<Club | null>(null);
+  const [showProfileEditor, setShowProfileEditor] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(db, 'cardSkins'), (snapshot) => {
@@ -244,6 +248,142 @@ export default function App() {
     });
     return unsubscribe;
   }, [activeGameId]);
+
+  useEffect(() => {
+    if (!profile?.clubId || !user) {
+      setCurrentClub(null);
+      return;
+    }
+    const userId = user.uid;
+    const unsubscribe = onSnapshot(doc(db, 'clubs', profile.clubId), (snapshot) => {
+      if (snapshot.exists()) {
+        setCurrentClub({ id: snapshot.id, ...snapshot.data() } as Club);
+      } else {
+        // If club was deleted, clear user's clubId
+        const userRef = doc(db, 'users', userId);
+        updateDoc(userRef, { clubId: null }).catch(e => {
+          handleFirestoreError(e, OperationType.UPDATE, `users/${userId}`);
+        });
+      }
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, `clubs/${profile.clubId}`);
+    });
+    return unsubscribe;
+  }, [profile?.clubId, user]);
+
+  const handleCreateClub = async (data: any) => {
+    if (!user || !profile) return;
+    if (profile.chips < 30000) {
+      alert("Insufficient chips! Creation costs 30,000.");
+      return;
+    }
+
+    try {
+      const clubRef = await addDoc(collection(db, 'clubs'), {
+        ...data,
+        ownerId: user.uid,
+        members: [user.uid],
+        chipsPool: 0,
+        createdAt: Date.now()
+      });
+
+      await updateDoc(doc(db, 'users', user.uid), {
+        clubId: clubRef.id,
+        chips: profile.chips - 30000
+      });
+
+      alert("Club founded successfully!");
+    } catch (e) {
+      handleFirestoreError(e, OperationType.CREATE, 'clubs');
+    }
+  };
+
+  const handleJoinClub = async (clubId: string) => {
+    if (!user || !profile) return;
+    if (profile.clubId) {
+       alert("You are already in a club! Leave your current one first.");
+       return;
+    }
+
+    const clubRef = doc(db, 'clubs', clubId);
+    const clubSnap = await getDoc(clubRef);
+    if (!clubSnap.exists()) return;
+    const clubData = clubSnap.data() as Club;
+
+    if (clubData.members.length >= (clubData.maxMembers || 30)) {
+       alert("Club is full!");
+       return;
+    }
+
+    if (clubData.isPrivate) {
+       const pass = prompt("Enter Entry Code:");
+       if (pass !== clubData.password) {
+          alert("Incorrect code!");
+          return;
+       }
+    }
+
+    try {
+       await updateDoc(clubRef, {
+          members: [...clubData.members, user.uid]
+       });
+       await updateDoc(doc(db, 'users', user.uid), {
+          clubId: clubId
+       });
+    } catch (e) {
+       handleFirestoreError(e, OperationType.UPDATE, `clubs/${clubId}`);
+    }
+  };
+
+  const handleLeaveClub = async () => {
+    if (!user || !profile || !profile.clubId || !currentClub) return;
+    
+    if (confirm("Are you sure you want to leave this syndicate?")) {
+       try {
+          const members = currentClub.members.filter(m => m !== user.uid);
+          if (members.length === 0) {
+             // Delete club if last member
+             await deleteDoc(doc(db, 'clubs', profile.clubId));
+          } else {
+             await updateDoc(doc(db, 'clubs', profile.clubId), {
+                members,
+                ownerId: currentClub.ownerId === user.uid ? members[0] : currentClub.ownerId
+             });
+          }
+          await updateDoc(doc(db, 'users', user.uid), {
+             clubId: null
+          });
+          setActiveTab('home');
+       } catch (e) {
+          handleFirestoreError(e, OperationType.UPDATE, `clubs/${profile.clubId}`);
+       }
+    }
+  };
+
+  const handlePostClubMessage = async (text: string) => {
+    if (!user || !profile || !profile.clubId) return;
+    try {
+       await addDoc(collection(db, `clubs/${profile.clubId}/messages`), {
+          userId: user.uid,
+          userName: profile.displayName,
+          userPhoto: profile.photoURL,
+          text,
+          createdAt: Date.now()
+       });
+    } catch (e) {
+       handleFirestoreError(e, OperationType.CREATE, `clubs/${profile.clubId}/messages`);
+    }
+  };
+
+  const handleSaveProfile = async (data: Partial<UserProfile>) => {
+    if (!user) return;
+    try {
+       await updateDoc(doc(db, 'users', user.uid), data);
+       setShowProfileEditor(false);
+    } catch (e) {
+       handleFirestoreError(e, OperationType.UPDATE, `users/${user.uid}`);
+    }
+  };
 
   const claimDailyReward = async () => {
     if (!user || !profile) return;
@@ -350,11 +490,12 @@ export default function App() {
     
     // Configurable card count: 9 for Uno, 16 for Joker (Real Card Game feel)
     const cardCount = gameData.gameType === 'uno' ? 9 : 16;
-    const hand1 = deck.splice(0, cardCount);
-    const hand2 = deck.splice(0, cardCount);
+    let hand1 = deck.splice(0, cardCount);
+    let hand2 = deck.splice(0, cardCount);
     const firstPile = deck.splice(0, 1);
 
     let board: (string | null)[] | undefined = undefined;
+
     if (gameData.gameType === 'dama') {
       board = Array(64).fill(null);
       // Top player pieces
@@ -479,8 +620,27 @@ export default function App() {
     return <LeaderboardView profile={profile!} setActiveTab={setActiveTab} language={language} />;
   }
 
+  if (activeTab === 'clubs') {
+    if (profile?.clubId && currentClub) {
+      return <ClubDetailView club={currentClub} user={user} profile={profile} onLeave={handleLeaveClub} onPostMessage={handlePostClubMessage} onBack={() => setActiveTab('home')} />;
+    }
+    return <ClubsView user={user} profile={profile!} onJoinClub={handleJoinClub} onCreateClub={handleCreateClub} onBack={() => setActiveTab('home')} />;
+  }
+
   if (activeTab === 'profile') {
-    return <ProfileView user={user} profile={profile!} onBack={() => setActiveTab('home')} onLogout={signOut} setActiveTab={setActiveTab} language={language} onOpenSettings={() => setActiveTab('settings')} />;
+    return (
+      <>
+        <ProfileView user={user} profile={profile!} onBack={() => setActiveTab('home')} onLogout={signOut} setActiveTab={setActiveTab} language={language} onOpenSettings={() => setActiveTab('settings')} onEditProfile={() => setShowProfileEditor(true)} />
+        {showProfileEditor && (
+          <ProfileEditor 
+            profile={profile!} 
+            user={user} 
+            onSave={handleSaveProfile} 
+            onCancel={() => setShowProfileEditor(false)} 
+          />
+        )}
+      </>
+    );
   }
 
   if (activeTab === 'settings') {
@@ -1122,15 +1282,10 @@ function CardBack({ skinUrl, className = "", style = {} }: { skinUrl?: string, c
   );
 }
 
-function ProfileView({ user, profile, onBack, onLogout, setActiveTab, language, onOpenSettings }: { user: User, profile: UserProfile, onBack: () => void, onLogout: () => void, setActiveTab: (tab: any) => void, language: Language, onOpenSettings: () => void }) {
+function ProfileView({ user, profile, onBack, onLogout, setActiveTab, language, onOpenSettings, onEditProfile }: { user: User, profile: UserProfile, onBack: () => void, onLogout: () => void, setActiveTab: (tab: any) => void, language: Language, onOpenSettings: () => void, onEditProfile: () => void }) {
   const t = translations[language];
-  const [isEditing, setIsEditing] = useState(false);
-  const [newName, setNewName] = useState(profile.displayName);
-  const [newPhoto, setNewPhoto] = useState(profile.photoURL);
-  const [saving, setSaving] = useState(false);
   const [showAvatars, setShowAvatars] = useState(false);
   const [skins, setSkins] = useState<CardSkin[]>([]);
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const fetchSkins = async () => {
@@ -1144,49 +1299,6 @@ function ProfileView({ user, profile, onBack, onLogout, setActiveTab, language, 
   const PRESET_AVATARS = [
     'Felix', 'Aneka', 'Jasper', 'Tigger', 'Bella', 'Snuggles', 'Midnight', 'Shadow', 'Ace', 'Lucky'
   ].map(seed => `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}`);
-
-  const handleSave = async () => {
-    if (!newName.trim()) return;
-    setSaving(true);
-    try {
-      const userRef = doc(db, 'users', user.uid);
-      await updateDoc(userRef, {
-        displayName: newName,
-        photoURL: newPhoto
-      });
-      setIsEditing(false);
-    } catch (e) {
-      handleFirestoreError(e, OperationType.UPDATE, `users/${user.uid}`);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleSelectSkinMarker = async (skinId: string) => {
-    try {
-      const userRef = doc(db, 'users', user.uid);
-      await updateDoc(userRef, {
-        activeSkinId: skinId === profile.activeSkinId ? null : skinId
-      });
-    } catch (e) {
-      handleFirestoreError(e, OperationType.UPDATE, `users/${user.uid}`);
-    }
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        if (reader.result && (reader.result as string).length < 800000) {
-          setNewPhoto(reader.result as string);
-        } else {
-          alert("Image too large! Please choose a smaller file (< 500kb)");
-        }
-      };
-      reader.readAsDataURL(file);
-    }
-  };
 
   const ownedSkinsData = skins.filter(s => profile.ownedSkins?.includes(s.id));
 
@@ -1210,37 +1322,14 @@ function ProfileView({ user, profile, onBack, onLogout, setActiveTab, language, 
                  className="w-full h-full rounded-full object-cover" 
                />
             </div>
-            {isEditing && (
-              <button 
-                onClick={() => setShowAvatars(!showAvatars)}
-                className="absolute bottom-2 right-2 w-10 h-10 bg-zinc-700 text-white rounded-full flex items-center justify-center border-2 border-zinc-900 shadow-xl"
-              >
-                <Camera size={18} />
-              </button>
-            )}
-         </div>
-        
-         <div className="text-center w-full">
-            {isEditing ? (
-              <div className="flex flex-col items-center gap-3">
-                 <input 
-                   type="text" 
-                   value={newName} 
-                   onChange={(e) => setNewName(e.target.value)}
-                   className="bg-zinc-800 border-2 border-zinc-700 text-white text-2xl font-bold px-4 py-2 rounded-xl text-center outline-none focus:border-red-600"
-                 />
-                 <div className="flex gap-2">
-                    <button onClick={handleSave} className="px-6 py-2 bg-red-600 rounded-lg font-bold text-sm">SAVE</button>
-                    <button onClick={() => setIsEditing(false)} className="px-6 py-2 bg-zinc-800 rounded-lg font-bold text-sm">CANCEL</button>
-                 </div>
-              </div>
-            ) : (
-              <div className="flex items-center justify-center gap-2">
-                 <h2 className="text-3xl font-black uppercase tracking-tight">{profile.displayName}</h2>
-                 <button onClick={() => setIsEditing(true)} className="text-zinc-500 hover:text-white"><Edit size={16} /></button>
-                 <span className="text-lg">🌍</span>
-              </div>
-            )}
+       </div>
+
+       <div className="text-center w-full">
+            <div className="flex items-center justify-center gap-2">
+               <h2 className="text-3xl font-black uppercase tracking-tight">{profile.displayName}</h2>
+               <button onClick={onEditProfile} className="text-zinc-500 hover:text-white"><Edit size={16} /></button>
+               <span className="text-lg">🌍</span>
+            </div>
             <div className="mt-3 px-6 py-1.5 bg-zinc-950/50 border border-white/5 rounded-full inline-block">
                <span className="text-xs font-bold text-zinc-400 capitalize">{t.level} {profile.level || 1}</span>
             </div>
@@ -1399,8 +1488,8 @@ function TapBar({ activeTab, setActiveTab, language }: { activeTab: string, setA
        <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-4xl mb-1 filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]">🤡</div>
        <Play size={24} className="text-white fill-current translate-y-0.5" />
     </div>, label: t.home },
-    { id: 'clubs', icon: <ShieldCheck size={24} />, label: t.clubs },
-    { id: 'profile', icon: <Trophy size={24} />, label: t.events },
+    { id: 'clubs', icon: <Users size={24} />, label: t.clubs },
+    { id: 'profile', icon: <UserIcon size={24} />, label: t.vault },
   ];
 
   return (
@@ -1409,11 +1498,10 @@ function TapBar({ activeTab, setActiveTab, language }: { activeTab: string, setA
         {tabs.map(tab => (
           <button 
             key={tab.id}
-            onClick={() => tab.id !== 'clubs' && setActiveTab(tab.id)}
+            onClick={() => setActiveTab(tab.id)}
             className={`
               relative flex flex-col items-center gap-1 transition-all duration-300 flex-1
               ${activeTab === tab.id ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'}
-              ${tab.id === 'clubs' ? 'opacity-40 cursor-not-allowed' : ''}
             `}
           >
             <div className="relative">
@@ -1576,125 +1664,156 @@ function LobbyView({ user, profile, onStartSearch, onJoin, onLogout, onCreate, s
   };
 
   return (
-    <div className="min-h-screen bg-lobby-vintage p-4 sm:p-8 font-vintage flex flex-col relative overflow-hidden pb-32">
+    <div className="min-h-screen bg-[#0a0a0b] p-4 sm:p-8 font-sans flex flex-col relative overflow-hidden pb-32">
+      {/* Dynamic Background Elements */}
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(139,0,0,0.15),transparent_70%)] pointer-events-none" />
+      <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-[0.03] pointer-events-none" />
+      
       <FallingCards />
-      <header className="flex justify-between items-center mb-12 z-20">
+      <header className="flex justify-between items-center mb-12 z-20 w-full max-w-7xl mx-auto">
         <div className="flex items-center gap-6">
-          <div 
+          <motion.div 
+            whileHover={{ scale: 1.02 }}
             onClick={() => setActiveTab('profile')}
-            className="group cursor-pointer flex items-center gap-4 bg-white/40 border-2 border-[#868378] py-2 px-4 rounded-[32px] hover:border-[#8b0000] transition-all"
+            className="group cursor-pointer flex items-center gap-4 bg-white/[0.03] border border-white/10 backdrop-blur-md py-2.5 px-5 rounded-full hover:bg-white/[0.06] transition-all shadow-xl"
           >
-            <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-[#8b0000] shadow-sm">
-              <img src={user.photoURL || undefined} alt="me" className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all" />
+            <div className="relative">
+              <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-[#8b0000] shadow-inner">
+                <img src={user.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.uid}`} alt="me" className="w-full h-full object-cover" />
+              </div>
+              <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-[#8b0000] rounded-full flex items-center justify-center border-2 border-[#0a0a0b] text-[10px] font-bold text-white">
+                {profile?.level || 1}
+              </div>
             </div>
             <div className="flex flex-col">
-              <span className="text-sm font-bold text-[#8b0000] uppercase tracking-tighter leading-none">{profile?.displayName?.split(' ')[0]}</span>
-              <div className="flex items-center gap-2 mt-1">
-                <span className="text-[10px] font-bold text-[#8b0000]/60 uppercase">Lev. {profile?.level || 1}</span>
-                <div className="w-12 h-1 bg-black/10 rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-[#8b0000]" 
-                    style={{ width: `${((profile?.xp || 0) / ((profile?.level || 1) * 500)) * 100}%` }}
+              <span className="text-sm font-black text-white uppercase tracking-tight leading-none">{profile?.displayName?.split(' ')[0]}</span>
+              <div className="flex items-center gap-2 mt-1.5">
+                <div className="w-16 h-1 bg-white/10 rounded-full overflow-hidden">
+                  <motion.div 
+                    initial={{ width: 0 }}
+                    animate={{ width: `${((profile?.xp || 0) / ((profile?.level || 1) * 500)) * 100}%` }}
+                    className="h-full bg-[#8b0000] shadow-[0_0_8px_rgba(139,0,0,0.5)]" 
                   />
                 </div>
               </div>
             </div>
-          </div>
+          </motion.div>
         </div>
 
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2 px-5 py-2.5 bg-yellow-500/10 border-2 border-yellow-500/30 rounded-full text-yellow-700 font-bold shadow-sm">
-             <Coins size={18} className="text-yellow-600" />
-             <span className="text-lg leading-none">{profile?.chips?.toLocaleString() || 0}</span>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 px-6 py-2.5 bg-yellow-500/10 border border-yellow-500/20 rounded-full text-yellow-500 font-black shadow-lg backdrop-blur-md">
+             <Coins size={20} className="drop-shadow-[0_0_8px_rgba(234,179,8,0.5)]" />
+             <span className="text-xl tracking-tight">{profile?.chips?.toLocaleString() || 0}</span>
           </div>
+          <motion.button
+            whileHover={{ scale: 1.1, rotate: 90 }}
+            whileTap={{ scale: 0.9 }}
+            onClick={() => setActiveTab('settings')}
+            className="w-11 h-11 rounded-full bg-white/[0.03] border border-white/10 flex items-center justify-center text-white/40 hover:text-white transition-colors"
+          >
+            <Settings size={20} />
+          </motion.button>
         </div>
       </header>
 
-        <div className="flex-1 flex flex-col items-center justify-center gap-12 relative text-center">
+      <div className="flex-1 flex flex-col items-center justify-center gap-16 relative text-center w-full max-w-7xl mx-auto">
+        <div className="relative group">
+          <div className="absolute -inset-8 bg-[#8b0000]/20 blur-[100px] opacity-50 group-hover:opacity-80 transition-opacity" />
           <GameLogo />
+        </div>
 
-          {profile.chips <= 0 && (
-            <motion.button 
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={onClaimDaily}
-              className="bg-yellow-500 text-black px-10 py-5 rounded-[24px] font-bold flex items-center gap-3 animate-bounce shadow-2xl z-50 hover:bg-yellow-400 transition-colors"
+        {profile.chips <= 0 && (
+          <motion.button 
+            whileHover={{ scale: 1.05, y: -5 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={onClaimDaily}
+            className="bg-yellow-500 text-black px-12 py-5 rounded-2xl font-black flex items-center gap-4 animate-pulse shadow-[0_0_30px_rgba(234,179,8,0.3)] z-50 hover:bg-yellow-400 transition-all uppercase tracking-widest text-sm"
+          >
+            <Gift size={24} /> CLAIM 1,000 CHIPS
+          </motion.button>
+        )}
+
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 z-10 w-full max-w-7xl px-4">
+          {/* Uno Selection */}
+          <div className="flex-1 w-full text-center group cursor-pointer" onClick={() => onStartSearch('uno')}>
+            <motion.div 
+              whileHover={{ y: -12, scale: 1.02 }}
+              className="w-full h-56 sm:h-72 bg-gradient-to-br from-white/[0.08] to-white/[0.02] border border-white/10 rounded-[48px] flex flex-col items-center justify-center shadow-2xl relative overflow-hidden backdrop-blur-xl group-hover:border-[#8b0000]/50 transition-all duration-500"
             >
-              <Coins size={24} /> CLAIM 1,000 CHIPS
-            </motion.button>
-          )}
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 z-10 w-full max-w-6xl px-4">
-            {/* Uno Selection */}
-            <div className="flex-1 w-full text-center group cursor-pointer" onClick={() => onStartSearch('uno')}>
-              <motion.div 
-                whileHover={{ y: -10, scale: 1.02 }}
-                className="w-full h-48 sm:h-64 bg-gradient-to-br from-white/60 to-white/20 border-4 border-[#868378] rounded-[48px] flex flex-col items-center justify-center shadow-2xl relative overflow-hidden group-hover:border-[#8b0000] transition-colors"
-              >
-                <div className="absolute inset-0 bg-[#8b0000]/5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                <div className="text-6xl sm:text-7xl font-display font-black text-[#8b0000] italic pointer-events-none tracking-tighter">UNO</div>
-                <div className="text-[#8b0000]/60 font-bold uppercase tracking-[0.3em] text-[10px] mt-2">Ranked 1V1 Arena</div>
-                <div className="absolute top-4 right-4 p-2 bg-[#8b0000] text-white rounded-full shadow-lg transform translate-x-12 group-hover:translate-x-0 transition-transform duration-300">
-                  <Play size={18} fill="currentColor" />
-                </div>
-              </motion.div>
-              <p className="mt-4 text-[#8b0000] font-bold uppercase tracking-[0.2em] text-xs opacity-60 group-hover:opacity-100 transition-opacity">Tournament</p>
-            </div>
-
-            {/* Joker Selection */}
-            <div className="flex-1 w-full text-center group cursor-pointer" onClick={() => onStartSearch('joker')}>
-              <motion.div 
-                whileHover={{ y: -10, scale: 1.02 }}
-                className="w-full h-48 sm:h-64 bg-gradient-to-br from-white/60 to-white/20 border-4 border-yellow-500/50 rounded-[48px] flex flex-col items-center justify-center shadow-2xl relative overflow-hidden group-hover:border-yellow-500 transition-colors"
-              >
-                <div className="absolute inset-0 bg-yellow-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                <div className="text-6xl sm:text-7xl text-yellow-600 pointer-events-none drop-shadow-md">★</div>
-                <div className="text-yellow-600 font-display italic text-3xl uppercase tracking-tighter mt-1">JOKER</div>
-                <div className="text-yellow-600/60 font-bold uppercase tracking-[0.3em] text-[10px] mt-1">High Stakes</div>
-                <div className="absolute top-4 right-4 p-2 bg-yellow-500 text-black rounded-full shadow-lg transform translate-x-12 group-hover:translate-x-0 transition-transform duration-300">
-                  <Play size={18} fill="currentColor" />
-                </div>
-              </motion.div>
-              <p className="mt-4 text-yellow-600 font-bold uppercase tracking-[0.2em] text-xs opacity-60 group-hover:opacity-100 transition-opacity">Place Bets</p>
-            </div>
-
-            {/* Dama Selection */}
-            <div className="flex-1 w-full text-center group cursor-pointer" onClick={() => onStartSearch('dama')}>
-              <motion.div 
-                whileHover={{ y: -10, scale: 1.02 }}
-                className="w-full h-48 sm:h-64 bg-gradient-to-br from-[#4e342e]/80 to-[#3e2723]/60 border-4 border-[#795548]/50 rounded-[48px] flex flex-col items-center justify-center shadow-2xl relative overflow-hidden group-hover:border-[#ffcc00] transition-colors"
-              >
-                <div className="absolute inset-0 bg-[#ffcc00]/5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                <div className="grid grid-cols-2 gap-1 mb-2 opacity-60">
-                   <div className="w-8 h-8 bg-[#ffcc00] rounded-full shadow-lg" />
-                   <div className="w-8 h-8 bg-black/60 rounded-full shadow-lg" />
-                </div>
-                <div className="text-[#ffcc00] font-display italic text-3xl uppercase tracking-tighter">DAMA</div>
-                <div className="text-[#ffcc00]/60 font-bold uppercase tracking-[0.3em] text-[10px] mt-2">Elite Checkers</div>
-                <div className="absolute top-4 right-4 p-2 bg-[#ffcc00] text-black rounded-full shadow-lg transform translate-x-12 group-hover:translate-x-0 transition-transform duration-300">
-                  <Play size={18} fill="currentColor" />
-                </div>
-              </motion.div>
-              <p className="mt-4 text-[#795548] font-bold uppercase tracking-[0.2em] text-xs opacity-60 group-hover:opacity-100 transition-opacity">Master Board</p>
-            </div>
+              <div className="absolute inset-0 bg-gradient-to-br from-[#8b0000]/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+              <div className="absolute -top-10 -right-10 w-32 h-32 bg-[#8b0000]/10 rounded-full blur-3xl group-hover:bg-[#8b0000]/30 transition-all" />
+              
+              <div className="text-7xl sm:text-8xl font-display font-black text-[#8b0000] italic pointer-events-none tracking-tighter drop-shadow-[0_0_20px_rgba(139,0,0,0.3)]">OONO</div>
+              <div className="text-white/40 font-black uppercase tracking-[0.4em] text-[10px] mt-4 group-hover:text-white/60 transition-colors">Elite 1V1 Arena</div>
+              
+              <div className="absolute top-6 right-6 p-3 bg-[#8b0000] text-white rounded-2xl shadow-2xl transform translate-x-16 group-hover:translate-x-0 transition-all duration-500 rotate-12 group-hover:rotate-0">
+                <Play size={20} fill="currentColor" />
+              </div>
+            </motion.div>
+            <p className="mt-6 text-[#8b0000] font-black uppercase tracking-[0.3em] text-xs opacity-40 group-hover:opacity-100 transition-all">Enter Tournament</p>
           </div>
 
-          <motion.button 
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => setShowCreateModal(true)}
-            className="flex items-center gap-3 px-10 py-5 border-4 border-[#8b0000]/20 text-[#8b0000] rounded-[24px] font-bold hover:bg-[#8b0000]/5 transition-all uppercase tracking-widest text-xs z-10"
-          >
-            <Plus size={20} /> Host A Private Table
-          </motion.button>
+          {/* Joker Selection */}
+          <div className="flex-1 w-full text-center group cursor-pointer" onClick={() => onStartSearch('joker')}>
+            <motion.div 
+              whileHover={{ y: -12, scale: 1.02 }}
+              className="w-full h-56 sm:h-72 bg-gradient-to-br from-white/[0.08] to-white/[0.02] border border-white/10 rounded-[48px] flex flex-col items-center justify-center shadow-2xl relative overflow-hidden backdrop-blur-xl group-hover:border-yellow-500/50 transition-all duration-500"
+            >
+              <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+              <div className="absolute -top-10 -right-10 w-32 h-32 bg-yellow-500/5 rounded-full blur-3xl group-hover:bg-yellow-500/20 transition-all" />
+              
+              <div className="text-7xl sm:text-8xl text-yellow-500 pointer-events-none drop-shadow-[0_0_20px_rgba(234,179,8,0.35)]">★</div>
+              <div className="text-yellow-500 font-display font-black italic text-4xl uppercase tracking-tight mt-2 drop-shadow-md">JOKER</div>
+              <div className="text-white/40 font-black uppercase tracking-[0.4em] text-[10px] mt-2 group-hover:text-white/60 transition-colors">High Stakes 51</div>
+              
+              <div className="absolute top-6 right-6 p-3 bg-yellow-500 text-black rounded-2xl shadow-2xl transform translate-x-16 group-hover:translate-x-0 transition-all duration-500 rotate-12 group-hover:rotate-0">
+                <Play size={20} fill="currentColor" />
+              </div>
+            </motion.div>
+            <p className="mt-6 text-yellow-500 font-black uppercase tracking-[0.3em] text-xs opacity-40 group-hover:opacity-100 transition-all">Classic Royale</p>
+          </div>
 
-        <div className="w-full max-w-xl space-y-6 z-10">
-          <div className="flex items-center justify-between px-2">
-            <h2 className="text-sm font-bold text-[#8b0000] uppercase tracking-[0.2em] flex items-center gap-2">
-               Active Tables
+          {/* Dama Selection */}
+          <div className="flex-1 w-full text-center group cursor-pointer" onClick={() => onStartSearch('dama')}>
+            <motion.div 
+              whileHover={{ y: -12, scale: 1.02 }}
+              className="w-full h-56 sm:h-72 bg-gradient-to-br from-white/[0.08] to-white/[0.02] border border-white/10 rounded-[48px] flex flex-col items-center justify-center shadow-2xl relative overflow-hidden backdrop-blur-xl group-hover:border-[#795548]/80 transition-all duration-500"
+            >
+              <div className="absolute inset-0 bg-gradient-to-br from-[#795548]/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+              
+              <div className="flex gap-2 mb-4">
+                 <div className="w-10 h-10 bg-yellow-500 rounded-full shadow-[0_0_15px_rgba(234,179,8,0.4)] border-2 border-yellow-600" />
+                 <div className="w-10 h-10 bg-black/80 rounded-full shadow-lg border-2 border-white/5" />
+              </div>
+              <div className="text-white font-display font-black italic text-4xl uppercase tracking-tighter drop-shadow-md">DAMA</div>
+              <div className="text-[#a1887f] font-black uppercase tracking-[0.4em] text-[10px] mt-2 group-hover:text-[#d7ccc8] transition-colors">Master Strategy</div>
+              
+              <div className="absolute top-6 right-6 p-3 bg-[#795548] text-white rounded-2xl shadow-2xl transform translate-x-16 group-hover:translate-x-0 transition-all duration-500 rotate-12 group-hover:rotate-0">
+                <Play size={20} fill="currentColor" />
+              </div>
+            </motion.div>
+            <p className="mt-6 text-[#795548] font-black uppercase tracking-[0.3em] text-xs opacity-40 group-hover:opacity-100 transition-all">Kings' Board</p>
+          </div>
+
+        </div>
+
+        <motion.button 
+          whileHover={{ scale: 1.05, backgroundColor: "rgba(255,255,255,0.08)" }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => setShowCreateModal(true)}
+          className="flex items-center gap-4 px-12 py-5 bg-white/[0.03] border border-white/10 text-white rounded-2xl font-black hover:border-white/20 transition-all uppercase tracking-[0.2em] text-[10px] z-10 shadow-2xl backdrop-blur-sm"
+        >
+          <Plus size={18} /> Host Private Table
+        </motion.button>
+
+        <div className="w-full max-w-xl space-y-8 z-10">
+          <div className="flex items-center justify-between px-4">
+            <h2 className="text-[10px] font-black text-white/40 uppercase tracking-[0.5em] flex items-center gap-3">
+               <ShieldCheck size={14} className="text-[#8b0000]" />
+               Live Game Tables
             </h2>
-            <div className="text-[10px] font-bold text-[#8b0000]/40 uppercase tracking-widest">
-              {games.length} tables found
+            <div className="px-3 py-1 bg-white/[0.03] border border-white/10 rounded-lg text-[9px] font-black text-white/20 uppercase tracking-widest">
+              {games.length} online
             </div>
           </div>
           
@@ -1720,8 +1839,8 @@ function LobbyView({ user, profile, onStartSearch, onJoin, onLogout, onCreate, s
                           g.gameType === 'joker' ? 'bg-yellow-500/10 text-yellow-600' :
                           'bg-[#795548]/10 text-[#795548]'}`}>
                         {g.gameType === 'uno' ? <div className="text-xl font-display font-black italic">U</div> : 
-                         g.gameType === 'joker' ? <div className="text-xl">★</div> :
-                         <LayoutGrid size={24} />}
+                        g.gameType === 'joker' ? <div className="text-xl">★</div> :
+                        <LayoutGrid size={24} />}
                       </div>
                       <div className="flex flex-col">
                         <div className="flex items-center gap-3">
@@ -2534,6 +2653,401 @@ function DamaBoard({ game, user, onMove, opponentProfile, opponentId }: any) {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function ProfileEditor({ profile, user, onSave, onCancel }: { profile: UserProfile, user: User, onSave: (p: Partial<UserProfile>) => void, onCancel: () => void }) {
+  const [displayName, setDisplayName] = useState(profile.displayName);
+  const [photoURL, setPhotoURL] = useState(profile.photoURL);
+  const [zoom, setZoom] = useState(1);
+  const [isUploading, setIsUploading] = useState(false);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 800000) {
+        alert("Image too large! Please choose a file smaller than 800kb.");
+        return;
+      }
+      setIsUploading(true);
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setPhotoURL(event.target?.result as string);
+        setIsUploading(false);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[300] flex items-center justify-center p-4">
+       <motion.div 
+         initial={{ scale: 0.9, opacity: 0 }}
+         animate={{ scale: 1, opacity: 1 }}
+         className="w-full max-w-md bg-[#1a1a1a] border border-white/10 rounded-[40px] p-8 shadow-2xl relative overflow-hidden"
+       >
+          <div className="absolute top-0 left-0 w-full h-1/2 bg-gradient-to-b from-[#8b0000]/10 to-transparent pointer-events-none" />
+          
+          <div className="flex justify-between items-center mb-8 relative">
+             <h2 className="text-xl font-black text-white uppercase tracking-widest">Edit Profile</h2>
+             <button onClick={onCancel} className="p-2 bg-white/5 rounded-full hover:bg-white/10 transition-colors">
+                <X size={20} className="text-white/60" />
+             </button>
+          </div>
+
+          <div className="flex flex-col items-center gap-8 relative">
+             <div className="relative group">
+                <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-[#8b0000] shadow-2xl bg-black">
+                   <div style={{ transform: `scale(${zoom})`, transition: 'transform 0.2s' }} className="w-full h-full origin-center">
+                      <img src={photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.uid}`} alt="Profile" className="w-full h-full object-cover" />
+                   </div>
+                </div>
+                <label className="absolute bottom-0 right-0 w-10 h-10 bg-[#8b0000] text-white rounded-full flex items-center justify-center cursor-pointer shadow-lg border-2 border-[#1a1a1a] hover:scale-110 transition-transform">
+                   <Camera size={18} />
+                   <input type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
+                </label>
+             </div>
+
+             <div className="w-full space-y-2">
+                <label className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-4">Profile Zoom</label>
+                <input 
+                  type="range" 
+                  min="1" 
+                  max="3" 
+                  step="0.1" 
+                  value={zoom} 
+                  onChange={(e) => setZoom(parseFloat(e.target.value))}
+                  className="w-full h-2 bg-white/10 rounded-full appearance-none cursor-pointer accent-[#8b0000]"
+                />
+             </div>
+
+             <div className="w-full space-y-2">
+                <label className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-4">Display Name</label>
+                <input 
+                  type="text" 
+                  value={displayName} 
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white font-bold focus:outline-none focus:border-[#8b0000]/50"
+                  placeholder="Enter name..."
+                />
+             </div>
+
+             <div className="w-full grid grid-cols-2 gap-4 mt-4">
+                <button 
+                  onClick={onCancel}
+                  className="py-4 bg-white/5 border border-white/10 rounded-2xl text-white/60 font-black uppercase text-[10px] tracking-widest hover:bg-white/10 transition-all"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={() => onSave({ displayName, photoURL })}
+                  disabled={isUploading}
+                  className="py-4 bg-[#8b0000] text-white rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-[#a00000] transition-all shadow-[0_10px_20px_rgba(139,0,0,0.3)] disabled:opacity-50"
+                >
+                  {isUploading ? 'Uploading...' : 'Save Changes'}
+                </button>
+             </div>
+          </div>
+       </motion.div>
+    </div>
+  );
+}
+
+function ClubsView({ user, profile, onJoinClub, onCreateClub, onBack }: { user: User, profile: UserProfile, onJoinClub: (id: string, pass?: string) => void, onCreateClub: (data: any) => void, onBack: () => void }) {
+  const [clubs, setClubs] = useState<Club[]>([]);
+  const [showCreate, setShowCreate] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const q = query(collection(db, 'clubs'), orderBy('createdAt', 'desc'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setClubs(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Club)));
+      setLoading(false);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'clubs');
+    });
+    return unsubscribe;
+  }, []);
+
+  return (
+    <div className="w-full max-w-7xl mx-auto px-4 py-8">
+       <div className="flex justify-between items-center mb-12">
+          <div className="flex items-center gap-6">
+             <button onClick={onBack} className="p-3 bg-white/5 rounded-full hover:bg-white/10 transition-colors">
+                <ArrowLeft size={24} className="text-white" />
+             </button>
+             <div className="flex flex-col">
+                <h1 className="text-4xl font-display font-black text-white italic tracking-tighter drop-shadow-lg">CLUB ARENA</h1>
+                <p className="text-white/40 font-black text-[10px] uppercase tracking-[0.4em] mt-2">Join a Syndicate</p>
+             </div>
+          </div>
+          <motion.button 
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setShowCreate(true)}
+            className="flex items-center gap-3 px-8 py-4 bg-yellow-500 text-black rounded-2xl font-black uppercase tracking-widest text-xs shadow-[0_0_30px_rgba(234,179,8,0.3)]"
+          >
+             <Plus size={18} /> Create Club (30K)
+          </motion.button>
+       </div>
+
+       {loading ? (
+         <div className="flex items-center justify-center p-20">
+            <RefreshCcw className="animate-spin text-[#8b0000]" size={40} />
+         </div>
+       ) : (
+         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {clubs.map((club) => (
+               <motion.div 
+                 key={club.id}
+                 whileHover={{ y: -8 }}
+                 className="bg-white/[0.03] border border-white/10 rounded-[32px] p-8 flex flex-col gap-6 relative overflow-hidden group hover:border-[#8b0000]/50 transition-all backdrop-blur-sm"
+               >
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-[#8b0000]/10 to-transparent pointer-events-none" />
+                  
+                  <div className="flex items-center gap-5">
+                     <div className="w-16 h-16 rounded-2xl bg-black border border-white/10 flex items-center justify-center overflow-hidden">
+                        <img src={club.logo || `https://api.dicebear.com/7.x/shapes/svg?seed=${club.id}`} alt="" className="w-full h-full object-cover" />
+                     </div>
+                     <div className="flex flex-col">
+                        <h3 className="text-xl font-black text-white uppercase tracking-tight leading-tight">{club.name}</h3>
+                        <div className="flex items-center gap-2 mt-1">
+                           <Users size={14} className="text-[#8b0000]" />
+                           <span className="text-xs font-bold text-white/40">{club.members.length} / {club.maxMembers || 30} Members</span>
+                        </div>
+                     </div>
+                  </div>
+
+                  <p className="text-sm text-white/60 line-clamp-2 min-h-[40px] italic font-medium leading-relaxed">
+                     {club.description || "The ultimate elite gambling society where legends are born."}
+                  </p>
+
+                  <div className="flex items-center justify-between pt-4 border-t border-white/5">
+                     <div className="flex items-center gap-2">
+                        {club.isPrivate && <Lock size={14} className="text-yellow-500" />}
+                        <span className="text-[10px] font-black text-white/20 uppercase tracking-widest">
+                           {club.isPrivate ? 'Private Room' : 'Open Entry'}
+                        </span>
+                     </div>
+                     <button 
+                       onClick={() => onJoinClub(club.id)}
+                       className="px-6 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white font-black uppercase text-[10px] tracking-widest group-hover:bg-[#8b0000] group-hover:border-[#8b0000] transition-all"
+                     >
+                        Join Now
+                     </button>
+                  </div>
+               </motion.div>
+            ))}
+         </div>
+       )}
+
+       {showCreate && (
+         <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-[400] flex items-center justify-center p-4">
+            <motion.div 
+               initial={{ scale: 0.9, opacity: 0 }}
+               animate={{ scale: 1, opacity: 1 }}
+               className="w-full max-w-lg bg-[#111] border border-white/10 rounded-[48px] p-10 overflow-hidden relative shadow-2xl"
+            >
+               <div className="absolute top-0 left-0 w-full h-1/2 bg-gradient-to-b from-yellow-500/5 to-transparent pointer-events-none" />
+               <div className="flex justify-between items-center mb-10 relative">
+                  <div>
+                    <h2 className="text-2xl font-black text-white uppercase tracking-tighter">Found Syndicate</h2>
+                    <p className="text-yellow-500/60 font-black text-[9px] uppercase tracking-widest mt-1">Creation Fee: 30,000 Chips</p>
+                  </div>
+                  <button onClick={() => setShowCreate(false)} className="p-3 bg-white/5 rounded-full hover:bg-white/10 transition-colors">
+                     <X size={20} className="text-white/60" />
+                  </button>
+               </div>
+
+               <ClubCreateForm 
+                 chips={profile.chips} 
+                 onSubmit={(data) => {
+                    onCreateClub(data);
+                    setShowCreate(false);
+                 }} 
+               />
+            </motion.div>
+         </div>
+       )}
+    </div>
+  );
+}
+
+function ClubCreateForm({ chips, onSubmit }: any) {
+  const [name, setName] = useState('');
+  const [desc, setDesc] = useState('');
+  const [max, setMax] = useState(30);
+  const [pass, setPass] = useState('');
+  const [isPrivate, setIsPrivate] = useState(false);
+
+  return (
+    <div className="space-y-6 relative">
+       <div className="space-y-4">
+          <div className="space-y-2">
+             <label className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em] ml-4">Club Moniker</label>
+             <input value={name} onChange={e => setName(e.target.value)} placeholder="Elite Kings" className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white font-bold" />
+          </div>
+          <div className="space-y-2">
+             <label className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em] ml-4">Manifesto</label>
+             <textarea value={desc} onChange={e => setDesc(e.target.value)} placeholder="Short description..." className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white font-bold h-24 resize-none" />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+             <div className="space-y-2">
+                <label className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em] ml-4">Capacity (1-30)</label>
+                <input type="number" min="1" max="30" value={max} onChange={e => setMax(parseInt(e.target.value))} className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white font-bold" />
+             </div>
+             <div className="space-y-2">
+                <label className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em] ml-4">Entry Code</label>
+                <input type="password" value={pass} onChange={e => { setPass(e.target.value); setIsPrivate(!!e.target.value); }} placeholder="Optional" className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white font-bold" />
+             </div>
+          </div>
+       </div>
+
+       <button 
+         disabled={chips < 30000 || !name}
+         onClick={() => onSubmit({ name, description: desc, maxMembers: max, password: pass, isPrivate })}
+         className={`w-full py-5 rounded-2xl font-black uppercase text-[11px] tracking-[0.3em] shadow-xl transition-all
+           ${chips < 30000 || !name ? 'bg-white/5 text-white/20 cursor-not-allowed' : 'bg-yellow-500 text-black shadow-[0_10px_30px_rgba(234,179,8,0.3)] hover:scale-[1.02]'}
+         `}
+       >
+         Establish Syndicate
+       </button>
+    </div>
+  );
+}
+
+function ClubDetailView({ club, user, profile, onLeave, onPostMessage, onBack }: any) {
+  const [messages, setMessages] = useState<ClubMessage[]>([]);
+  const [text, setText] = useState('');
+  const scrollRef = React.useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const path = `clubs/${club.id}/messages`;
+    const q = query(collection(db, path), orderBy('createdAt', 'desc'), limit(50));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setMessages(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ClubMessage)).reverse());
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, path);
+    });
+    return unsubscribe;
+  }, [club.id]);
+
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+  }, [messages]);
+
+  const handleSend = () => {
+    if (!text.trim()) return;
+    onPostMessage(text);
+    setText('');
+  };
+
+  return (
+    <div className="w-full max-w-7xl mx-auto px-4 py-8 h-[calc(100vh-180px)] flex flex-col gap-8">
+       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+          <div className="flex items-center gap-6">
+             <button onClick={onBack} className="p-3 bg-white/5 rounded-full hover:bg-white/10 transition-colors">
+                <ArrowLeft size={24} className="text-white" />
+             </button>
+             <div className="w-20 h-20 rounded-3xl bg-black border-2 border-[#8b0000] flex items-center justify-center overflow-hidden shadow-2xl">
+                <img src={club.logo || `https://api.dicebear.com/7.x/shapes/svg?seed=${club.id}`} alt="" className="w-full h-full object-cover" />
+             </div>
+             <div className="flex flex-col">
+                <div className="flex items-center gap-3">
+                   <h1 className="text-3xl font-black text-white italic uppercase tracking-tighter">{club.name}</h1>
+                   <div className="px-3 py-1 bg-[#8b0000]/10 border border-[#8b0000]/20 rounded-full text-[9px] font-black text-[#8b0000] uppercase tracking-widest">Syndicate HQ</div>
+                </div>
+                <div className="flex items-center gap-4 mt-2">
+                   <div className="flex items-center gap-2">
+                      <Users size={14} className="text-[#8b0000]" />
+                      <span className="text-xs font-bold text-white/40">{club.members.length} / {club.maxMembers} Elite Members</span>
+                   </div>
+                   <div className="w-1 h-1 bg-white/10 rounded-full" />
+                   <p className="text-xs font-medium text-white/40 italic">{club.description}</p>
+                </div>
+             </div>
+          </div>
+          <div className="flex items-center gap-4 w-full md:w-auto">
+             <button 
+               onClick={onLeave}
+               className="flex-1 md:flex-none px-8 py-3.5 bg-white/5 border border-white/10 rounded-2xl text-white/40 font-black uppercase text-[10px] tracking-widest hover:bg-red-500/10 hover:text-red-500 hover:border-red-500/20 transition-all"
+             >
+                Exit Syndicate
+             </button>
+          </div>
+       </div>
+
+       <div className="flex-1 flex flex-col md:flex-row gap-8 min-h-0">
+          {/* Chat Section */}
+          <div className="flex-1 bg-white/[0.02] border border-white/10 rounded-[40px] flex flex-col overflow-hidden backdrop-blur-md">
+             <div className="p-6 border-b border-white/5 bg-white/[0.02] flex items-center justify-between">
+                <h3 className="text-[10px] font-black text-white uppercase tracking-[0.5em] flex items-center gap-3">
+                   <MessageSquare size={14} className="text-[#8b0000]" />
+                   War Room Chat
+                </h3>
+             </div>
+
+             <div ref={scrollRef} className="flex-1 overflow-y-auto p-8 space-y-6 scroll-smooth">
+                {messages.map((msg) => (
+                   <div key={msg.id} className={`flex gap-4 ${msg.userId === user.uid ? 'flex-row-reverse' : ''}`}>
+                      <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-white/10 shrink-0">
+                         <img src={msg.userPhoto || `https://api.dicebear.com/7.x/avataaars/svg?seed=${msg.userId}`} alt="" className="w-full h-full object-cover" />
+                      </div>
+                      <div className={`flex flex-col gap-1.5 max-w-[70%] ${msg.userId === user.uid ? 'items-end' : ''}`}>
+                         <span className="text-[9px] font-black text-white/20 uppercase tracking-widest px-1">
+                            {msg.userId === user.uid ? 'You' : msg.userName}
+                         </span>
+                         <div className={`px-5 py-3 rounded-3xl text-sm font-medium ${msg.userId === user.uid ? 'bg-[#8b0000] text-white rounded-tr-none' : 'bg-white/5 text-white/80 rounded-tl-none'}`}>
+                            {msg.text}
+                         </div>
+                      </div>
+                   </div>
+                ))}
+             </div>
+
+             <div className="p-6 bg-white/[0.02] border-t border-white/5">
+                <div className="flex gap-4">
+                   <input 
+                     value={text} 
+                     onChange={e => setText(e.target.value)}
+                     onKeyDown={e => e.key === 'Enter' && handleSend()}
+                     placeholder="Broadcast a message..." 
+                     className="flex-1 bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white font-medium focus:outline-none focus:border-[#8b0000]/30 transition-all" 
+                   />
+                   <button 
+                     onClick={handleSend}
+                     className="w-14 h-14 bg-[#8b0000] text-white rounded-2xl flex items-center justify-center hover:bg-[#a00000] transition-all shadow-xl"
+                   >
+                      <ChevronUp size={24} />
+                   </button>
+                </div>
+             </div>
+          </div>
+
+          {/* Members Sidebar */}
+          <div className="w-full md:w-80 bg-white/[0.02] border border-white/10 rounded-[40px] p-8 flex flex-col gap-8 backdrop-blur-md">
+             <h3 className="text-[10px] font-black text-white uppercase tracking-[0.5em] border-b border-white/5 pb-4">
+                Active Rosters
+             </h3>
+             <div className="flex-1 overflow-y-auto space-y-5 pr-2">
+                {club.members.map((memberId: string) => (
+                   <div key={memberId} className="flex items-center gap-4 group cursor-pointer">
+                      <div className="relative">
+                         <div className="w-11 h-11 rounded-full overflow-hidden border-2 border-white/10 group-hover:border-[#8b0000] transition-colors">
+                            <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${memberId}`} alt="" className="w-full h-full object-cover" />
+                         </div>
+                         <div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-[#111]" />
+                      </div>
+                      <div className="flex flex-col">
+                         <span className="text-xs font-black text-white uppercase tracking-tight">{memberId === club.ownerId ? '👑 Owner' : 'Associate'}</span>
+                         <span className="text-[10px] font-bold text-white/30 truncate w-32">#{memberId.slice(0, 8)}</span>
+                      </div>
+                   </div>
+                ))}
+             </div>
+          </div>
+       </div>
     </div>
   );
 }

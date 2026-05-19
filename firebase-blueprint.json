@@ -47,6 +47,37 @@
         "lastMoveAt": { "type": "integer" }
       },
       "required": ["status", "players", "createdAt", "roomName", "isPrivate"]
+    },
+    "Club": {
+      "title": "Club/Syndicate",
+      "description": "A group of players",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "logo": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "members": { "type": "array", "items": { "type": "string" } },
+        "password": { "type": "string" },
+        "isPrivate": { "type": "boolean" },
+        "maxMembers": { "type": "integer" },
+        "chipsPool": { "type": "integer" },
+        "createdAt": { "type": "integer" }
+      },
+      "required": ["name", "ownerId", "members", "createdAt", "maxMembers"]
+    },
+    "ClubMessage": {
+      "title": "Club Message",
+      "description": "Chat message within a club",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "userPhoto": { "type": "string" },
+        "text": { "type": "string" },
+        "createdAt": { "type": "integer" }
+      },
+      "required": ["userId", "userName", "text", "createdAt"]
     }
   },
   "firestore": {
@@ -61,6 +92,14 @@
     "games/{gameId}": {
       "schema": "Game",
       "description": "Game sessions"
+    },
+    "clubs/{clubId}": {
+      "schema": "Club",
+      "description": "Club metadata"
+    },
+    "clubs/{clubId}/messages/{messageId}": {
+      "schema": "ClubMessage",
+      "description": "Club chat messages"
     }
   }
 }
