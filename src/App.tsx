@@ -2119,11 +2119,13 @@ function GameView({ user, game, onLeave, profile, skinsMap }: { user: User, game
   };
 
   const getHandLayout = (index: number, total: number) => {
-    const angleRange = Math.min(total * 6, 60); 
+    const isMobile = window.innerWidth < 768;
+    const angleRange = isMobile ? Math.min(total * 10, 90) : Math.min(total * 6, 60); 
     const angleStep = angleRange / Math.max(total - 1, 1);
     const angle = (index - (total - 1) / 2) * angleStep;
-    const x = angle * 2;
-    return { x, y: Math.abs(angle) * 0.5, rotate: angle };
+    const x = isMobile ? angle * 4.5 : angle * 2;
+    const yOffset = isMobile ? Math.abs(angle) * 0.8 : Math.abs(angle) * 0.5;
+    return { x, y: yOffset, rotate: angle };
   };
 
   return (
@@ -2163,7 +2165,7 @@ function GameView({ user, game, onLeave, profile, skinsMap }: { user: User, game
 
       {/* Footer / Hand Area */}
       {game.gameType !== 'dama' && (
-        <div className="absolute bottom-0 w-full h-44 bg-[#0d0d0d] border-t border-white/5 z-[120]">
+        <div className="absolute bottom-0 w-full h-44 bg-gradient-to-t from-[#0d0d0d] to-transparent z-[120]">
            <div className="flex h-full items-center px-6">
               <div className="flex flex-col items-center gap-1 -translate-y-4">
                  <div className="relative w-16 h-16 rounded-full border-[3px] border-yellow-500 overflow-hidden shadow-2xl p-1 bg-[#1a1a1a]">
@@ -2201,20 +2203,12 @@ function GameView({ user, game, onLeave, profile, skinsMap }: { user: User, game
                  </AnimatePresence>
               </div>
 
-              <div className="flex flex-col items-center gap-2 mb-8">
-                 {game.gameType === 'joker' && (
-                    <div className="flex bg-black/40 rounded-lg overflow-hidden border border-white/10 mb-2">
-                       <div className="px-6 py-2 border-r border-white/10 text-white/40 text-[10px] font-black uppercase tracking-widest">Sum</div>
-                       <div className="px-6 py-2 text-white font-black text-xs tracking-widest">0/51</div>
-                    </div>
-                 )}
-                 <motion.button 
-                   whileTap={{ scale: 0.9 }}
-                   className={`px-10 py-5 rounded-xl shadow-2xl text-white font-black italic tracking-widest text-lg border-2 border-white/10 ${game.gameType === 'joker' ? 'bg-[#8b0000] drop-shadow-[0_0_15px_rgba(139,0,0,0.5)]' : 'bg-gradient-to-b from-yellow-400 to-yellow-600'}`}
-                 >
-                    {game.gameType === 'uno' ? 'Oono' : 'Drop a meld'}
-                 </motion.button>
-              </div>
+              {game.gameType === 'joker' && (
+                <div className="absolute top-0 right-6 -translate-y-6 flex bg-black/40 rounded-lg overflow-hidden border border-white/10">
+                   <div className="px-4 py-1.5 border-r border-white/10 text-white/40 text-[10px] font-black uppercase tracking-widest">Sum</div>
+                   <div className="px-4 py-1.5 text-white font-black text-xs tracking-widest">0/51</div>
+                </div>
+              )}
            </div>
         </div>
       )}
