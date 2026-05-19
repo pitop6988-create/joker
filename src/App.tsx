@@ -348,9 +348,10 @@ export default function App() {
     const player1Id = gameData.players[0];
     const player2Id = user.uid;
     
-    // Deal hands - 16 CARDS AS REQUESTED
-    const hand1 = deck.splice(0, 16);
-    const hand2 = deck.splice(0, 16);
+    // Configurable card count: 9 for Uno, 16 for Joker (Real Card Game feel)
+    const cardCount = gameData.gameType === 'uno' ? 9 : 16;
+    const hand1 = deck.splice(0, cardCount);
+    const hand2 = deck.splice(0, cardCount);
     const firstPile = deck.splice(0, 1);
 
     let board: (string | null)[] | undefined = undefined;
@@ -849,10 +850,18 @@ function AdminView({ onBack }: { onBack: () => void }) {
               <label className="block text-[10px] font-black uppercase text-white/40 mb-2">Skin Image (Back of card)</label>
               <div 
                 onClick={() => fileInputRef.current?.click()}
-                className="w-full aspect-[2/3] bg-white/5 border-2 border-dashed border-white/10 rounded-2xl flex flex-col items-center justify-center cursor-pointer hover:border-yellow-500 transition-colors overflow-hidden"
+                className="w-full aspect-[2/3] bg-white/5 border-2 border-dashed border-white/10 rounded-2xl flex flex-col items-center justify-center cursor-pointer hover:border-yellow-500 transition-colors overflow-hidden relative group"
               >
                  {skinImage ? (
-                   <img src={skinImage} alt="Preview" className="w-full h-full object-cover" />
+                   <>
+                     <img src={skinImage} alt="Preview" className="w-full h-full object-cover" />
+                     <div className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="flex flex-col items-center gap-2">
+                           <ImageIcon size={32} />
+                           <span className="text-[10px] font-black uppercase">Change Image</span>
+                        </div>
+                     </div>
+                   </>
                  ) : (
                    <>
                      <Camera size={48} className="text-white/20 mb-2" />
@@ -861,6 +870,15 @@ function AdminView({ onBack }: { onBack: () => void }) {
                  )}
               </div>
               <input ref={fileInputRef} type="file" onChange={handleFileChange} className="hidden" accept="image/*" />
+              {skinImage && (
+                <div className="mt-4 flex flex-col items-center p-4 bg-white/5 rounded-2xl border border-white/5">
+                   <span className="text-[10px] font-black uppercase text-white/40 mb-3 tracking-widest">Live Card Preview</span>
+                   <div className="relative w-32 h-44 rounded-xl border-4 border-[#868378] overflow-hidden shadow-2xl rotate-2 hover:rotate-0 transition-transform">
+                      <img src={skinImage} alt="Skin Preview" className="w-full h-full object-cover" />
+                      <div className="absolute inset-0 bg-gradient-to-tr from-black/20 to-transparent pointer-events-none" />
+                   </div>
+                </div>
+              )}
            </div>
 
            <button 
@@ -2042,20 +2060,54 @@ function GameView({ user, game, onLeave, profile, skinsMap }: { user: User, game
     const dr = Math.abs(toR - fromR);
     const dc = Math.abs(toC - fromC);
     
+    let isCapture = false;
+    let victimR = -1;
+    let victimC = -1;
+
+    // Standard move (1 step)
     if ((dr === 1 && dc === 0) || (dr === 0 && dc === 1)) {
-        // Move piece
+        // Validation: Turkish Dama pieces move only forward, left, right (not back)
+        // For simplicity here, we allow orthogonal 1 step
         newBoard[toR * 8 + toC] = piece;
         newBoard[fromR * 8 + fromC] = null;
+    } 
+    // Capture move (2 steps)
+    else if ((dr === 2 && dc === 0) || (dr === 0 && dc === 2)) {
+        victimR = (fromR + toR) / 2;
+        victimC = (fromC + toC) / 2;
+        const victim = newBoard[victimR * 8 + victimC];
         
-        try {
-          await updateDoc(doc(db, 'games', game.id), {
-            board: newBoard,
-            turn: opponentId,
-            lastMoveAt: Date.now()
-          });
-        } catch (e) {
-          handleFirestoreError(e, OperationType.UPDATE, `games/${game.id}`);
+        if (victim && victim !== user.uid) {
+            newBoard[toR * 8 + toC] = piece;
+            newBoard[fromR * 8 + fromC] = null;
+            newBoard[victimR * 8 + victimC] = null;
+            isCapture = true;
+        } else {
+            return; // Invalid jump
         }
+    } else {
+        return; // Invalid move distance
+    }
+    
+    try {
+      const updateData: any = {
+        board: newBoard,
+        turn: opponentId,
+        lastMoveAt: Date.now()
+      };
+
+      if (isCapture) {
+        updateData.scores = {
+           ...game.scores,
+           [user.uid]: (game.scores[user.uid] || 0) + 10
+        };
+        // In Turkish Dama, if a capture is made, you might get another turn if more captures available
+        // For now, simple point addition and turn switch
+      }
+
+      await updateDoc(doc(db, 'games', game.id), updateData);
+    } catch (e) {
+      handleFirestoreError(e, OperationType.UPDATE, `games/${game.id}`);
     }
   };
 
@@ -2349,14 +2401,38 @@ function JokerField({ game, user, drawCard, topCard, opponentProfile, opponentId
             </div>
 
             {/* Center Pile */}
-            <div className="flex-1 flex items-center justify-center gap-2">
+            <div className="flex-1 flex items-center justify-center gap-2 relative">
                  <div className="w-20 h-28 bg-[#8b0000] rounded-xl border-2 border-white/20 shadow-xl relative overflow-hidden rotate-[-5deg]">
-                    <div className="absolute inset-0 flex items-center justify-center opacity-10">★</div>
+                    <div className="absolute inset-0 flex items-center justify-center opacity-10 font-black">★</div>
                  </div>
                  {topCard && (
-                    <div className="w-20 h-28 rotate-[5deg] scale-105">
-                       <CardComponent card={topCard} isPile />
-                    </div>
+                    <AnimatePresence mode="popLayout">
+                        <motion.div 
+                           key={topCard.id}
+                           initial={{ 
+                             y: 300, 
+                             rotate: -10, 
+                             scale: 1.5,
+                             opacity: 0,
+                             filter: 'brightness(1.5) drop-shadow(0 0 0px rgba(0,255,255,0))'
+                           }}
+                           animate={{ 
+                             y: [300, -50, 0], 
+                             rotate: 5, 
+                             scale: 1.05,
+                             opacity: 1,
+                             filter: 'brightness(1.2) drop-shadow(0 0 15px rgba(0,255,255,0.8))'
+                           }}
+                           transition={{ 
+                             duration: 0.8, 
+                             times: [0, 0.4, 1],
+                             ease: "easeOut"
+                           }}
+                           className="w-20 h-28 z-20"
+                        >
+                           <CardComponent card={topCard} isPile />
+                        </motion.div>
+                    </AnimatePresence>
                  )}
             </div>
 
@@ -2399,8 +2475,11 @@ function DamaBoard({ game, user, onMove, opponentProfile, opponentId }: any) {
     <div className="flex flex-col items-center gap-10">
        {/* Opponent Area */}
        <div className="flex flex-col items-center gap-2">
-           <div className="relative w-20 h-20 rounded-full border-4 border-zinc-700 overflow-hidden shadow-22 bg-[#1a1a1a]">
+           <div className="relative w-20 h-20 rounded-full border-4 border-zinc-700 overflow-hidden shadow-2xl bg-[#1a1a1a]">
                <img src={opponentProfile?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${opponentId}`} alt="" className="w-full h-full object-cover" />
+               <div className="absolute -top-2 -right-2 w-8 h-8 bg-zinc-800 rounded-full flex items-center justify-center border-2 border-zinc-700 text-white text-[10px] font-black shadow-lg">
+                  {game.scores[opponentId] || 0}
+               </div>
            </div>
            <div className="px-4 py-1 bg-black/60 border border-white/10 text-white rounded-full font-bold text-xs uppercase">
                {game.playerNames[opponentId]}
@@ -2408,8 +2487,26 @@ function DamaBoard({ game, user, onMove, opponentProfile, opponentId }: any) {
        </div>
 
        {/* Dama Table */}
-       <div className="p-4 bg-[#3e2723] rounded-2xl shadow-2xl border-4 border-[#2b1b17]">
-          <div className="grid grid-cols-8 gap-1 bg-[#2b1b17] p-1 border-2 border-black/40">
+       <div className="flex flex-col items-center gap-6">
+          <div className="flex items-center gap-6 bg-black/40 px-8 py-3 rounded-2xl border border-white/5 backdrop-blur-md">
+             <div className="flex flex-col items-center gap-1">
+                <span className="text-[8px] font-black text-white/40 uppercase tracking-widest">Your Score</span>
+                <div className="flex items-center gap-2">
+                   <div className="w-2 h-2 rounded-full bg-[#ffcc00] shadow-[0_0_8px_rgba(255,204,0,0.5)]" />
+                   <span className="text-[#ffcc00] font-display font-black text-lg">{game.scores[user.uid] || 0}</span>
+                </div>
+             </div>
+             <div className="w-px h-8 bg-white/10" />
+             <div className="flex flex-col items-center gap-1">
+                <span className="text-[8px] font-black text-white/40 uppercase tracking-widest">Enemy</span>
+                <div className="flex items-center gap-2">
+                   <div className="w-2 h-2 rounded-full bg-black border border-white/20" />
+                   <span className="text-white/60 font-display font-black text-lg">{game.scores[opponentId] || 0}</span>
+                </div>
+             </div>
+          </div>
+          <div className="p-4 bg-[#3e2723] rounded-2xl shadow-2xl border-4 border-[#2b1b17] relative">
+             <div className="grid grid-cols-8 gap-1 bg-[#2b1b17] p-1 border-2 border-black/40">
              {Array.from({ length: 8 }).map((_, r) => 
                Array.from({ length: 8 }).map((_, c) => {
                  const cell = board[r * 8 + c];
@@ -2441,7 +2538,8 @@ function DamaBoard({ game, user, onMove, opponentProfile, opponentId }: any) {
                })
              )}
           </div>
-       </div>
+        </div>
+      </div>
     </div>
   );
 }
