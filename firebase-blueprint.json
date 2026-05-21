@@ -12,7 +12,9 @@
         "shortId": { "type": "string" },
         "ownedSkins": { "type": "array", "items": { "type": "string" } },
         "activeSkinId": { "type": "string" },
-        "ownedEmojis": { "type": "array", "items": { "type": "string" } }
+        "ownedEmojis": { "type": "array", "items": { "type": "string" } },
+        "ownedTableSkins": { "type": "array", "items": { "type": "string" } },
+        "activeTableSkinId": { "type": "string" }
       },
       "required": ["displayName", "chips"]
     },
@@ -51,6 +53,28 @@
         "rarity": { "type": "string" }
       },
       "required": ["name", "imageUrl", "price", "rarity"]
+    },
+    "TableSkin": {
+      "title": "Table Skin",
+      "description": "Customizable poker table design available in the shop",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "price": { "type": "integer" },
+        "rarity": { "type": "string" }
+      },
+      "required": ["name", "imageUrl", "price", "rarity"]
+    },
+    "GameLogo": {
+      "title": "Game Logo",
+      "description": "Visual logo asset for a specific game arena",
+      "type": "object",
+      "properties": {
+        "url": { "type": "string" },
+        "updatedAt": { "type": "integer" }
+      },
+      "required": ["url", "updatedAt"]
     },
     "Game": {
       "title": "Game Session",
@@ -134,6 +158,14 @@
     "emojiItems/{emojiId}": {
       "schema": "EmojiItem",
       "description": "Shop emojis and GIFs"
+    },
+    "tableSkins/{tableId}": {
+      "schema": "TableSkin",
+      "description": "Available table layouts/skins in the shop"
+    },
+    "gameLogos/{logoId}": {
+      "schema": "GameLogo",
+      "description": "Logos for game arenas"
     }
   }
 }

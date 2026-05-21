@@ -3,10 +3,35 @@ import { onAuthStateChanged, User } from 'firebase/auth';
 import { doc, getDoc, getDocs, setDoc, onSnapshot, collection, query, where, limit, addDoc, updateDoc, deleteDoc, orderBy } from 'firebase/firestore';
 import { auth, db, signIn, signOut, signInEmail, signUpEmail } from './lib/firebase';
 import { motion, AnimatePresence } from 'motion/react';
-import { LogIn, LogOut, Play, Trophy, Users, RefreshCcw, Hand, Plus, Lock, MoreVertical, Coins, ShoppingBag, X, Mail, Key, User as UserIcon, Menu, Settings, MessageSquare, Gift, MoreHorizontal, ChevronUp, Edit, Camera, Save, Check, Image as ImageIcon, Crown, ShieldCheck, Star, Eye, LayoutGrid, ArrowLeft, Radio, Music, Volume2, VolumeX, Smile, Send } from 'lucide-react';
-import { Game, GameStatus, Card, UserProfile, CardSkin, Club, ClubMessage } from './types';
+import { LogIn, LogOut, Play, Trophy, Users, RefreshCcw, Hand, Plus, Lock, MoreVertical, Coins, ShoppingBag, X, Mail, Key, User as UserIcon, Menu, Settings, MessageSquare, Gift, MoreHorizontal, ChevronUp, Edit, Camera, Save, Check, Image as ImageIcon, Crown, ShieldCheck, Star, Eye, LayoutGrid, ArrowLeft, Radio, Music, Volume2, VolumeX, Smile, Send, Copy, Search, Trash } from 'lucide-react';
+import { Game, GameStatus, Card, UserProfile, CardSkin, Club, ClubMessage, RadioTrack, EmojiItem, TableSkin } from './types';
 import { createDeck, shuffle } from './gameLogic';
 import confetti from 'canvas-confetti';
+
+function dataUrlToBlobUrl(dataUrl: string): string {
+  if (!dataUrl || !dataUrl.startsWith('data:')) {
+    return dataUrl;
+  }
+  try {
+    const parts = dataUrl.split(',');
+    const header = parts[0];
+    const base64Data = parts[1];
+    if (!base64Data) return dataUrl;
+
+    const mime = header.match(/:(.*?);/)?.[1] || 'audio/mpeg';
+    const binaryStr = atob(base64Data);
+    const len = binaryStr.length;
+    const u8arr = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+      u8arr[i] = binaryStr.charCodeAt(i);
+    }
+    const blob = new Blob([u8arr], { type: mime });
+    return URL.createObjectURL(blob);
+  } catch (e) {
+    console.error("Failed to convert data URL to Blob URL:", e);
+    return dataUrl;
+  }
+}
 
 type Language = 'en' | 'ku';
 
@@ -149,23 +174,55 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const updatingShortIdRef = React.useRef(false);
+  const clearingClubIdRef = React.useRef(false);
   const [loading, setLoading] = useState(true);
   const [activeGameId, setActiveGameId] = useState<string | null>(null);
   const [currentGame, setCurrentGame] = useState<Game | null>(null);
   const [isSearching, setIsSearching] = useState(false);
-  const [activeTab, setActiveTab] = useState<'home' | 'shop' | 'profile' | 'leaderboard' | 'settings' | 'clubs'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'shop' | 'profile' | 'leaderboard' | 'settings' | 'clubs' | 'my-items'>('home');
   const [searchGameType, setSearchGameType] = useState<'uno' | 'joker' | 'dama'>('uno');
   const [skinsMap, setSkinsMap] = useState<Record<string, CardSkin>>({});
   const [skins, setSkins] = useState<CardSkin[]>([]);
+  const [tableSkinsMap, setTableSkinsMap] = useState<Record<string, TableSkin>>({});
+  const [tableSkins, setTableSkins] = useState<TableSkin[]>([]);
+  const [gameLogos, setGameLogos] = useState<Record<string, string>>({ uno: '', joker: '', dama: '' });
   const [language, setLanguage] = useState<Language>('en');
   const [activeClubId, setActiveClubId] = useState<string | null>(null);
   const [currentClub, setCurrentClub] = useState<Club | null>(null);
   const [showProfileEditor, setShowProfileEditor] = useState(false);
   const [showRadioHub, setShowRadioHub] = useState(false);
-  const [isMusicOn, setIsMusicOn] = useState(true);
+  const [isMusicOn, setIsMusicOn] = useState(false);
   const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
   const [radioTracks, setRadioTracks] = useState<RadioTrack[]>([]);
+  const [trackCache, setTrackCache] = useState<Record<string, string>>({});
   const [emojiItems, setEmojiItems] = useState<EmojiItem[]>([]);
+
+  useEffect(() => {
+    const unsubLogos = onSnapshot(collection(db, 'gameLogos'), (snapshot) => {
+      const map: Record<string, string> = { uno: '', joker: '', dama: '' };
+      snapshot.docs.forEach(doc => {
+        map[doc.id] = (doc.data() as any).url || '';
+      });
+      setGameLogos(map);
+    });
+    return unsubLogos;
+  }, []);
+
+  useEffect(() => {
+    const unsubTables = onSnapshot(collection(db, 'tableSkins'), (snapshot) => {
+      const map: Record<string, TableSkin> = {};
+      const list: TableSkin[] = [];
+      snapshot.docs.forEach(doc => {
+        const item = { id: doc.id, ...doc.data() } as TableSkin;
+        map[doc.id] = item;
+        list.push(item);
+      });
+      setTableSkinsMap(map);
+      setTableSkins(list);
+    });
+    return unsubTables;
+  }, []);
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db, 'emojiItems'), (snap) => {
@@ -177,10 +234,14 @@ export default function App() {
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(db, 'cardSkins'), (snapshot) => {
       const map: Record<string, CardSkin> = {};
+      const list: CardSkin[] = [];
       snapshot.docs.forEach(doc => {
-        map[doc.id] = { id: doc.id, ...doc.data() } as CardSkin;
+        const item = { id: doc.id, ...doc.data() } as CardSkin;
+        map[doc.id] = item;
+        list.push(item);
       });
       setSkinsMap(map);
+      setSkins(list);
     }, (error) => {
       handleFirestoreError(error, OperationType.GET, 'cardSkins');
     });
@@ -208,7 +269,8 @@ export default function App() {
             level: 1,
             xp: 0,
             ownedSkins: [],
-            activeSkinId: null
+            activeSkinId: null,
+            shortId: Math.floor(Math.random() * 9000000 + 1000000).toString()
           };
           try {
             await setDoc(userRef, newProfile);
@@ -236,7 +298,8 @@ export default function App() {
       const unsubscribe = onSnapshot(doc(db, 'users', user.uid), (snapshot) => {
         if (snapshot.exists()) {
           const data = snapshot.data();
-          if (!data.shortId) {
+          if (!data.shortId && !updatingShortIdRef.current) {
+            updatingShortIdRef.current = true;
             const shortId = Math.floor(Math.random() * 9000000 + 1000000).toString();
             updateDoc(doc(db, 'users', user.uid), { shortId }).catch(console.error);
           }
@@ -263,18 +326,66 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    let active = true;
     if (radioTracks.length > 0 && isMusicOn) {
-      if (audio.src !== radioTracks[currentTrackIndex]?.url) {
-        audio.src = radioTracks[currentTrackIndex]?.url;
-      }
-      audio.play().catch(console.error);
-      audio.onended = () => {
-        setCurrentTrackIndex((prev) => (prev + 1) % radioTracks.length);
+      const currentTrack = radioTracks[currentTrackIndex];
+      if (!currentTrack) return;
+
+      const playAudio = (srcStr: string) => {
+        if (!active) return;
+        if (srcStr && audio.src !== srcStr) {
+          audio.src = srcStr;
+        }
+        if (srcStr) {
+          audio.play().catch((err: any) => {
+            console.warn("Audio play failed or was blocked by player/browser context:", err);
+            setIsMusicOn(false);
+          });
+        }
+        audio.onended = () => {
+          setCurrentTrackIndex((prev) => (prev + 1) % radioTracks.length);
+        };
       };
+
+      if (currentTrack.isChunked && !currentTrack.url) {
+        if (trackCache[currentTrack.id]) {
+          playAudio(trackCache[currentTrack.id]);
+        } else {
+          const fetchChunks = async () => {
+            try {
+              const chunksSnap = await getDocs(query(collection(db, `radioTracks/${currentTrack.id}/chunks`), orderBy('index', 'asc')));
+              const fullUrl = chunksSnap.docs.map(d => d.data().data).join('');
+              const blobUrl = dataUrlToBlobUrl(fullUrl);
+              if (active) {
+                setTrackCache(prev => ({ ...prev, [currentTrack.id]: blobUrl }));
+              }
+            } catch (e) {
+              console.error("Failed to load chunked track:", e);
+              if (active) {
+                setCurrentTrackIndex((prev) => (prev + 1) % radioTracks.length);
+              }
+            }
+          };
+          fetchChunks();
+        }
+      } else {
+        if (trackCache[currentTrack.id]) {
+          playAudio(trackCache[currentTrack.id]);
+        } else {
+          const blobUrl = dataUrlToBlobUrl(currentTrack.url || "");
+          if (active) {
+            setTrackCache(prev => ({ ...prev, [currentTrack.id]: blobUrl }));
+          }
+          playAudio(blobUrl);
+        }
+      }
     } else {
       audio.pause();
     }
-  }, [currentTrackIndex, radioTracks, isMusicOn]);
+    return () => {
+      active = false;
+    };
+  }, [currentTrackIndex, radioTracks, isMusicOn, trackCache]);
 
   useEffect(() => {
     if (!activeGameId) {
@@ -303,12 +414,17 @@ export default function App() {
     const unsubscribe = onSnapshot(doc(db, 'clubs', profile.clubId), (snapshot) => {
       if (snapshot.exists()) {
         setCurrentClub({ id: snapshot.id, ...snapshot.data() } as Club);
-      } else {
+      } else if (!clearingClubIdRef.current) {
         // If club was deleted, clear user's clubId
+        clearingClubIdRef.current = true;
         const userRef = doc(db, 'users', userId);
-        updateDoc(userRef, { clubId: null }).catch(e => {
-          handleFirestoreError(e, OperationType.UPDATE, `users/${userId}`);
-        });
+        updateDoc(userRef, { clubId: null })
+          .catch(e => {
+            console.error("Failed to clear clubId:", e);
+          })
+          .finally(() => {
+            clearingClubIdRef.current = false;
+          });
       }
     }, (error) => {
       handleFirestoreError(error, OperationType.GET, `clubs/${profile.clubId}`);
@@ -775,10 +891,34 @@ export default function App() {
     );
   }
 
+  if (activeTab === 'my-items') {
+    return (
+      <>
+        <MyItemsView 
+          user={user} 
+          profile={profile!} 
+          onBack={() => setActiveTab('profile')} 
+          emojiItems={emojiItems} 
+          setActiveTab={setActiveTab}
+          language={language}
+        />
+        <RadioHub 
+          tracks={radioTracks} 
+          active={showRadioHub} 
+          onClose={() => setShowRadioHub(false)} 
+          isMusicOn={isMusicOn} 
+          toggleMusic={() => setIsMusicOn(!isMusicOn)} 
+          currentTrackIndex={currentTrackIndex} 
+          setCurrentTrackIndex={setCurrentTrackIndex} 
+        />
+      </>
+    );
+  }
+
   if (activeTab === 'settings') {
     return (
       <>
-        <SettingsView language={language} setLanguage={setLanguage} onBack={() => setActiveTab('profile')} />
+        <SettingsView language={language} setLanguage={setLanguage} onBack={() => setActiveTab('profile')} user={user} profile={profile!} />
         <RadioHub 
           tracks={radioTracks} 
           active={showRadioHub} 
@@ -794,7 +934,7 @@ export default function App() {
 
   return (
     <>
-      <LobbyView user={user} profile={profile} onStartSearch={startSearching} onJoin={joinGame} onLogout={signOut} onCreate={createGame} setActiveTab={setActiveTab} onClaimDaily={claimDailyReward} language={language} />
+      <LobbyView user={user} profile={profile} onStartSearch={startSearching} onJoin={joinGame} onLogout={signOut} onCreate={createGame} setActiveTab={setActiveTab} onClaimDaily={claimDailyReward} language={language} gameLogos={gameLogos} />
       <RadioHub 
         tracks={radioTracks} 
         active={showRadioHub} 
@@ -829,6 +969,23 @@ function AuthView({ onGoogleSignIn, onEmailSignIn, onEmailSignUp }: any) {
       }
     } catch (err: any) {
       setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setError('');
+    setLoading(true);
+    try {
+      await onGoogleSignIn();
+    } catch (err: any) {
+      console.error("Google login failed", err);
+      if (err.code === 'auth/operation-not-supported-in-this-environment' || err.message?.includes('not supported') || err.message?.includes('operation is not supported')) {
+        setError('Google login is not supported inside pre-embed iframe. Please sign in with Email/Password or Open App in New Tab!');
+      } else {
+        setError(err.message || 'Google login failed');
+      }
     } finally {
       setLoading(false);
     }
@@ -910,7 +1067,7 @@ function AuthView({ onGoogleSignIn, onEmailSignIn, onEmailSignUp }: any) {
           </div>
 
           <button 
-            onClick={onGoogleSignIn}
+            onClick={handleGoogleSignIn}
             className="w-full py-3 border-2 border-[#868378] text-[#868378] rounded-2xl font-bold hover:bg-white/20 transition-all flex items-center justify-center gap-2"
           >
             <div className="w-5 h-5 bg-white rounded-full flex items-center justify-center text-[10px] font-bold text-black border border-black/10">G</div>
@@ -1022,9 +1179,10 @@ function AdminView({ onBack }: { onBack: () => void }) {
   const [skinPrice, setSkinPrice] = useState(1000);
   const [skinRarity, setSkinRarity] = useState<'common' | 'rare' | 'epic' | 'legendary'>('common');
   const [skinImage, setSkinImage] = useState('');
+  const [skinEmoji, setSkinEmoji] = useState('🃏');
   const [saving, setSaving] = useState(false);
   const [users, setUsers] = useState<UserProfile[]>([]);
-  const [activeTab, setActiveAdminTab] = useState<'skins' | 'users' | 'radio' | 'emojis'>('skins');
+  const [activeTab, setActiveAdminTab] = useState<'skins' | 'users' | 'radio' | 'emojis' | 'tables' | 'logos'>('skins');
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const [trackName, setTrackName] = useState('');
@@ -1035,14 +1193,66 @@ function AdminView({ onBack }: { onBack: () => void }) {
   const [emojiPrice, setEmojiPrice] = useState(500);
   const [emojiType, setEmojiType] = useState<'emoji' | 'gif'>('emoji');
 
+  const [tableName, setTableName] = useState('');
+  const [tablePrice, setTablePrice] = useState(2500);
+  const [tableRarity, setTableRarity] = useState<'common' | 'rare' | 'epic' | 'legendary'>('common');
+  const [tableImage, setTableImage] = useState('');
+  const [tableEmoji, setTableEmoji] = useState('🎴');
+
+  const [selectedLogoGame, setSelectedLogoGame] = useState<'uno' | 'joker' | 'dama'>('uno');
+  const [gameLogoUrl, setGameLogoUrl] = useState('');
+  const [logoScope, setLogoScope] = useState<'game' | 'club'>('game');
+  const [clubLogoUrl, setClubLogoUrl] = useState('');
+  const [clubLogos, setClubLogos] = useState<{ id: string; url: string; createdAt: number }[]>([]);
+
+  // Real-time collections for editing
+  const [skins, setSkins] = useState<CardSkin[]>([]);
+  const [tracks, setTracks] = useState<RadioTrack[]>([]);
+  const [emojis, setEmojis] = useState<EmojiItem[]>([]);
+  const [tableSkins, setTableSkins] = useState<TableSkin[]>([]);
+  const [editingId, setEditingId] = useState<string | null>(null);
+
   useEffect(() => {
-    const fetchUsers = async () => {
-      const q = query(collection(db, 'users'), limit(100));
-      const snap = await getDocs(q);
+    // Realtime sync for users
+    const qUsers = query(collection(db, 'users'), limit(100));
+    const unsubUsers = onSnapshot(qUsers, (snap) => {
       setUsers(snap.docs.map(d => ({ ...d.data(), uid: d.id } as any as UserProfile)));
+    });
+
+    // Realtime sync for card skins
+    const unsubSkins = onSnapshot(collection(db, 'cardSkins'), (snap) => {
+      setSkins(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as CardSkin)));
+    });
+
+    // Realtime sync for radio tracks
+    const unsubTracks = onSnapshot(collection(db, 'radioTracks'), (snap) => {
+      setTracks(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as RadioTrack)));
+    });
+
+    // Realtime sync for emoji items
+    const unsubEmojis = onSnapshot(collection(db, 'emojiItems'), (snap) => {
+      setEmojis(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as EmojiItem)));
+    });
+
+    // Realtime sync for table skins
+    const unsubTables = onSnapshot(collection(db, 'tableSkins'), (snap) => {
+      setTableSkins(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as TableSkin)));
+    });
+
+    // Realtime sync for club logos
+    const unsubClubLogos = onSnapshot(query(collection(db, 'clubLogos'), orderBy('createdAt', 'desc')), (snap) => {
+      setClubLogos(snap.docs.map(doc => ({ id: doc.id, url: doc.data().url || '', createdAt: doc.data().createdAt || 0 })));
+    });
+
+    return () => {
+      unsubUsers();
+      unsubSkins();
+      unsubTracks();
+      unsubEmojis();
+      unsubTables();
+      unsubClubLogos();
     };
-    if (activeTab === 'users') fetchUsers();
-  }, [activeTab]);
+  }, []);
 
   const handleUpdateChips = async (userUid: string, currentChips: number) => {
     const amount = prompt("Enter new chip amount:", currentChips.toString());
@@ -1080,34 +1290,67 @@ function AdminView({ onBack }: { onBack: () => void }) {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      const isRadio = activeTab === 'radio';
+      const maxAllowedSize = isRadio ? 10 * 1024 * 1024 : 2 * 1024 * 1024;
+      
+      if (file.size > maxAllowedSize) {
+        alert(isRadio ? "Audio file too large! Max 10MB." : "File too large! Try < 2MB");
+        return;
+      }
+
       const reader = new FileReader();
       reader.onloadend = () => {
         const result = reader.result as string;
-        if (result.length < 2000000) {
-          if (activeTab === 'skins') setSkinImage(result);
-          if (activeTab === 'emojis') setEmojiUrl(result);
-          if (activeTab === 'radio') setTrackUrl(result);
-        } else {
-          alert("File too large! Try < 1MB");
+        if (activeTab === 'skins') setSkinImage(result);
+        if (activeTab === 'tables') setTableImage(result);
+        if (activeTab === 'logos') {
+          if (logoScope === 'club') {
+            setClubLogoUrl(result);
+          } else {
+            setGameLogoUrl(result);
+          }
         }
+        if (activeTab === 'emojis') setEmojiUrl(result);
+        if (activeTab === 'radio') setTrackUrl(result);
       };
       reader.readAsDataURL(file);
     }
   };
 
-  const handleAddSkin = async () => {
+  // Card Skins Handlers
+  const handleEditSkin = (skin: CardSkin) => {
+    setEditingId(skin.id);
+    setSkinName(skin.name);
+    setSkinPrice(skin.price);
+    setSkinRarity(skin.rarity);
+    setSkinImage(skin.imageUrl || '');
+    setSkinEmoji(skin.emoji || '🃏');
+  };
+
+  const handleSaveSkin = async () => {
     if (!skinName || !skinImage) return;
     setSaving(true);
     try {
-      await addDoc(collection(db, 'cardSkins'), {
-        name: skinName,
-        price: skinPrice,
-        rarity: skinRarity,
-        imageUrl: skinImage
-      });
-      alert("Skin added!");
-      setSkinName('');
-      setSkinImage('');
+      if (editingId) {
+        await updateDoc(doc(db, 'cardSkins', editingId), {
+          name: skinName,
+          price: skinPrice,
+          rarity: skinRarity,
+          imageUrl: skinImage,
+          emoji: skinEmoji
+        });
+        alert("Skin updated!");
+      } else {
+        await addDoc(collection(db, 'cardSkins'), {
+          name: skinName,
+          price: skinPrice,
+          rarity: skinRarity,
+          imageUrl: skinImage,
+          emoji: skinEmoji
+        });
+        alert("Skin created!");
+      }
+      handleCancelEdit();
     } catch (e) {
       handleFirestoreError(e, OperationType.CREATE, 'cardSkins');
     } finally {
@@ -1115,18 +1358,82 @@ function AdminView({ onBack }: { onBack: () => void }) {
     }
   };
 
-  const handleAddTrack = async () => {
-    if (!trackName || !trackUrl) return;
+  const handleDeleteSkin = async (id: string) => {
+    if (!window.confirm("Permanently delete this card skin?")) return;
+    try {
+      await deleteDoc(doc(db, 'cardSkins', id));
+      alert("Deleted!");
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  // Radio Tracks Handlers
+  const handleEditTrack = (track: RadioTrack) => {
+    setEditingId(track.id);
+    setTrackName(track.name);
+    setTrackUrl(track.url || '');
+  };
+
+  const handleSaveTrack = async () => {
+    if (!trackName) return;
     setSaving(true);
     try {
-      await addDoc(collection(db, 'radioTracks'), {
-        name: trackName,
-        url: trackUrl,
-        createdAt: Date.now()
-      });
-      alert("Track added to Radio!");
-      setTrackName('');
-      setTrackUrl('');
+      if (editingId) {
+        const updateData: any = { name: trackName };
+        const originalTrack = tracks.find(t => t.id === editingId);
+        if (trackUrl && trackUrl !== originalTrack?.url) {
+          const chunkSize = 500000;
+          const totalLength = trackUrl.length;
+          const numChunks = Math.ceil(totalLength / chunkSize);
+
+          updateData.isChunked = true;
+          updateData.chunkCount = numChunks;
+          updateData.url = "";
+
+          const chunksSnap = await getDocs(collection(db, `radioTracks/${editingId}/chunks`));
+          for (const d of chunksSnap.docs) {
+            await deleteDoc(doc(db, `radioTracks/${editingId}/chunks`, d.id));
+          }
+
+          for (let i = 0; i < numChunks; i++) {
+            const chunkData = trackUrl.substring(i * chunkSize, (i + 1) * chunkSize);
+            await setDoc(doc(db, `radioTracks/${editingId}/chunks`, `chunk_${i}`), {
+              index: i,
+              data: chunkData
+            });
+          }
+        }
+        await updateDoc(doc(db, 'radioTracks', editingId), updateData);
+        alert("Track updated!");
+      } else {
+        if (!trackUrl) {
+          alert("Please upload an audio file first!");
+          setSaving(false);
+          return;
+        }
+        const chunkSize = 500000;
+        const totalLength = trackUrl.length;
+        const numChunks = Math.ceil(totalLength / chunkSize);
+
+        const docRef = await addDoc(collection(db, 'radioTracks'), {
+          name: trackName,
+          createdAt: Date.now(),
+          isChunked: true,
+          chunkCount: numChunks,
+          url: ""
+        });
+
+        for (let i = 0; i < numChunks; i++) {
+          const chunkData = trackUrl.substring(i * chunkSize, (i + 1) * chunkSize);
+          await setDoc(doc(db, `radioTracks/${docRef.id}/chunks`, `chunk_${i}`), {
+            index: i,
+            data: chunkData
+          });
+        }
+        alert("Track added to Radio!");
+      }
+      handleCancelEdit();
     } catch (e) {
       handleFirestoreError(e, OperationType.CREATE, 'radioTracks');
     } finally {
@@ -1134,20 +1441,52 @@ function AdminView({ onBack }: { onBack: () => void }) {
     }
   };
 
-  const handleAddEmoji = async () => {
+  const handleDeleteTrack = async (id: string) => {
+    if (!window.confirm("Permanently delete this radio track and audio chunks?")) return;
+    try {
+      await deleteDoc(doc(db, 'radioTracks', id));
+      const chunksSnap = await getDocs(collection(db, `radioTracks/${id}/chunks`));
+      for (const d of chunksSnap.docs) {
+        await deleteDoc(doc(db, `radioTracks/${id}/chunks`, d.id));
+      }
+      alert("Deleted!");
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  // Emojis Handlers
+  const handleEditEmoji = (emoji: EmojiItem) => {
+    setEditingId(emoji.id);
+    setEmojiName(emoji.name);
+    setEmojiPrice(emoji.price);
+    setEmojiType(emoji.type);
+    setEmojiUrl(emoji.url);
+  };
+
+  const handleSaveEmoji = async () => {
     if (!emojiName || !emojiUrl) return;
     setSaving(true);
     try {
-      await addDoc(collection(db, 'emojiItems'), {
-        name: emojiName,
-        url: emojiUrl,
-        price: emojiPrice,
-        type: emojiType,
-        createdAt: Date.now()
-      });
-      alert("Emoji/GIF added to Shop!");
-      setEmojiName('');
-      setEmojiUrl('');
+      if (editingId) {
+        await updateDoc(doc(db, 'emojiItems', editingId), {
+          name: emojiName,
+          url: emojiUrl,
+          price: emojiPrice,
+          type: emojiType
+        });
+        alert("Emoji updated!");
+      } else {
+        await addDoc(collection(db, 'emojiItems'), {
+          name: emojiName,
+          url: emojiUrl,
+          price: emojiPrice,
+          type: emojiType,
+          createdAt: Date.now()
+        });
+        alert("Emoji added to Shop!");
+      }
+      handleCancelEdit();
     } catch (e) {
       handleFirestoreError(e, OperationType.CREATE, 'emojiItems');
     } finally {
@@ -1155,20 +1494,172 @@ function AdminView({ onBack }: { onBack: () => void }) {
     }
   };
 
+  const handleDeleteEmoji = async (id: string) => {
+    if (!window.confirm("Delete this shop emoji?")) return;
+    try {
+      await deleteDoc(doc(db, 'emojiItems', id));
+      alert("Deleted!");
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  // Table Skins Handlers
+  const handleEditTableRaw = (table: TableSkin) => {
+    setEditingId(table.id);
+    setTableName(table.name);
+    setTablePrice(table.price);
+    setTableRarity(table.rarity);
+    setTableImage(table.imageUrl || '');
+    setTableEmoji(table.emoji || '🎴');
+  };
+
+  const handleSaveTable = async () => {
+    if (!tableName || !tableImage) return;
+    setSaving(true);
+    try {
+      if (editingId) {
+        await updateDoc(doc(db, 'tableSkins', editingId), {
+          name: tableName,
+          price: tablePrice,
+          rarity: tableRarity,
+          imageUrl: tableImage,
+          emoji: tableEmoji
+        });
+        alert("Table layout updated!");
+      } else {
+        await addDoc(collection(db, 'tableSkins'), {
+          name: tableName,
+          price: tablePrice,
+          rarity: tableRarity,
+          imageUrl: tableImage,
+          emoji: tableEmoji,
+          createdAt: Date.now()
+        });
+        alert("Table layout deployed to boutique!");
+      }
+      handleCancelEdit();
+    } catch (e) {
+      handleFirestoreError(e, OperationType.CREATE, 'tableSkins');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteTable = async (id: string) => {
+    if (!window.confirm("Permanently remove this table skin?")) return;
+    try {
+      await deleteDoc(doc(db, 'tableSkins', id));
+      alert("Deleted!");
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleSaveGameLogo = async () => {
+    if (!gameLogoUrl) {
+      alert("Please upload a logo file first!");
+      return;
+    }
+    setSaving(true);
+    try {
+      await setDoc(doc(db, 'gameLogos', selectedLogoGame), {
+        url: gameLogoUrl,
+        updatedAt: Date.now()
+      });
+      alert(`Updated game logo for ${selectedLogoGame.toUpperCase()} successfully!`);
+      handleCancelEdit();
+    } catch (e) {
+      handleFirestoreError(e, OperationType.UPDATE, `gameLogos/${selectedLogoGame}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSaveClubPresetLogo = async () => {
+    if (!clubLogoUrl) {
+      alert("Please upload a logo file first!");
+      return;
+    }
+    setSaving(true);
+    try {
+      await addDoc(collection(db, 'clubLogos'), {
+        url: clubLogoUrl,
+        createdAt: Date.now()
+      });
+      alert("Deployed preset club logo successfully!");
+      handleCancelEdit();
+    } catch (e) {
+      handleFirestoreError(e, OperationType.CREATE, 'clubLogos');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteClubPresetLogo = async (id: string) => {
+    if (!window.confirm("Permanently delete this club logo preset?")) return;
+    try {
+      await deleteDoc(doc(db, 'clubLogos', id));
+      alert("Deleted club logo preset!");
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setSkinName('');
+    setSkinImage('');
+    setSkinPrice(1000);
+    setSkinRarity('common');
+    setSkinEmoji('🃏');
+    
+    setTrackName('');
+    setTrackUrl('');
+    
+    setEmojiName('');
+    setEmojiUrl('');
+    setEmojiPrice(500);
+    setEmojiType('emoji');
+
+    setTableName('');
+    setTableImage('');
+    setTablePrice(2500);
+    setTableRarity('common');
+    setTableEmoji('🎴');
+
+    setGameLogoUrl('');
+    setClubLogoUrl('');
+    setLogoScope('game');
+  };
+
   return (
-    <div className="fixed inset-0 z-[2000] bg-black text-white p-8 flex flex-col items-center overflow-y-auto">
+    <div className="fixed inset-0 z-[2000] bg-black text-white p-8 flex flex-col items-center overflow-y-auto font-sans">
       <div className="w-full max-w-lg pb-32">
         <div className="flex flex-col mb-8 gap-4">
-           <div className="flex items-center gap-4">
-              <button onClick={onBack} className="p-2 bg-white/10 rounded-full hover:bg-white/20"><X size={24} /></button>
-              <h1 className="text-2xl font-black italic tracking-widest">ADMIN PANEL</h1>
+           <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                 <button onClick={onBack} className="p-2 bg-white/10 rounded-full hover:bg-white/20"><X size={24} /></button>
+                 <h1 className="text-2xl font-black italic tracking-widest text-zinc-300">ADMIN PANEL</h1>
+              </div>
+              {editingId && (
+                <button 
+                  onClick={handleCancelEdit} 
+                  className="px-3 py-1.5 bg-red-500/15 border border-red-500/30 text-red-400 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-red-500/30"
+                >
+                  Cancel Edit
+                </button>
+              )}
            </div>
            <div className="flex bg-white/10 rounded-xl p-1 overflow-x-auto">
-              {['skins', 'users', 'radio', 'emojis'].map(tab => (
+              {['skins', 'tables', 'logos', 'users', 'radio', 'emojis'].map(tab => (
                 <button 
                   key={tab}
-                  onClick={() => setActiveAdminTab(tab as any)}
-                  className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase transition-all whitespace-nowrap ${activeTab === tab ? 'bg-white text-black' : 'text-white/40 hover:text-white'}`}
+                  onClick={() => {
+                    handleCancelEdit();
+                    setActiveAdminTab(tab as any);
+                  }}
+                  className={`flex-1 px-4 py-2 rounded-lg text-[10px] font-black uppercase transition-all whitespace-nowrap ${activeTab === tab ? 'bg-white text-black font-black' : 'text-white/40 hover:text-white'}`}
                 >
                   {tab}
                 </button>
@@ -1177,71 +1668,306 @@ function AdminView({ onBack }: { onBack: () => void }) {
         </div>
 
         {activeTab === 'skins' ? (
-          <div className="space-y-6">
-            <div>
-              <label className="block text-[10px] font-black uppercase text-white/40 mb-2">Skin Name</label>
-              <input type="text" value={skinName} onChange={(e) => setSkinName(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-yellow-500" />
+          <div className="space-y-6 animate-fade-in">
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-5 space-y-4">
+              <h2 className="text-sm font-black uppercase text-yellow-500 tracking-wider">
+                {editingId ? 'Modify Selected Card Skin' : 'Deploy New Card Skin'}
+              </h2>
+              <div>
+                <label className="block text-[10px] font-black uppercase text-white/40 mb-2">Skin Name</label>
+                <input type="text" value={skinName} onChange={(e) => setSkinName(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-yellow-500 text-sm font-bold" />
+              </div>
+              <div>
+                <label className="block text-[10px] font-black uppercase text-white/40 mb-2">Emoji Badge</label>
+                <input type="text" value={skinEmoji} onChange={(e) => setSkinEmoji(e.target.value)} placeholder="🃏" className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-yellow-500 text-sm font-bold" />
+              </div>
+              <div>
+                <label className="block text-[10px] font-black uppercase text-white/40 mb-2">Price (Chips)</label>
+                <input type="number" value={skinPrice} onChange={(e) => setSkinPrice(Number(e.target.value))} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-yellow-500 text-sm font-bold" />
+              </div>
+              <div>
+                <label className="block text-[10px] font-black uppercase text-white/40 mb-2">Rarity</label>
+                <select value={skinRarity} onChange={(e) => setSkinRarity(e.target.value as any)} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-yellow-500 text-sm font-bold capitalize">
+                  <option value="common">Common</option>
+                  <option value="rare">Rare</option>
+                  <option value="epic">Epic</option>
+                  <option value="legendary">Legendary</option>
+                </select>
+              </div>
+              <div onClick={() => fileInputRef.current?.click()} className="w-full aspect-[2/3] bg-black/40 border-2 border-dashed border-white/10 rounded-2xl flex flex-col items-center justify-center cursor-pointer hover:border-yellow-500/55 transition-colors overflow-hidden relative">
+                 {skinImage ? <img src={skinImage} alt="" className="w-full h-full object-cover" /> : <Camera size={48} className="opacity-20" />}
+                 {!skinImage && <span className="text-[10px] font-bold text-white/40 mt-2">Upload visual preview</span>}
+              </div>
+              <input ref={fileInputRef} type="file" onChange={handleFileChange} className="hidden" accept="image/*" />
+              <button onClick={handleSaveSkin} disabled={saving} className={`w-full py-4 text-xs font-black uppercase tracking-widest rounded-2xl shadow transition-all ${editingId ? 'bg-emerald-500 text-white hover:bg-emerald-400' : 'bg-yellow-500 text-black hover:bg-yellow-400'} disabled:opacity-50`}>
+                 {saving ? 'SAVING...' : editingId ? 'UPDATE CARD SKIN' : 'CREATE NEW SKIN'}
+              </button>
             </div>
-            <div>
-              <label className="block text-[10px] font-black uppercase text-white/40 mb-2">Price (Chips)</label>
-              <input type="number" value={skinPrice} onChange={(e) => setSkinPrice(Number(e.target.value))} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-yellow-500" />
+
+            {/* Skins list */}
+            <div className="pt-6 border-t border-white/10 space-y-4">
+              <h3 className="text-xs font-black uppercase tracking-wider text-white/40">Registered Card Skins ({skins.length})</h3>
+              <div className="grid grid-cols-2 gap-4">
+                {skins.map(sk => (
+                  <div key={sk.id} className="bg-white/5 border border-white/10 rounded-2xl p-3 flex flex-col gap-2 relative">
+                    <div className="aspect-[2/3] bg-black border border-white/10 rounded-xl overflow-hidden relative">
+                       {sk.imageUrl && <img src={sk.imageUrl} alt="" className="w-full h-full object-cover" />}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-bold text-xs truncate leading-none mb-1">{sk.emoji || '🃏'} {sk.name}</p>
+                      <div className="flex justify-between items-center">
+                        <span className="text-[8px] font-black uppercase text-yellow-500 bg-yellow-500/10 px-1.5 py-0.5 rounded-full">{sk.rarity}</span>
+                        <span className="text-xs font-black text-white/60">${sk.price}</span>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-1 mt-1">
+                      <button onClick={() => handleEditSkin(sk)} className="py-2 bg-white/5 hover:bg-white/10 rounded-lg text-[10px] font-black uppercase tracking-wider">Edit</button>
+                      <button onClick={() => handleDeleteSkin(sk.id)} className="py-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-lg border border-red-500/20 flex items-center justify-center"><Trash size={12} /></button>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
-            <div>
-              <label className="block text-[10px] font-black uppercase text-white/40 mb-2">Rarity</label>
-              <select value={skinRarity} onChange={(e) => setSkinRarity(e.target.value as any)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-yellow-500">
-                <option value="common">Common</option>
-                <option value="rare">Rare</option>
-                <option value="epic">Epic</option>
-                <option value="legendary">Legendary</option>
-              </select>
-            </div>
-            <div onClick={() => fileInputRef.current?.click()} className="w-full aspect-[2/3] bg-white/5 border-2 border-dashed border-white/10 rounded-2xl flex flex-col items-center justify-center cursor-pointer hover:border-yellow-500 transition-colors overflow-hidden">
-               {skinImage ? <img src={skinImage} alt="" className="w-full h-full object-cover" /> : <Camera size={48} className="opacity-20" />}
-            </div>
-            <input ref={fileInputRef} type="file" onChange={handleFileChange} className="hidden" accept="image/*" />
-            <button onClick={handleAddSkin} disabled={saving} className="w-full py-4 bg-yellow-500 text-black font-black uppercase tracking-widest rounded-2xl hover:bg-yellow-400 disabled:opacity-50">
-               {saving ? 'ADDING...' : 'ADD SKIN'}
-            </button>
           </div>
         ) : activeTab === 'radio' ? (
-          <div className="space-y-6">
-            <div>
-              <label className="block text-[10px] font-black uppercase text-white/40 mb-2">Track Name</label>
-              <input type="text" value={trackName} onChange={(e) => setTrackName(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-yellow-500" />
+          <div className="space-y-6 animate-fade-in">
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-5 space-y-4">
+              <h2 className="text-sm font-black uppercase text-yellow-500 tracking-wider">
+                {editingId ? 'Modify Selected Radio Track' : 'Load Cybernetic Sound'}
+              </h2>
+              <div>
+                <label className="block text-[10px] font-black uppercase text-white/40 mb-2">Track Name</label>
+                <input type="text" value={trackName} onChange={(e) => setTrackName(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-yellow-500 text-sm font-bold" />
+              </div>
+              <div onClick={() => fileInputRef.current?.click()} className="w-full py-12 bg-black/40 border-2 border-dashed border-white/10 rounded-2xl flex flex-col items-center justify-center cursor-pointer hover:border-yellow-500 transition-colors">
+                 {trackUrl ? <Music size={48} className="text-yellow-500 animate-pulse" /> : <Music size={48} className="opacity-20" />}
+                 <span className="text-[10px] font-black uppercase mt-2 opacity-40">{trackUrl ? 'Audio file fully loaded' : 'Upload MP3/OGG (Max 10MB)'}</span>
+              </div>
+              <input ref={fileInputRef} type="file" onChange={handleFileChange} className="hidden" accept="audio/*" />
+              <button onClick={handleSaveTrack} disabled={saving} className={`w-full py-4 text-xs font-black uppercase tracking-widest rounded-2xl transition-all shadow ${editingId ? 'bg-emerald-500 text-white hover:bg-emerald-400' : 'bg-yellow-500 text-black hover:bg-yellow-400'} disabled:opacity-50`}>
+                 {saving ? 'SYNCHRONIZING AUDIO...' : editingId ? 'UPDATE RADIO TRACK' : 'CREATE TRACK'}
+              </button>
             </div>
-            <div onClick={() => fileInputRef.current?.click()} className="w-full py-12 bg-white/5 border-2 border-dashed border-white/10 rounded-2xl flex flex-col items-center justify-center cursor-pointer hover:border-yellow-500 transition-colors">
-               {trackUrl ? <Music size={48} className="text-yellow-500" /> : <Music size={48} className="opacity-20" />}
-               <span className="text-[10px] font-black uppercase mt-2 opacity-40">{trackUrl ? 'Audio Loaded' : 'Upload MP3/OGG (Max 2MB)'}</span>
+
+            {/* Radio channels listing */}
+            <div className="pt-6 border-t border-white/10 space-y-4">
+              <h3 className="text-xs font-black uppercase tracking-wider text-white/40">Registered Audio Channels ({tracks.length})</h3>
+              <div className="space-y-3">
+                {tracks.map(tc => (
+                  <div key={tc.id} className="bg-white/5 border border-white/10 rounded-xl p-4 flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-10 h-10 rounded-lg bg-black/60 border border-white/10 flex items-center justify-center">
+                        <Music size={18} className="text-zinc-500" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-bold text-xs truncate leading-none mb-1 text-white">{tc.name}</p>
+                        <p className="text-[8px] font-black uppercase text-white/30 tracking-wider">
+                          {tc.chunkCount ? `${tc.chunkCount} parts` : 'No file data'}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex gap-1.5">
+                      <button onClick={() => handleEditTrack(tc)} className="px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-[10px] font-black uppercase tracking-wider">Edit</button>
+                      <button onClick={() => handleDeleteTrack(tc.id)} className="p-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-lg border border-red-500/20 flex items-center justify-center"><Trash size={12} /></button>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
-            <input ref={fileInputRef} type="file" onChange={handleFileChange} className="hidden" accept="audio/*" />
-            <button onClick={handleAddTrack} disabled={saving} className="w-full py-4 bg-yellow-500 text-black font-black uppercase tracking-widest rounded-2xl hover:bg-yellow-400 disabled:opacity-50">
-               {saving ? 'ADDING...' : 'ADD TO RADIO'}
-            </button>
           </div>
         ) : activeTab === 'emojis' ? (
-          <div className="space-y-6">
-            <div>
-              <label className="block text-[10px] font-black uppercase text-white/40 mb-2">Emoji/GIF Name</label>
-              <input type="text" value={emojiName} onChange={(e) => setEmojiName(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-yellow-500" />
+          <div className="space-y-6 animate-fade-in">
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-5 space-y-4">
+              <h2 className="text-sm font-black uppercase text-yellow-500 tracking-wider">
+                {editingId ? 'Modify Premium Emoji' : 'Add Premium Emoji'}
+              </h2>
+              <div>
+                <label className="block text-[10px] font-black uppercase text-white/40 mb-2">Emoji/GIF Name</label>
+                <input type="text" value={emojiName} onChange={(e) => setEmojiName(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-yellow-500 text-sm font-bold" />
+              </div>
+              <div>
+                <label className="block text-[10px] font-black uppercase text-white/40 mb-2">Price (Chips)</label>
+                <input type="number" value={emojiPrice} onChange={(e) => setEmojiPrice(Number(e.target.value))} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-yellow-500 text-sm font-bold" />
+              </div>
+              <div>
+                <label className="block text-[10px] font-black uppercase text-white/40 mb-2">Type</label>
+                <select value={emojiType} onChange={(e) => setEmojiType(e.target.value as any)} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-yellow-500 text-sm font-bold capitalize">
+                  <option value="emoji">Emoji</option>
+                  <option value="gif">GIF</option>
+                </select>
+              </div>
+              <div onClick={() => fileInputRef.current?.click()} className="w-full aspect-square bg-black/40 border-2 border-dashed border-white/10 rounded-2xl flex flex-col items-center justify-center cursor-pointer hover:border-yellow-500/55 transition-colors overflow-hidden relative">
+                 {emojiUrl ? <img src={emojiUrl} alt="" className="max-w-full max-h-full object-contain" /> : <Smile size={48} className="opacity-20" />}
+                 {!emojiUrl && <span className="text-[10px] font-bold text-white/40 mt-2">Upload Emoji or GIF</span>}
+              </div>
+              <input ref={fileInputRef} type="file" onChange={handleFileChange} className="hidden" accept="image/*,image/gif" />
+              <button onClick={handleSaveEmoji} disabled={saving} className={`w-full py-4 text-xs font-black uppercase tracking-widest rounded-2xl transition-all shadow ${editingId ? 'bg-emerald-500 text-white hover:bg-emerald-400' : 'bg-yellow-500 text-black hover:bg-yellow-400'} disabled:opacity-50`}>
+                 {saving ? 'SYNCHRONIZING DATABASE...' : editingId ? 'UPDATE EMOJI' : 'CREATE EMOJI / GIF'}
+              </button>
             </div>
-            <div>
-              <label className="block text-[10px] font-black uppercase text-white/40 mb-2">Price (Chips)</label>
-              <input type="number" value={emojiPrice} onChange={(e) => setEmojiPrice(Number(e.target.value))} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-yellow-500" />
+
+            {/* Emojis list */}
+            <div className="pt-6 border-t border-white/10 space-y-4">
+              <h3 className="text-xs font-black uppercase tracking-wider text-white/40">Premium Emojis Catalog ({emojis.length})</h3>
+              <div className="grid grid-cols-3 gap-3">
+                {emojis.map(em => (
+                  <div key={em.id} className="bg-white/5 border border-white/10 rounded-xl p-3 flex flex-col items-center gap-2 relative">
+                    <div className="w-12 h-12 flex items-center justify-center overflow-hidden bg-black/40 rounded-lg">
+                      {em.url && <img src={em.url} alt="" className="max-w-full max-h-full object-contain" />}
+                    </div>
+                    <div className="text-center min-w-0 w-full mb-1">
+                      <p className="font-bold text-[10px] text-white truncate">{em.name}</p>
+                      <p className="text-[8px] font-black text-yellow-500 uppercase tracking-wider">${em.price}</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-1 w-full">
+                      <button onClick={() => handleEditEmoji(em)} className="py-1 bg-white/5 hover:bg-white/10 rounded text-[8px] font-black uppercase tracking-wider">Edit</button>
+                      <button onClick={() => handleDeleteEmoji(em.id)} className="py-1 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded flex items-center justify-center"><Trash size={10} /></button>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
-            <div>
-              <label className="block text-[10px] font-black uppercase text-white/40 mb-2">Type</label>
-              <select value={emojiType} onChange={(e) => setEmojiType(e.target.value as any)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-yellow-500">
-                <option value="emoji">Emoji</option>
-                <option value="gif">GIF</option>
-              </select>
+          </div>
+        ) : activeTab === 'tables' ? (
+          <div className="space-y-6 animate-fade-in">
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-5 space-y-4">
+              <h2 className="text-sm font-black uppercase text-yellow-500 tracking-wider">
+                {editingId ? 'Modify Table Design' : 'Deploy Premium Table'}
+              </h2>
+              <div>
+                <label className="block text-[10px] font-black uppercase text-white/40 mb-2">Table Name</label>
+                <input type="text" value={tableName} onChange={(e) => setTableName(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-yellow-500 text-sm font-bold" />
+              </div>
+              <div>
+                <label className="block text-[10px] font-black uppercase text-white/40 mb-2">Emoji Badge</label>
+                <input type="text" value={tableEmoji} onChange={(e) => setTableEmoji(e.target.value)} placeholder="🎴" className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-yellow-500 text-sm font-bold" />
+              </div>
+              <div>
+                <label className="block text-[10px] font-black uppercase text-white/40 mb-2">Price (Chips)</label>
+                <input type="number" value={tablePrice} onChange={(e) => setTablePrice(Number(e.target.value))} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-yellow-500 text-sm font-bold" />
+              </div>
+              <div>
+                <label className="block text-[10px] font-black uppercase text-white/40 mb-2">Rarity</label>
+                <select value={tableRarity} onChange={(e) => setTableRarity(e.target.value as any)} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-yellow-500 text-sm font-bold capitalize">
+                  <option value="common">Common</option>
+                  <option value="rare">Rare</option>
+                  <option value="epic">Epic</option>
+                  <option value="legendary">Legendary</option>
+                </select>
+              </div>
+              <div onClick={() => fileInputRef.current?.click()} className="w-full aspect-[3/2] bg-black/40 border-2 border-dashed border-white/10 rounded-2xl flex flex-col items-center justify-center cursor-pointer hover:border-yellow-500/55 transition-colors overflow-hidden relative">
+                 {tableImage ? <img src={tableImage} alt="" className="w-full h-full object-cover" /> : <Camera size={48} className="opacity-20" />}
+                 {!tableImage && <span className="text-[10px] font-bold text-white/40 mt-2">Upload table layout preview</span>}
+              </div>
+              <input ref={fileInputRef} type="file" onChange={handleFileChange} className="hidden" accept="image/*" />
+              <button onClick={handleSaveTable} disabled={saving} className={`w-full py-4 text-xs font-black uppercase tracking-widest rounded-2xl shadow transition-all ${editingId ? 'bg-emerald-500 text-white hover:bg-emerald-400' : 'bg-yellow-500 text-black hover:bg-yellow-400'} disabled:opacity-50`}>
+                 {saving ? 'SAVING...' : editingId ? 'UPDATE TABLE SKIN' : 'CREATE TABLE DESIGN'}
+              </button>
             </div>
-            <div onClick={() => fileInputRef.current?.click()} className="w-full aspect-square bg-white/5 border-2 border-dashed border-white/10 rounded-2xl flex flex-col items-center justify-center cursor-pointer hover:border-yellow-500 transition-colors overflow-hidden">
-               {emojiUrl ? <img src={emojiUrl} alt="" className="max-w-full max-h-full object-contain" /> : <Smile size={48} className="opacity-20" />}
+
+            {/* Tables list */}
+            <div className="pt-6 border-t border-white/10 space-y-4">
+              <h3 className="text-xs font-black uppercase tracking-wider text-white/40">Premium Tables List ({tableSkins.length})</h3>
+              <div className="grid grid-cols-2 gap-4">
+                {tableSkins.map(tbl => (
+                  <div key={tbl.id} className="bg-white/5 border border-white/10 rounded-2xl p-3 flex flex-col gap-2 relative">
+                    <div className="aspect-[3/2] bg-black border border-white/10 rounded-xl overflow-hidden relative">
+                       {tbl.imageUrl && <img src={tbl.imageUrl} alt="" className="w-full h-full object-cover" />}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-bold text-xs truncate leading-none mb-1">{tbl.emoji || '🎴'} {tbl.name}</p>
+                      <div className="flex justify-between items-center">
+                        <span className="text-[8px] font-black uppercase text-yellow-500 bg-yellow-500/10 px-1.5 py-0.5 rounded-full">{tbl.rarity}</span>
+                        <span className="text-xs font-black text-white/60">${tbl.price}</span>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-1 mt-1">
+                      <button onClick={() => handleEditTableRaw(tbl)} className="py-2 bg-white/5 hover:bg-white/10 rounded-lg text-[10px] font-black uppercase tracking-wider">Edit</button>
+                      <button onClick={() => handleDeleteTable(tbl.id)} className="py-2 bg-red-500/10 hover:bg-[#a00000]/25 text-red-500 rounded-lg border border-red-500/20 flex items-center justify-center"><Trash size={12} /></button>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
-            <input ref={fileInputRef} type="file" onChange={handleFileChange} className="hidden" accept="image/*,image/gif" />
-            <button onClick={handleAddEmoji} disabled={saving} className="w-full py-4 bg-yellow-500 text-black font-black uppercase tracking-widest rounded-2xl hover:bg-yellow-400 disabled:opacity-50">
-               {saving ? 'ADDING...' : 'ADD TO SHOP'}
-            </button>
+          </div>
+        ) : activeTab === 'logos' ? (
+          <div className="space-y-6 animate-fade-in">
+            {/* Logo Scope Selector */}
+            <div className="flex bg-white/5 p-1 rounded-xl">
+              <button 
+                onClick={() => {
+                  setLogoScope('game');
+                  handleCancelEdit();
+                }}
+                className={`flex-1 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all ${logoScope === 'game' ? 'bg-yellow-500 text-black' : 'text-white/40 hover:text-white'}`}
+              >
+                Game Arena
+              </button>
+              <button 
+                onClick={() => {
+                  setLogoScope('club');
+                  handleCancelEdit();
+                }}
+                className={`flex-1 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all ${logoScope === 'club' ? 'bg-yellow-500 text-black' : 'text-white/40 hover:text-white'}`}
+              >
+                Club Presets
+              </button>
+            </div>
+
+            {logoScope === 'game' ? (
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-5 space-y-4">
+                <h2 className="text-sm font-black uppercase text-yellow-500 tracking-wider">
+                  Upload Game Arena Logo
+                </h2>
+                <div>
+                  <label className="block text-[10px] font-black uppercase text-white/40 mb-2">Select Game Arena Type</label>
+                  <select value={selectedLogoGame} onChange={(e) => setSelectedLogoGame(e.target.value as any)} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-yellow-500 text-sm font-bold capitalize">
+                    <option value="uno">UNO</option>
+                    <option value="joker">JOKER</option>
+                    <option value="dama">DAMA</option>
+                  </select>
+                </div>
+                <div onClick={() => fileInputRef.current?.click()} className="w-full aspect-[2/1] bg-black/40 border-2 border-dashed border-white/10 rounded-2xl flex flex-col items-center justify-center cursor-pointer hover:border-yellow-500/55 transition-colors overflow-hidden relative">
+                   {gameLogoUrl ? <img src={gameLogoUrl} alt="" className="max-w-[90%] max-h-[80%] object-contain" /> : <ImageIcon size={48} className="opacity-20" />}
+                   {!gameLogoUrl && <span className="text-[10px] font-bold text-white/40 mt-2">Upload visual asset for {selectedLogoGame.toUpperCase()}</span>}
+                </div>
+                <input ref={fileInputRef} type="file" onChange={handleFileChange} className="hidden" accept="image/*" />
+                <button onClick={handleSaveGameLogo} disabled={saving} className="w-full py-4 text-xs font-black uppercase tracking-widest rounded-2xl shadow transition-all bg-yellow-500 text-black hover:bg-yellow-400 disabled:opacity-50">
+                   {saving ? 'SAVING LOGO...' : 'DEPLOY LOGO ASSET'}
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-5 space-y-4">
+                  <h2 className="text-sm font-black uppercase text-yellow-500 tracking-wider">
+                    Add Club Preset Logo
+                  </h2>
+                  <div onClick={() => fileInputRef.current?.click()} className="w-full aspect-square bg-black/40 border-2 border-dashed border-white/10 rounded-2xl flex flex-col items-center justify-center cursor-pointer hover:border-yellow-500/55 transition-colors overflow-hidden relative max-w-[200px] mx-auto">
+                     {clubLogoUrl ? <img src={clubLogoUrl} alt="" className="w-full h-full object-cover" /> : <ImageIcon size={48} className="opacity-20" />}
+                     {!clubLogoUrl && <span className="text-[10px] font-bold text-white/40 mt-2">Upload Image File</span>}
+                  </div>
+                  <input ref={fileInputRef} type="file" onChange={handleFileChange} className="hidden" accept="image/*" />
+                  <button onClick={handleSaveClubPresetLogo} disabled={saving} className="w-full py-4 text-xs font-black uppercase tracking-widest rounded-2xl shadow transition-all bg-yellow-500 text-black hover:bg-yellow-400 disabled:opacity-50">
+                     {saving ? 'SAVING LOGO...' : 'ADD CLUB PRESET LOGO'}
+                  </button>
+                </div>
+
+                {/* Club logos list */}
+                <div className="pt-6 border-t border-white/10 space-y-4">
+                  <h3 className="text-xs font-black uppercase tracking-wider text-white/40">Preset Club Logos ({clubLogos.length})</h3>
+                  <div className="grid grid-cols-4 gap-3">
+                    {clubLogos.map(cl => (
+                      <div key={cl.id} className="bg-white/5 border border-white/10 rounded-xl p-2 flex flex-col items-center gap-2 relative">
+                        <div className="aspect-square w-full rounded-lg overflow-hidden bg-black/40 border border-white/10">
+                          {cl.url && <img src={cl.url} alt="" className="w-full h-full object-cover" />}
+                        </div>
+                        <button onClick={() => handleDeleteClubPresetLogo(cl.id)} className="w-full py-1 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded text-[8px] font-black uppercase flex items-center justify-center"><Trash size={10} /></button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           <div className="space-y-4">
@@ -1272,12 +1998,13 @@ function ShopView({ user, profile, onBack, setActiveTab, language }: { user: Use
   const t = translations[language];
   const [skins, setSkins] = useState<CardSkin[]>([]);
   const [emojis, setEmojis] = useState<EmojiItem[]>([]);
+  const [tableSkins, setTableSkins] = useState<TableSkin[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdmin, setShowAdmin] = useState(false);
   const [adminPass, setAdminPass] = useState('');
   const [showPassInput, setShowPassInput] = useState(false);
   const [previewSkin, setPreviewSkin] = useState<CardSkin | null>(null);
-  const [activeShopTab, setActiveShopTab] = useState<'skins' | 'chips' | 'emojis'>('skins');
+  const [activeShopTab, setActiveShopTab] = useState<'skins' | 'chips' | 'emojis' | 'tables'>('skins');
 
   useEffect(() => {
     const unsubscribeSkins = onSnapshot(collection(db, 'cardSkins'), (snapshot) => {
@@ -1287,9 +2014,13 @@ function ShopView({ user, profile, onBack, setActiveTab, language }: { user: Use
     const unsubscribeEmojis = onSnapshot(collection(db, 'emojiItems'), (snapshot) => {
       setEmojis(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as EmojiItem)));
     });
+    const unsubscribeTables = onSnapshot(collection(db, 'tableSkins'), (snapshot) => {
+      setTableSkins(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TableSkin)));
+    });
     return () => {
       unsubscribeSkins();
       unsubscribeEmojis();
+      unsubscribeTables();
     };
   }, []);
 
@@ -1311,6 +2042,29 @@ function ShopView({ user, profile, onBack, setActiveTab, language }: { user: Use
         ownedSkins: [...(profile.ownedSkins || []), skin.id]
       });
       alert(`Purchased ${skin.name}!`);
+    } catch (e) {
+      handleFirestoreError(e, OperationType.UPDATE, `users/${user.uid}`);
+    }
+  };
+
+  const handleBuyTable = async (table: TableSkin) => {
+    if (!user || !profile) return;
+    if (profile.ownedTableSkins?.includes(table.id)) {
+      alert("Already owned!");
+      return;
+    }
+    if (profile.chips < table.price) {
+      alert("Insufficient chips!");
+      return;
+    }
+
+    const userRef = doc(db, 'users', user.uid);
+    try {
+      await updateDoc(userRef, {
+        chips: profile.chips - table.price,
+        ownedTableSkins: [...(profile.ownedTableSkins || []), table.id]
+      });
+      alert(`Purchased ${table.name}!`);
     } catch (e) {
       handleFirestoreError(e, OperationType.UPDATE, `users/${user.uid}`);
     }
@@ -1412,6 +2166,12 @@ function ShopView({ user, profile, onBack, setActiveTab, language }: { user: Use
            Skins
          </button>
          <button 
+           onClick={() => setActiveShopTab('tables')}
+           className={`px-8 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${activeShopTab === 'tables' ? 'bg-[#8b0000] text-white shadow-lg' : 'text-[#8b0000]/60 hover:text-[#8b0000]'}`}
+         >
+           Tables
+         </button>
+         <button 
            onClick={() => setActiveShopTab('emojis')}
            className={`px-8 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${activeShopTab === 'emojis' ? 'bg-[#8b0000] text-white shadow-lg' : 'text-[#8b0000]/60 hover:text-[#8b0000]'}`}
          >
@@ -1454,7 +2214,7 @@ function ShopView({ user, profile, onBack, setActiveTab, language }: { user: Use
                       </div>
                    </div>
                    <div className="text-center">
-                      <h3 className="text-2xl font-display font-black text-[#8b0000] italic tracking-tight">{skin.name}</h3>
+                      <h3 className="text-2xl font-display font-black text-[#8b0000] italic tracking-tight">{skin.emoji || '🃏'} {skin.name}</h3>
                       <div className={`text-[8px] font-black uppercase tracking-[0.2em] px-2 py-0.5 rounded-full border mb-2 inline-block
                         ${skin.rarity === 'legendary' ? 'bg-yellow-500/10 border-yellow-500 text-yellow-700' :
                           skin.rarity === 'epic' ? 'bg-purple-500/10 border-purple-500 text-purple-700' :
@@ -1511,6 +2271,65 @@ function ShopView({ user, profile, onBack, setActiveTab, language }: { user: Use
                   </div>
                 </motion.div>
               ))}
+            </div>
+          )}
+
+          {activeShopTab === 'tables' && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+              {tableSkins.map(table => {
+                const isOwned = profile.ownedTableSkins?.includes(table.id);
+                return (
+                  <motion.div 
+                    key={table.id} 
+                    whileHover={{ y: -5 }}
+                    className="bg-white/40 border-4 border-[#868378] p-6 rounded-[48px] flex flex-col items-center gap-4 shadow-xl hover:border-[#8b0000] transition-colors group relative overflow-hidden"
+                  >
+                     <div className="w-full aspect-[3/2] rounded-[32px] overflow-hidden border-2 border-black/5 shadow-inner relative bg-zinc-900 flex items-center justify-center text-xs text-white/20 uppercase font-mono tracking-widest">
+                        {table.imageUrl ? (
+                           <img src={table.imageUrl} alt={table.name} className="w-full h-full object-cover" />
+                        ) : (
+                           <span>Table Preview</span>
+                        )}
+                     </div>
+                     <div className="text-center w-full">
+                        <h3 className="text-xl font-display font-black text-[#8b0000] italic tracking-tight truncate">{table.emoji || '🎴'} {table.name}</h3>
+                        <div className={`text-[8px] font-black uppercase tracking-[0.2em] px-2 py-0.5 rounded-full border mb-2 mt-1 inline-block
+                          ${table.rarity === 'legendary' ? 'bg-yellow-500/10 border-yellow-500 text-yellow-700' :
+                            table.rarity === 'epic' ? 'bg-purple-500/10 border-purple-500 text-purple-700' :
+                            table.rarity === 'rare' ? 'bg-blue-500/10 border-blue-500 text-blue-700' :
+                            'bg-green-500/10 border-green-500 text-green-700'}
+                        `}>
+                          {table.rarity}
+                        </div>
+                        <div className="flex items-center justify-center gap-1.5 text-[#8b0000]/60 font-mono text-xs font-bold mt-1">
+                          <Coins size={12} className="text-[#8b0000]/40" />
+                          <span>{table.price.toLocaleString()} Chips</span>
+                        </div>
+                     </div>
+                     
+                     <button 
+                       onClick={() => handleBuyTable(table)}
+                       disabled={isOwned}
+                       className={`w-full py-4 rounded-2xl flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-all text-xs font-black uppercase tracking-widest
+                          ${isOwned 
+                            ? 'bg-neutral-200 text-[#8b0000]/30 cursor-not-allowed border-2 border-[#868378]' 
+                            : 'bg-[#8b0000] text-white hover:bg-[#a00000]'}
+                       `}
+                     >
+                        {isOwned ? (
+                          <><Check size={18} /> OWNED</>
+                        ) : (
+                          `BUY FOR ${table.price.toLocaleString()}`
+                        )}
+                     </button>
+                  </motion.div>
+                );
+              })}
+              {tableSkins.length === 0 && (
+                <div className="col-span-full py-20 text-center border-4 border-dashed border-[#868378] rounded-[48px] w-full max-w-md mx-auto">
+                   <p className="text-[#8b0000] font-black uppercase tracking-widest text-xs">NO TABLES IN BOUTIQUE YET</p>
+                </div>
+              )}
             </div>
           )}
 
@@ -1598,6 +2417,23 @@ function ProfileView({ user, profile, onBack, onLogout, setActiveTab, language, 
   const t = translations[language];
   const [showAvatars, setShowAvatars] = useState(false);
   const [skins, setSkins] = useState<CardSkin[]>([]);
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyId = () => {
+    const idToCopy = profile.shortId || user.uid;
+    try {
+      const el = document.createElement('textarea');
+      el.value = idToCopy;
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand('copy');
+      document.body.removeChild(el);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (e) {
+      console.error("Failed to copy", e);
+    }
+  };
 
   useEffect(() => {
     const fetchSkins = async () => {
@@ -1642,7 +2478,26 @@ function ProfileView({ user, profile, onBack, onLogout, setActiveTab, language, 
                <button onClick={onEditProfile} className="text-zinc-500 hover:text-white"><Edit size={16} /></button>
                <span className="text-lg">🌍</span>
             </div>
-            <p className="text-xs font-black text-white/40 mt-1 uppercase tracking-[0.3em]">ID: {profile.shortId || '-------'}</p>
+            <div className="flex items-center justify-center gap-2 mt-1">
+               <p className="text-xs font-black text-white/40 uppercase tracking-[0.3em]">ID: {profile.shortId || '-------'}</p>
+               <button 
+                 onClick={handleCopyId}
+                 className="p-1 px-2.5 rounded-lg bg-zinc-900 border border-white/5 hover:bg-zinc-800 hover:border-white/10 active:scale-95 text-zinc-400 hover:text-white transition-all flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest"
+                 title="Copy ID"
+               >
+                 {copied ? (
+                   <>
+                     <Check size={11} className="text-emerald-500 animate-[bounce_0.2s_ease-out-in]" />
+                     <span className="text-emerald-400">Copied</span>
+                   </>
+                 ) : (
+                   <>
+                     <Copy size={11} />
+                     <span>Copy</span>
+                   </>
+                 )}
+               </button>
+            </div>
             <div className="mt-3 px-6 py-1.5 bg-zinc-950/50 border border-white/5 rounded-full inline-block">
                <span className="text-xs font-bold text-zinc-400 capitalize">{t.level} {profile.level || 1}</span>
             </div>
@@ -1654,7 +2509,7 @@ function ProfileView({ user, profile, onBack, onLogout, setActiveTab, language, 
             <div className="w-12 h-12 mb-3 flex items-center justify-center text-blue-400"><Gift size={24} /></div>
             <span className="text-sm font-bold">{t.sendGift}</span>
          </button>
-         <button className="flex flex-col items-center justify-center p-6 bg-zinc-900/50 border border-white/5 rounded-2xl hover:bg-zinc-800/50 transition-colors group" onClick={() => setActiveTab('shop')}>
+         <button className="flex flex-col items-center justify-center p-6 bg-zinc-900/50 border border-white/5 rounded-2xl hover:bg-zinc-800/50 transition-colors group" onClick={() => setActiveTab('my-items')}>
             <div className="w-12 h-12 mb-3 flex items-center justify-center text-purple-400"><ShoppingBag size={24} /></div>
             <span className="text-sm font-bold">{t.myItems}</span>
          </button>
@@ -1751,6 +2606,10 @@ function LeaderboardView({ profile, setActiveTab, language }: { profile: UserPro
           <div className="py-20 flex justify-center">
             <RefreshCcw className="animate-spin text-zinc-800" size={32} />
           </div>
+        ) : topPlayers.length === 0 ? (
+          <div className="py-12 text-center bg-zinc-900/20 border border-dashed border-white/5 rounded-3xl">
+             <p className="text-sm font-bold text-zinc-500">No players listed in the syndicate.</p>
+          </div>
         ) : (
           topPlayers.map((player, i) => (
             <motion.div 
@@ -1842,33 +2701,78 @@ function TapBar({ activeTab, setActiveTab, language }: { activeTab: string, setA
   );
 }
 
-function SettingsView({ language, setLanguage, onBack }: { language: Language, setLanguage: (l: Language) => void, onBack: () => void }) {
+function SettingsView({ language, setLanguage, onBack, user, profile }: { language: Language, setLanguage: (l: Language) => void, onBack: () => void, user: any, profile: UserProfile }) {
   const t = translations[language];
+  const countries = [
+    { code: 'Kurdistan', name: '☀ Kurdistan' },
+    { code: 'USA', name: '🇺🇸 United States' },
+    { code: 'UK', name: '🇬🇧 United Kingdom' },
+    { code: 'Germany', name: '🇩🇪 Germany' },
+    { code: 'Canada', name: '🇨🇦 Canada' },
+    { code: 'Sweden', name: '🇸🇪 Sweden' },
+    { code: 'Iraq', name: '🇮🇶 Iraq' },
+    { code: 'Turkey', name: '🇹🇷 Turkey' }
+  ];
+
+  const handleCountryChange = async (val: string) => {
+    if (!user) return;
+    try {
+      await updateDoc(doc(db, 'users', user.uid), { country: val });
+      alert("Country updated successfully!");
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   return (
-    <div className={`min-h-screen bg-lobby-vintage p-6 sm:p-8 font-vintage flex flex-col items-center pb-32 overflow-y-auto ${language === 'ku' ? 'rtl text-right' : ''}`}>
+    <div className={`min-h-screen bg-[#0a0a0b] text-white p-6 sm:p-8 font-sans flex flex-col items-center pb-32 overflow-y-auto ${language === 'ku' ? 'rtl text-right' : ''}`}>
        <FallingCards />
        <header className="w-full max-w-lg flex items-center gap-4 mb-12 z-20">
-         <button onClick={onBack} className="w-12 h-12 flex items-center justify-center rounded-full bg-white/40 text-[#8b0000] hover:bg-white/60 transition-colors shadow-sm"><X size={24} /></button>
-         <h1 className="text-2xl font-display font-black text-[#8b0000] italic tracking-widest">{t.settings}</h1>
+         <button onClick={onBack} className="w-12 h-12 flex items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors shadow-sm"><X size={24} /></button>
+         <h1 className="text-2xl font-black uppercase tracking-widest text-[#8b0000]">{t.settings}</h1>
        </header>
 
-       <div className="w-full max-w-lg bg-white/40 border-4 border-[#868378] p-8 rounded-[40px] shadow-2xl z-10 space-y-8">
+       <div className="w-full max-w-lg bg-zinc-900/60 border border-white/10 p-8 rounded-[40px] shadow-2xl z-10 space-y-8 backdrop-blur-md">
+          {/* Language Selection */}
           <div>
-             <label className="text-[10px] font-black text-[#8b0000]/40 uppercase ml-2 block tracking-widest mb-4">{t.language}</label>
+             <label className="text-[10px] font-black text-white/40 uppercase block tracking-widest mb-4">{t.language}</label>
              <div className="grid grid-cols-2 gap-4">
                <button 
                  onClick={() => setLanguage('en')}
-                 className={`py-4 rounded-2xl font-bold border-2 transition-all ${language === 'en' ? 'bg-[#8b0000] text-white border-[#8b0000]' : 'bg-white/40 text-[#8b0000] border-transparent'}`}
+                 className={`py-4 rounded-2xl font-bold border-2 transition-all ${language === 'en' ? 'bg-[#8b0000] text-white border-[#8b0000]' : 'bg-white/5 text-white/60 border-transparent hover:bg-white/10'}`}
                >
                  English
                </button>
                <button 
                  onClick={() => setLanguage('ku')}
-                 className={`py-4 rounded-2xl font-bold border-2 transition-all ${language === 'ku' ? 'bg-[#8b0000] text-white border-[#8b0000]' : 'bg-white/40 text-[#8b0000] border-transparent'}`}
+                 className={`py-4 rounded-2xl font-bold border-2 transition-all ${language === 'ku' ? 'bg-[#8b0000] text-white border-[#8b0000]' : 'bg-white/5 text-white/60 border-transparent hover:bg-white/10'}`}
                >
                  کوردی
                </button>
              </div>
+          </div>
+
+          {/* Country Selection */}
+          <div className="pt-6 border-t border-white/5">
+             <label className="text-[10px] font-black text-white/40 uppercase block tracking-widest mb-4">Location / Country</label>
+             <select 
+               value={profile?.country || ''}
+               onChange={(e) => handleCountryChange(e.target.value)}
+               className="w-full bg-zinc-950 border border-white/10 rounded-2xl px-5 py-4 outline-none focus:border-[#8b0000] text-sm text-white font-bold cursor-pointer"
+             >
+               <option value="" disabled>Select your Country</option>
+               {countries.map(c => (
+                 <option key={c.code} value={c.code} className="text-white bg-zinc-950 font-bold">
+                   {c.name}
+                 </option>
+               ))}
+             </select>
+          </div>
+
+          {/* Version */}
+          <div className="pt-8 border-t border-white/5 text-center flex flex-col items-center">
+             <span className="text-[10px] font-black tracking-[0.2em] text-white/30 uppercase">BUILD SYSTEM ACTIVE</span>
+             <span className="text-xs font-mono text-[#8b0000] font-bold mt-1 tracking-widest uppercase">Version 1.2.5</span>
           </div>
        </div>
     </div>
@@ -1939,7 +2843,7 @@ function SearchingView({ user, gameType, onCancel }: { user: User, gameType: str
   );
 }
 
-function LobbyView({ user, profile, onStartSearch, onJoin, onLogout, onCreate, setActiveTab, onClaimDaily, language }: any) {
+function LobbyView({ user, profile, onStartSearch, onJoin, onLogout, onCreate, setActiveTab, onClaimDaily, language, gameLogos }: any) {
   const t = translations[language];
   const [games, setGames] = useState<Game[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -1948,6 +2852,34 @@ function LobbyView({ user, profile, onStartSearch, onJoin, onLogout, onCreate, s
   const [roomName, setRoomName] = useState('');
   const [password, setPassword] = useState('');
   const [selectedType, setSelectedType] = useState<'uno' | 'joker' | 'dama'>('uno');
+
+  const [userSearchQuery, setUserSearchQuery] = useState('');
+  const [userSearchResults, setUserSearchResults] = useState<any[]>([]);
+  const [searchingUsers, setSearchingUsers] = useState(false);
+
+  const handleUserSearch = async (val: string) => {
+    setUserSearchQuery(val);
+    if (!val.trim()) {
+      setUserSearchResults([]);
+      return;
+    }
+    setSearchingUsers(true);
+    try {
+      const q = query(collection(db, 'users'), limit(50));
+      const snap = await getDocs(q);
+      const results = snap.docs.map(doc => ({ uid: doc.id, ...doc.data() })).filter((u: any) => {
+        const queryLower = val.toLowerCase();
+        const dispMatch = u.displayName?.toLowerCase().includes(queryLower);
+        const idMatch = u.shortId?.includes(queryLower);
+        return dispMatch || idMatch;
+      });
+      setUserSearchResults(results);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSearchingUsers(false);
+    }
+  };
 
   useEffect(() => {
     const q = query(collection(db, 'games'), where('status', '==', 'waiting'), limit(10));
@@ -2014,26 +2946,26 @@ function LobbyView({ user, profile, onStartSearch, onJoin, onLogout, onCreate, s
           </motion.div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-3 px-6 py-2.5 bg-yellow-500/10 border border-yellow-500/20 rounded-full text-yellow-500 font-black shadow-lg backdrop-blur-md">
-             <Coins size={20} className="drop-shadow-[0_0_8px_rgba(234,179,8,0.5)]" />
-             <span className="text-xl tracking-tight">{profile?.chips?.toLocaleString() || 0}</span>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-yellow-500/10 border border-yellow-500/25 rounded-full text-yellow-500 font-extrabold text-sm shadow backdrop-blur-md">
+             <Coins size={14} className="drop-shadow-[0_0_4px_rgba(234,179,8,0.4)]" />
+             <span className="tracking-tight leading-none">{profile?.chips?.toLocaleString() || 0}</span>
           </div>
           <motion.button
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
             onClick={() => (window as any).toggleRadioHub?.()}
-            className="w-11 h-11 rounded-full bg-white/[0.03] border border-white/10 flex items-center justify-center text-white/40 hover:text-white transition-colors"
+            className="w-9 h-9 rounded-full bg-white/[0.03] border border-white/10 flex items-center justify-center text-white/40 hover:text-white transition-colors"
           >
-            <Radio size={20} />
+            <Radio size={16} />
           </motion.button>
           <motion.button
             whileHover={{ scale: 1.1, rotate: 90 }}
             whileTap={{ scale: 0.9 }}
             onClick={() => setActiveTab('settings')}
-            className="w-11 h-11 rounded-full bg-white/[0.03] border border-white/10 flex items-center justify-center text-white/40 hover:text-white transition-colors"
+            className="w-9 h-9 rounded-full bg-white/[0.03] border border-white/10 flex items-center justify-center text-white/40 hover:text-white transition-colors"
           >
-            <Settings size={20} />
+            <Settings size={16} />
           </motion.button>
         </div>
       </header>
@@ -2065,7 +2997,11 @@ function LobbyView({ user, profile, onStartSearch, onJoin, onLogout, onCreate, s
               <div className="absolute inset-0 bg-gradient-to-br from-[#8b0000]/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
               <div className="absolute -top-10 -right-10 w-32 h-32 bg-[#8b0000]/10 rounded-full blur-3xl group-hover:bg-[#8b0000]/30 transition-all" />
               
-              <div className="text-7xl sm:text-8xl font-display font-black text-[#8b0000] italic pointer-events-none tracking-tighter drop-shadow-[0_0_20px_rgba(139,0,0,0.3)]">OONO</div>
+              {gameLogos?.uno ? (
+                <img src={gameLogos.uno} alt="Uno logo" className="max-w-[80%] max-h-[55%] object-contain pointer-events-none drop-shadow-[0_4px_12px_rgba(0,0,0,0.5)]" />
+              ) : (
+                <div className="text-7xl sm:text-8xl font-display font-black text-[#8b0000] italic pointer-events-none tracking-tighter drop-shadow-[0_0_20px_rgba(139,0,0,0.3)]">OONO</div>
+              )}
               <div className="text-white/40 font-black uppercase tracking-[0.4em] text-[10px] mt-4 group-hover:text-white/60 transition-colors">Elite 1V1 Arena</div>
               
               <div className="absolute top-6 right-6 p-3 bg-[#8b0000] text-white rounded-2xl shadow-2xl transform translate-x-16 group-hover:translate-x-0 transition-all duration-500 rotate-12 group-hover:rotate-0">
@@ -2084,8 +3020,14 @@ function LobbyView({ user, profile, onStartSearch, onJoin, onLogout, onCreate, s
               <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
               <div className="absolute -top-10 -right-10 w-32 h-32 bg-yellow-500/5 rounded-full blur-3xl group-hover:bg-yellow-500/20 transition-all" />
               
-              <div className="text-7xl sm:text-8xl text-yellow-500 pointer-events-none drop-shadow-[0_0_20px_rgba(234,179,8,0.35)]">★</div>
-              <div className="text-yellow-500 font-display font-black italic text-4xl uppercase tracking-tight mt-2 drop-shadow-md">JOKER</div>
+              {gameLogos?.joker ? (
+                <img src={gameLogos.joker} alt="Joker logo" className="max-w-[80%] max-h-[55%] object-contain pointer-events-none drop-shadow-[0_4px_12px_rgba(0,0,0,0.5)]" />
+              ) : (
+                <>
+                  <div className="text-7xl sm:text-8xl text-yellow-500 pointer-events-none drop-shadow-[0_0_20px_rgba(234,179,8,0.35)]">★</div>
+                  <div className="text-yellow-500 font-display font-black italic text-4xl uppercase tracking-tight mt-2 drop-shadow-md">JOKER</div>
+                </>
+              )}
               <div className="text-white/40 font-black uppercase tracking-[0.4em] text-[10px] mt-2 group-hover:text-white/60 transition-colors">High Stakes 51</div>
               
               <div className="absolute top-6 right-6 p-3 bg-yellow-500 text-black rounded-2xl shadow-2xl transform translate-x-16 group-hover:translate-x-0 transition-all duration-500 rotate-12 group-hover:rotate-0">
@@ -2103,11 +3045,17 @@ function LobbyView({ user, profile, onStartSearch, onJoin, onLogout, onCreate, s
             >
               <div className="absolute inset-0 bg-gradient-to-br from-[#795548]/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
               
-              <div className="flex gap-2 mb-4">
-                 <div className="w-10 h-10 bg-yellow-500 rounded-full shadow-[0_0_15px_rgba(234,179,8,0.4)] border-2 border-yellow-600" />
-                 <div className="w-10 h-10 bg-black/80 rounded-full shadow-lg border-2 border-white/5" />
-              </div>
-              <div className="text-white font-display font-black italic text-4xl uppercase tracking-tighter drop-shadow-md">DAMA</div>
+              {gameLogos?.dama ? (
+                <img src={gameLogos.dama} alt="Dama logo" className="max-w-[80%] max-h-[55%] object-contain pointer-events-none drop-shadow-[0_4px_12px_rgba(0,0,0,0.5)]" />
+              ) : (
+                <>
+                  <div className="flex gap-2 mb-4">
+                     <div className="w-10 h-10 bg-yellow-500 rounded-full shadow-[0_0_15px_rgba(234,179,8,0.4)] border-2 border-yellow-600" />
+                     <div className="w-10 h-10 bg-black/80 rounded-full shadow-lg border-2 border-white/5" />
+                  </div>
+                  <div className="text-white font-display font-black italic text-4xl uppercase tracking-tighter drop-shadow-md">DAMA</div>
+                </>
+              )}
               <div className="text-[#a1887f] font-black uppercase tracking-[0.4em] text-[10px] mt-2 group-hover:text-[#d7ccc8] transition-colors">Master Strategy</div>
               
               <div className="absolute top-6 right-6 p-3 bg-[#795548] text-white rounded-2xl shadow-2xl transform translate-x-16 group-hover:translate-x-0 transition-all duration-500 rotate-12 group-hover:rotate-0">
@@ -2640,6 +3588,13 @@ function GameView({ user, game, onLeave, profile, skinsMap, emojiItems }: {
            {game.gameType === 'uno' ? 'OONO' : game.gameType === 'joker' ? 'JOKER' : 'DAMA'}
         </div>
         <div className="flex items-center gap-3">
+           <button 
+             onClick={() => (window as any).toggleRadioHub?.()} 
+             className="text-white/60 hover:text-white p-1 rounded-full hover:bg-white/5 transition-all text-yellow-500 hover:text-yellow-400 relative"
+             title="Radio Station"
+           >
+              <Radio size={20} className="animate-pulse" />
+           </button>
            <div className="flex items-center gap-1 text-[10px] text-zinc-400 font-bold">
               <Eye size={12} /> 2
            </div>
@@ -3183,6 +4138,7 @@ function ProfileEditor({ profile, user, onSave, onCancel }: { profile: UserProfi
 
 function ClubsView({ user, profile, onJoinClub, onCreateClub, onBack }: { user: User, profile: UserProfile, onJoinClub: (id: string, pass?: string) => void, onCreateClub: (data: any) => void, onBack: () => void }) {
   const [clubs, setClubs] = useState<Club[]>([]);
+  const [clubLogos, setClubLogos] = useState<{ id: string; url: string }[]>([]);
   const [showCreate, setShowCreate] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -3194,74 +4150,112 @@ function ClubsView({ user, profile, onJoinClub, onCreateClub, onBack }: { user: 
     }, (error) => {
       handleFirestoreError(error, OperationType.GET, 'clubs');
     });
-    return unsubscribe;
+
+    const unsubscribeLogos = onSnapshot(collection(db, 'clubLogos'), (snapshot) => {
+      setClubLogos(snapshot.docs.map(doc => ({ id: doc.id, url: doc.data().url || '' })));
+    });
+
+    return () => {
+      unsubscribe();
+      unsubscribeLogos();
+    };
   }, []);
+
+  const [clubSearchQuery, setClubSearchQuery] = useState('');
+  const filteredClubs = clubs.filter(c => 
+    c.name?.toLowerCase().includes(clubSearchQuery.toLowerCase()) || 
+    c.description?.toLowerCase().includes(clubSearchQuery.toLowerCase())
+  );
 
   return (
     <div className="w-full max-w-7xl mx-auto px-4 py-8">
-       <div className="flex justify-between items-center mb-12">
+       <div className="flex flex-col md:flex-row justify-between md:items-center mb-12 gap-6 pb-6 border-b border-white/10">
           <div className="flex items-center gap-6">
              <button onClick={onBack} className="p-3 bg-white/5 rounded-full hover:bg-white/10 transition-colors">
                 <ArrowLeft size={24} className="text-white" />
              </button>
              <div className="flex flex-col">
-                <h1 className="text-4xl font-display font-black text-white italic tracking-tighter drop-shadow-lg">CLUB ARENA</h1>
-                <p className="text-white/40 font-black text-[10px] uppercase tracking-[0.4em] mt-2">Join a Syndicate</p>
+                <h1 className="text-4xl font-display font-black text-white italic tracking-tighter drop-shadow-lg leading-none">SYNDICATES</h1>
+                <p className="text-yellow-500 font-black text-[10px] uppercase tracking-[0.4em] mt-2">Join a Private Club Arena</p>
              </div>
           </div>
+          
+          <div className="flex flex-1 max-w-md relative">
+            <input 
+              type="text" 
+              value={clubSearchQuery} 
+              onChange={(e) => setClubSearchQuery(e.target.value)} 
+              placeholder="Filter clubs by name or manifesto..." 
+              className="w-full bg-white/[0.03] border border-white/10 rounded-2xl py-3 pl-10 pr-4 outline-none focus:border-yellow-500/50 text-white font-bold text-xs"
+            />
+            <Search size={14} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/30" />
+          </div>
+
           <motion.button 
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => setShowCreate(true)}
-            className="flex items-center gap-3 px-8 py-4 bg-yellow-500 text-black rounded-2xl font-black uppercase tracking-widest text-xs shadow-[0_0_30px_rgba(234,179,8,0.3)]"
+            className="flex items-center gap-3 px-8 py-4 bg-yellow-500 text-black rounded-2xl font-black uppercase tracking-widest text-xs shadow-[0_0_30px_rgba(234,179,8,0.3)] self-start md:self-auto"
           >
-             <Plus size={18} /> Create Club (30K)
+             <Plus size={18} /> Found Syndicate (30K)
           </motion.button>
        </div>
 
        {loading ? (
          <div className="flex items-center justify-center p-20">
-            <RefreshCcw className="animate-spin text-[#8b0000]" size={40} />
+            <RefreshCcw className="animate-spin text-yellow-500" size={40} />
+         </div>
+       ) : filteredClubs.length === 0 ? (
+         <div className="text-center p-20 bg-white/[0.02] border border-dashed border-white/10 rounded-3xl">
+           <Users size={48} className="mx-auto text-white/10 mb-4" />
+           <p className="text-sm font-bold text-white/40 uppercase tracking-widest">No syndicates matched your search</p>
          </div>
        ) : (
          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {clubs.map((club) => (
+            {filteredClubs.map((club) => (
                <motion.div 
                  key={club.id}
-                 whileHover={{ y: -8 }}
-                 className="bg-white/[0.03] border border-white/10 rounded-[32px] p-8 flex flex-col gap-6 relative overflow-hidden group hover:border-[#8b0000]/50 transition-all backdrop-blur-sm"
+                 whileHover={{ y: -8, borderColor: "rgba(234,179,8,0.3)" }}
+                 className="bg-zinc-950/60 border border-white/5 rounded-[32px] p-8 flex flex-col gap-6 relative overflow-hidden group hover:bg-[#0e0e11] hover:shadow-[0_20px_40px_rgba(0,0,0,0.5)] transition-all duration-300"
                >
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-[#8b0000]/10 to-transparent pointer-events-none" />
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-yellow-500/5 to-transparent pointer-events-none" />
                   
                   <div className="flex items-center gap-5">
-                     <div className="w-16 h-16 rounded-2xl bg-black border border-white/10 flex items-center justify-center overflow-hidden">
+                     <div className="w-16 h-16 rounded-2xl bg-black border border-white/10 flex items-center justify-center overflow-hidden shrink-0">
                         <img src={club.logo || `https://api.dicebear.com/7.x/shapes/svg?seed=${club.id}`} alt="" className="w-full h-full object-cover" />
                      </div>
-                     <div className="flex flex-col">
-                        <h3 className="text-xl font-black text-white uppercase tracking-tight leading-tight">{club.name}</h3>
+                     <div className="flex flex-col min-w-0">
+                        <h3 className="text-lg font-black text-white uppercase tracking-tight leading-tight truncate">{club.name}</h3>
                         <div className="flex items-center gap-2 mt-1">
-                           <Users size={14} className="text-[#8b0000]" />
-                           <span className="text-xs font-bold text-white/40">{club.members.length} / {club.maxMembers || 30} Members</span>
+                           <Users size={12} className="text-yellow-500" />
+                           <span className="text-[11px] font-bold text-white/50">{club.members?.length || 0} / {club.maxMembers || 30} Elite Members</span>
                         </div>
                      </div>
                   </div>
 
-                  <p className="text-sm text-white/60 line-clamp-2 min-h-[40px] italic font-medium leading-relaxed">
+                  <p className="text-xs text-white/60 line-clamp-2 min-h-[32px] italic font-medium leading-relaxed">
                      {club.description || "The ultimate elite gambling society where legends are born."}
                   </p>
 
                   <div className="flex items-center justify-between pt-4 border-t border-white/5">
                      <div className="flex items-center gap-2">
-                        {club.isPrivate && <Lock size={14} className="text-yellow-500" />}
-                        <span className="text-[10px] font-black text-white/20 uppercase tracking-widest">
-                           {club.isPrivate ? 'Private Room' : 'Open Entry'}
-                        </span>
+                        {club.isPrivate ? (
+                          <>
+                            <Lock size={12} className="text-yellow-500" />
+                            <span className="text-[9px] font-black text-yellow-500 uppercase tracking-wider">Passcode Locked</span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            <span className="text-[9px] font-black text-zinc-500 uppercase tracking-wider">Open Audition</span>
+                          </>
+                        )}
                      </div>
                      <button 
                        onClick={() => onJoinClub(club.id)}
-                       className="px-6 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white font-black uppercase text-[10px] tracking-widest group-hover:bg-[#8b0000] group-hover:border-[#8b0000] transition-all"
+                       className="px-6 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white font-black uppercase text-[10px] tracking-widest hover:bg-yellow-500 hover:text-black hover:border-yellow-500 transition-all shadow"
                      >
-                        Join Now
+                        Enter Arena
                      </button>
                   </div>
                </motion.div>
@@ -3289,6 +4283,7 @@ function ClubsView({ user, profile, onJoinClub, onCreateClub, onBack }: { user: 
 
                <ClubCreateForm 
                  chips={profile.chips} 
+                 clubLogos={clubLogos}
                  onSubmit={(data) => {
                     onCreateClub(data);
                     setShowCreate(false);
@@ -3301,12 +4296,13 @@ function ClubsView({ user, profile, onJoinClub, onCreateClub, onBack }: { user: 
   );
 }
 
-function ClubCreateForm({ chips, onSubmit }: any) {
+function ClubCreateForm({ chips, clubLogos = [], onSubmit }: any) {
   const [name, setName] = useState('');
   const [desc, setDesc] = useState('');
   const [max, setMax] = useState(30);
   const [pass, setPass] = useState('');
   const [isPrivate, setIsPrivate] = useState(false);
+  const [selectedLogo, setSelectedLogo] = useState('');
 
   return (
     <div className="space-y-6 relative">
@@ -3319,6 +4315,30 @@ function ClubCreateForm({ chips, onSubmit }: any) {
              <label className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em] ml-4">Manifesto</label>
              <textarea value={desc} onChange={e => setDesc(e.target.value)} placeholder="Short description..." className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white font-bold h-24 resize-none" />
           </div>
+          
+          {clubLogos.length > 0 && (
+             <div className="space-y-2">
+                <label className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em] ml-4">Select Syndicate Logo Preset</label>
+                <div className="flex gap-3 overflow-x-auto pb-2 custom-scrollbar">
+                   {clubLogos.map((logoItem: any) => (
+                      <button
+                         key={logoItem.id} 
+                         type="button"
+                         onClick={() => setSelectedLogo(logoItem.url)}
+                         className={`w-14 h-14 rounded-2xl overflow-hidden border-2 transition-all relative shrink-0 ${selectedLogo === logoItem.url ? 'border-yellow-500 bg-white/10' : 'border-white/15 hover:border-white/30 bg-black/40'}`}
+                      >
+                         <img src={logoItem.url} alt="" className="w-full h-full object-cover" />
+                         {selectedLogo === logoItem.url && (
+                            <div className="absolute inset-0 bg-yellow-500/10 flex items-center justify-center">
+                               <div className="w-5 h-5 rounded-full bg-yellow-500 flex items-center justify-center text-black text-[10px] font-black">✓</div>
+                            </div>
+                         )}
+                      </button>
+                   ))}
+                </div>
+             </div>
+          )}
+
           <div className="grid grid-cols-2 gap-4">
              <div className="space-y-2">
                 <label className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em] ml-4">Capacity (1-30)</label>
@@ -3333,7 +4353,7 @@ function ClubCreateForm({ chips, onSubmit }: any) {
 
        <button 
          disabled={chips < 30000 || !name}
-         onClick={() => onSubmit({ name, description: desc, maxMembers: max, password: pass, isPrivate })}
+         onClick={() => onSubmit({ name, description: desc, maxMembers: max, password: pass, isPrivate, logo: selectedLogo })}
          className={`w-full py-5 rounded-2xl font-black uppercase text-[11px] tracking-[0.3em] shadow-xl transition-all
            ${chips < 30000 || !name ? 'bg-white/5 text-white/20 cursor-not-allowed' : 'bg-yellow-500 text-black shadow-[0_10px_30px_rgba(234,179,8,0.3)] hover:scale-[1.02]'}
          `}
@@ -3723,6 +4743,257 @@ function ChatEmojiPicker({ ownedEmojis, onSelect }: { ownedEmojis: EmojiItem[], 
           </motion.div>
         )}
       </AnimatePresence>
+    </div>
+  );
+}
+
+function MyItemsView({ 
+  user, 
+  profile, 
+  onBack, 
+  emojiItems,
+  setActiveTab,
+  language
+}: { 
+  user: User, 
+  profile: UserProfile, 
+  onBack: () => void, 
+  emojiItems: EmojiItem[],
+  setActiveTab?: (tab: any) => void,
+  language?: Language
+}) {
+  const [skins, setSkins] = useState<CardSkin[]>([]);
+  const [tableSkins, setTableSkins] = useState<TableSkin[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTabTab] = useState<'skins' | 'emojis' | 'tables'>('skins');
+
+  useEffect(() => {
+    const unsubSkins = onSnapshot(collection(db, 'cardSkins'), (snapshot) => {
+      setSkins(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CardSkin)));
+      setLoading(false);
+    });
+
+    const unsubTables = onSnapshot(collection(db, 'tableSkins'), (snapshot) => {
+      setTableSkins(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TableSkin)));
+    });
+
+    return () => {
+      unsubSkins();
+      unsubTables();
+    };
+  }, []);
+
+  const handleEquipSkin = async (skinId: string | null) => {
+    if (!user) return;
+    try {
+      await updateDoc(doc(db, 'users', user.uid), {
+        activeSkinId: skinId
+      });
+      alert(skinId ? "Skin equipped successfully!" : "Default skin equipped!");
+    } catch (e) {
+      console.error("Failed to equip skin:", e);
+      alert("Error equipping skin");
+    }
+  };
+
+  const handleEquipTable = async (tableId: string | null) => {
+    if (!user) return;
+    try {
+      await updateDoc(doc(db, 'users', user.uid), {
+        activeTableSkinId: tableId
+      });
+      alert(tableId ? "Table skin equipped!" : "Default table active!");
+    } catch (e) {
+      console.error("Failed to equip table skin:", e);
+      alert("Error equipping table skin");
+    }
+  };
+
+  const ownedSkins = skins.filter(s => profile.ownedSkins?.includes(s.id));
+  const ownedEmojis = emojiItems.filter(e => profile.ownedEmojis?.includes(e.id));
+  const ownedTables = tableSkins.filter(t => profile.ownedTableSkins?.includes(t.id));
+
+  return (
+    <div className="min-h-screen bg-[#1c1c1c] text-white p-6 font-sans pb-32 overflow-y-auto w-full flex flex-col items-center">
+      <header className="w-full max-w-lg mb-8 flex justify-between items-center px-2 z-20">
+         <div className="flex items-center gap-4">
+           <button onClick={onBack} className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 transition-colors">
+              <ArrowLeft size={22} className="text-zinc-400" />
+           </button>
+           <h1 className="text-2xl font-black uppercase tracking-tight">My Items</h1>
+         </div>
+      </header>
+
+      <div className="w-full max-w-lg mb-8 flex bg-zinc-900/60 p-1 border border-white/5 rounded-2xl gap-1">
+         <button 
+           onClick={() => setActiveTabTab('skins')} 
+           className={`flex-1 py-3 text-xs font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'skins' ? 'bg-zinc-800 text-white shadow' : 'text-zinc-500 hover:text-zinc-400'}`}
+         >
+           Skins ({ownedSkins.length})
+         </button>
+         <button 
+           onClick={() => setActiveTabTab('tables')} 
+           className={`flex-1 py-3 text-xs font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'tables' ? 'bg-zinc-800 text-white shadow' : 'text-zinc-500 hover:text-zinc-400'}`}
+         >
+           Tables ({ownedTables.length})
+         </button>
+         <button 
+           onClick={() => setActiveTabTab('emojis')} 
+           className={`flex-1 py-3 text-xs font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'emojis' ? 'bg-zinc-800 text-white shadow' : 'text-zinc-500 hover:text-zinc-400'}`}
+         >
+           Emojis ({ownedEmojis.length})
+         </button>
+      </div>
+
+      <div className="w-full max-w-lg">
+        {loading ? (
+          <div className="py-20 flex justify-center">
+            <RefreshCcw className="animate-spin text-zinc-500" size={32} />
+          </div>
+        ) : activeTab === 'skins' ? (
+          <div className="grid grid-cols-2 gap-4">
+             {/* Default card skin option */}
+             <div className="bg-zinc-900/40 border border-white/5 rounded-3xl p-4 flex flex-col gap-4 relative">
+                <div className="aspect-[2/3] bg-zinc-950/80 border border-white/10 rounded-2xl flex items-center justify-center font-mono text-xs text-zinc-500 font-bold overflow-hidden relative">
+                   <div className="absolute inset-0 bg-gradient-to-br from-zinc-900 to-black opacity-40" />
+                    🃏 Default Red
+                </div>
+                <div className="flex-1 flex flex-col justify-end">
+                   <p className="font-bold text-sm">Classic Joker Red</p>
+                   <p className="text-[10px] text-zinc-500 font-black uppercase mt-1">Default</p>
+                   {profile.activeSkinId ? (
+                      <button 
+                        onClick={() => handleEquipSkin(null)}
+                        className="w-full mt-3 py-2 bg-white/5 border border-white/5 hover:bg-white/10 rounded-xl text-xs font-bold transition-all"
+                      >
+                        Equip
+                      </button>
+                   ) : (
+                      <div className="w-full mt-3 py-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 rounded-xl text-xs font-black uppercase tracking-widest text-center flex items-center justify-center gap-1">
+                         <Check size={12} /> Equipped
+                      </div>
+                   )}
+                </div>
+             </div>
+
+             {ownedSkins.length === 0 ? (
+                <div className="col-span-2 py-16 text-center border border-dashed border-white/5 rounded-3xl">
+                   <p className="text-zinc-500 font-bold text-sm">You do not own any custom card skins.</p>
+                </div>
+             ) : (
+                ownedSkins.map(skin => {
+                  const isCurrent = profile.activeSkinId === skin.id;
+                  return (
+                     <div key={skin.id} className="bg-zinc-900/40 border border-white/5 rounded-3xl p-4 flex flex-col gap-4 relative">
+                        <div className="aspect-[2/3] bg-zinc-950 border border-white/10 rounded-2xl overflow-hidden relative shadow-md">
+                           <img src={skin.imageUrl} alt="" className="w-full h-full object-cover" />
+                        </div>
+                        <div className="flex-1 flex flex-col justify-end">
+                           <p className="font-bold text-sm truncate">{skin.name}</p>
+                           <p className="text-[9px] font-black uppercase text-yellow-500 mt-1">{skin.rarity}</p>
+                           {isCurrent ? (
+                              <div className="w-full mt-3 py-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 rounded-xl text-xs font-black uppercase tracking-widest text-center flex items-center justify-center gap-1">
+                                 <Check size={12} /> Equipped
+                              </div>
+                           ) : (
+                              <button 
+                                onClick={() => handleEquipSkin(skin.id)}
+                                className="w-full mt-3 py-2 bg-yellow-500 text-black hover:bg-yellow-400 rounded-xl text-xs font-bold transition-all"
+                              >
+                                Equip
+                              </button>
+                           )}
+                        </div>
+                     </div>
+                  );
+                })
+             )}
+          </div>
+        ) : activeTab === 'tables' ? (
+          <div className="grid grid-cols-2 gap-4">
+             {/* Default table mat option */}
+             <div className="bg-zinc-900/40 border border-white/5 rounded-3xl p-4 flex flex-col gap-4 relative">
+                <div className="aspect-[3/2] bg-zinc-950/80 border border-white/10 rounded-2xl flex items-center justify-center font-mono text-[10px] text-zinc-500 font-bold overflow-hidden relative">
+                   <div className="absolute inset-0 bg-gradient-to-br from-zinc-850 to-emerald-950 opacity-40 animate-pulse" />
+                    🃏 Velvet Greenfield
+                </div>
+                <div className="flex-1 flex flex-col justify-end">
+                   <p className="font-bold text-sm">Classic Table Felt</p>
+                   <p className="text-[10px] text-zinc-500 font-black uppercase mt-1">Default</p>
+                   {profile.activeTableSkinId ? (
+                      <button 
+                        onClick={() => handleEquipTable(null)}
+                        className="w-full mt-3 py-2 bg-white/5 border border-white/5 hover:bg-white/10 rounded-xl text-xs font-bold transition-all"
+                      >
+                        Equip
+                      </button>
+                   ) : (
+                      <div className="w-full mt-3 py-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 rounded-xl text-xs font-black uppercase tracking-widest text-center flex items-center justify-center gap-1">
+                         <Check size={12} /> Equipped
+                      </div>
+                   )}
+                </div>
+             </div>
+
+              {ownedTables.map(table => {
+                const isCurrent = profile.activeTableSkinId === table.id;
+                return (
+                   <div key={table.id} className="bg-zinc-900/40 border border-white/5 rounded-3xl p-4 flex flex-col gap-4 relative">
+                      <div className="aspect-[3/2] bg-zinc-950 border border-white/10 rounded-2xl overflow-hidden relative shadow-md">
+                         <img src={table.imageUrl} alt="" className="w-full h-full object-cover" />
+                      </div>
+                      <div className="flex-1 flex flex-col justify-end">
+                         <p className="font-bold text-sm truncate">{table.name}</p>
+                         <p className="text-[9px] font-black uppercase text-yellow-500 mt-1">{table.rarity}</p>
+                         {isCurrent ? (
+                            <div className="w-full mt-3 py-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 rounded-xl text-xs font-black uppercase tracking-widest text-center flex items-center justify-center gap-1">
+                               <Check size={12} /> Equipped
+                            </div>
+                         ) : (
+                            <button 
+                              onClick={() => handleEquipTable(table.id)}
+                              className="w-full mt-3 py-2 bg-yellow-500 text-black hover:bg-yellow-400 rounded-xl text-xs font-bold transition-all"
+                            >
+                              Equip
+                            </button>
+                         )}
+                      </div>
+                   </div>
+                );
+              })}
+              {ownedTables.length === 0 && (
+                 <div className="col-span-2 py-16 text-center border border-dashed border-white/5 rounded-3xl">
+                    <p className="text-zinc-500 font-bold text-sm">You do not own any custom tables.</p>
+                 </div>
+              )}
+          </div>
+        ) : (
+          <div>
+             {ownedEmojis.length === 0 ? (
+                <div className="py-16 text-center border border-dashed border-white/5 rounded-3xl">
+                   <p className="text-zinc-500 font-bold text-sm">You do not own any premium emojis/GIFs yet.</p>
+                   <p className="text-xs text-zinc-600 mt-1">Acquire them from the store using chips!</p>
+                </div>
+             ) : (
+                <div className="grid grid-cols-3 gap-4">
+                   {ownedEmojis.map(emoji => (
+                     <div key={emoji.id} className="bg-zinc-900/40 border border-white/5 rounded-2xl p-4 flex flex-col items-center gap-2">
+                        <div className="w-full aspect-square bg-black/40 border border-white/5 rounded-xl flex items-center justify-center overflow-hidden">
+                           <img src={emoji.url} alt="" className="max-w-full max-h-full object-contain" />
+                        </div>
+                        <p className="text-xs font-bold text-zinc-300 truncate w-full text-center">{emoji.name}</p>
+                        <span className="text-[8px] font-black text-white/30 uppercase tracking-widest">{emoji.type}</span>
+                     </div>
+                   ))}
+                </div>
+             )}
+          </div>
+        )}
+      </div>
+
+      {setActiveTab && language && (
+        <TapBar activeTab="my-items" setActiveTab={setActiveTab} language={language} />
+      )}
     </div>
   );
 }

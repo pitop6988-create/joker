@@ -4,6 +4,7 @@ export interface CardSkin {
   imageUrl: string;
   price: number;
   rarity: 'common' | 'rare' | 'epic' | 'legendary';
+  emoji?: string;
 }
 
 export interface UserProfile {
@@ -18,6 +19,18 @@ export interface UserProfile {
   activeSkinId?: string;
   clubId?: string | null;
   ownedEmojis?: string[];
+  country?: string;
+  ownedTableSkins?: string[];
+  activeTableSkinId?: string | null;
+}
+
+export interface TableSkin {
+  id: string;
+  name: string;
+  imageUrl: string;
+  price: number;
+  rarity: 'common' | 'rare' | 'epic' | 'legendary';
+  emoji?: string;
 }
 
 export interface RadioTrack {
@@ -25,6 +38,8 @@ export interface RadioTrack {
   name: string;
   url: string;
   createdAt: number;
+  isChunked?: boolean;
+  chunkCount?: number;
 }
 
 export interface EmojiItem {

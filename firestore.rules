@@ -48,9 +48,10 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if isSignedIn();
       allow create: if isOwner(userId) && isValidUser(incoming());
-      allow update: if isOwner(userId) && isValidUser(incoming()) && (
-        incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL', 'totalWins', 'chips', 'level', 'xp', 'ownedSkins', 'activeSkinId', 'clubId', 'shortId', 'ownedEmojis'])
+      allow update: if (isOwner(userId) || isAdmin()) && isValidUser(incoming()) && (
+        incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL', 'totalWins', 'chips', 'level', 'xp', 'ownedSkins', 'activeSkinId', 'clubId', 'shortId', 'ownedEmojis', 'ownedTableSkins', 'activeTableSkinId', 'country'])
       );
+      allow delete: if isAdmin();
     }
 
     // Card Skins
@@ -59,10 +60,33 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // Table Skins
+    match /tableSkins/{tableId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Game Logos
+    match /gameLogos/{logoId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Club Logos
+    match /clubLogos/{logoId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
     // Radio
     match /radioTracks/{trackId} {
       allow read: if true;
       allow write: if isAdmin();
+
+      match /chunks/{chunkId} {
+        allow read: if true;
+        allow write: if isAdmin();
+      }
     }
 
     // Emojis/GIFs
@@ -88,7 +112,10 @@ service cloud.firestore {
       allow delete: if isSignedIn() && existing().ownerId == request.auth.uid;
 
       match /messages/{messageId} {
-        allow read: if isSignedIn() && request.auth.uid in get(/databases/$(database)/documents/clubs/$(clubId)).data.members;
+        allow read: if isSignedIn() && (
+          !exists(/databases/$(database)/documents/clubs/$(clubId)) ||
+          (exists(/databases/$(database)/documents/clubs/$(clubId)) && request.auth.uid in get(/databases/$(database)/documents/clubs/$(clubId)).data.members)
+        );
         allow create: if isSignedIn() && request.auth.uid in get(/databases/$(database)/documents/clubs/$(clubId)).data.members
           && isValidClubMessage(incoming()) && incoming().userId == request.auth.uid;
       }
@@ -116,7 +143,16 @@ service cloud.firestore {
         (incoming().status == 'finished' && request.auth.uid in existing().players)
       );
       
-      allow delete: if false;
+      allow delete: if isSignedIn() && (existing().hostId == request.auth.uid || existing().players[0] == request.auth.uid);
+
+      match /chat/{chatId} {
+        allow read: if isSignedIn() && (
+          !exists(/databases/$(database)/documents/games/$(gameId)) ||
+          (exists(/databases/$(database)/documents/games/$(gameId)) && request.auth.uid in get(/databases/$(database)/documents/games/$(gameId)).data.players)
+        );
+        allow create: if isSignedIn() && request.auth.uid in get(/databases/$(database)/documents/games/$(gameId)).data.players
+          && incoming().userId == request.auth.uid && incoming().text is string && incoming().text.size() <= 1000;
+      }
     }
   }
 }
