@@ -33,6 +33,17 @@ function dataUrlToBlobUrl(dataUrl: string): string {
   }
 }
 
+const COUNTRY_MAP: Record<string, { name: string; flag: string }> = {
+  Kurdistan: { name: 'Kurdistan', flag: '☀' },
+  USA: { name: 'USA', flag: '🇺🇸' },
+  UK: { name: 'UK', flag: '🇬🇧' },
+  Germany: { name: 'Germany', flag: '🇩🇪' },
+  Canada: { name: 'Canada', flag: '🇨🇦' },
+  Sweden: { name: 'Sweden', flag: '🇸🇪' },
+  Iraq: { name: 'Iraq', flag: '🇮🇶' },
+  Turkey: { name: 'Turkey', flag: '🇹🇷' }
+};
+
 type Language = 'en' | 'ku';
 
 const translations: Record<Language, any> = {
@@ -166,10 +177,216 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
     operationType,
     path
   }
-  console.error('Firestore Error: ', JSON.stringify(errInfo));
-  throw new Error(JSON.stringify(errInfo));
+  console.warn('Firestore Error Handled (Graceful Retry / Idle): ', JSON.stringify(errInfo));
 }
 
+const soundManager = {
+  ctx: null as AudioContext | null,
+  get enabled() {
+    return localStorage.getItem('sound_enabled') !== 'false';
+  },
+  set enabled(val: boolean) {
+    localStorage.setItem('sound_enabled', val ? 'true' : 'false');
+  },
+  
+  getRawCtx() {
+    if (!this.ctx) {
+      this.ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    }
+    if (this.ctx && this.ctx.state === 'suspended') {
+      this.ctx.resume();
+    }
+    return this.ctx;
+  },
+
+  playCardDeal() {
+    if (!this.enabled) return;
+    try {
+      const ctx = this.getRawCtx();
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(350, now);
+      osc.frequency.exponentialRampToValueAtTime(150, now + 0.15);
+      
+      gain.gain.setValueAtTime(0.12, now);
+      gain.gain.linearRampToValueAtTime(0.01, now + 0.15);
+      
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      
+      osc.start(now);
+      osc.stop(now + 0.15);
+    } catch (e) {
+      console.warn("Sound error: ", e);
+    }
+  },
+
+  playCardMove() {
+    if (!this.enabled) return;
+    try {
+      const ctx = this.getRawCtx();
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(450, now);
+      osc.frequency.exponentialRampToValueAtTime(700, now + 0.12);
+      
+      gain.gain.setValueAtTime(0.1, now);
+      gain.gain.linearRampToValueAtTime(0.01, now + 0.12);
+      
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      
+      osc.start(now);
+      osc.stop(now + 0.12);
+    } catch (e) {
+      console.warn("Sound error: ", e);
+    }
+  },
+
+  playDamaMove() {
+    if (!this.enabled) return;
+    try {
+      const ctx = this.getRawCtx();
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(180, now);
+      osc.frequency.exponentialRampToValueAtTime(80, now + 0.08);
+      
+      gain.gain.setValueAtTime(0.2, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+      
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      
+      osc.start(now);
+      osc.stop(now + 0.08);
+    } catch (e) {
+      console.warn("Sound error: ", e);
+    }
+  },
+
+  playDamaCapture() {
+    if (!this.enabled) return;
+    try {
+      const ctx = this.getRawCtx();
+      const now = ctx.currentTime;
+      const osc1 = ctx.createOscillator();
+      const osc2 = ctx.createOscillator();
+      const gain1 = ctx.createGain();
+      const gain2 = ctx.createGain();
+      
+      osc1.type = 'sawtooth';
+      osc1.frequency.setValueAtTime(250, now);
+      osc1.frequency.exponentialRampToValueAtTime(120, now + 0.06);
+      gain1.gain.setValueAtTime(0.2, now);
+      gain1.gain.linearRampToValueAtTime(0.01, now + 0.06);
+      
+      osc2.type = 'triangle';
+      osc2.frequency.setValueAtTime(190, now + 0.04);
+      osc2.frequency.exponentialRampToValueAtTime(50, now + 0.15);
+      gain2.gain.setValueAtTime(0.25, now + 0.04);
+      gain2.gain.linearRampToValueAtTime(0.01, now + 0.15);
+      
+      osc1.connect(gain1);
+      gain1.connect(ctx.destination);
+      osc2.connect(gain2);
+      gain2.connect(ctx.destination);
+      
+      osc1.start(now);
+      osc1.stop(now + 0.06);
+      osc2.start(now + 0.04);
+      osc2.stop(now + 0.15);
+    } catch (e) {
+      console.warn("Sound error: ", e);
+    }
+  },
+
+  playShopBuy() {
+    if (!this.enabled) return;
+    try {
+      const ctx = this.getRawCtx();
+      const now = ctx.currentTime;
+      const osc1 = ctx.createOscillator();
+      const osc2 = ctx.createOscillator();
+      const gain1 = ctx.createGain();
+      const gain2 = ctx.createGain();
+      
+      osc1.type = 'sine';
+      osc1.frequency.setValueAtTime(1100, now);
+      osc1.frequency.setValueAtTime(1500, now + 0.08);
+      gain1.gain.setValueAtTime(0.12, now);
+      gain1.gain.exponentialRampToValueAtTime(0.01, now + 0.28);
+      
+      osc2.type = 'sine';
+      osc2.frequency.setValueAtTime(1350, now);
+      osc2.frequency.setValueAtTime(1800, now + 0.08);
+      gain2.gain.setValueAtTime(0.1, now);
+      gain2.gain.exponentialRampToValueAtTime(0.01, now + 0.28);
+      
+      osc1.connect(gain1);
+      gain1.connect(ctx.destination);
+      osc2.connect(gain2);
+      gain2.connect(ctx.destination);
+      
+      osc1.start(now);
+      osc1.stop(now + 0.28);
+      osc2.start(now);
+      osc2.stop(now + 0.28);
+    } catch (e) {
+      console.warn("Sound error: ", e);
+    }
+  },
+
+  playGameEnd(isVictory: boolean) {
+    if (!this.enabled) return;
+    try {
+      const ctx = this.getRawCtx();
+      const now = ctx.currentTime;
+      if (isVictory) {
+        const notes = [261.63, 329.63, 392.00, 523.25]; // C4, E4, G4, C5
+        notes.forEach((freq, idx) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(freq, now + idx * 0.1);
+          gain.gain.setValueAtTime(0.15, now + idx * 0.1);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + idx * 0.1 + 0.4);
+          
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(now + idx * 0.1);
+          osc.stop(now + idx * 0.1 + 0.4);
+        });
+      } else {
+        const notes = [220.00, 207.65, 196.00, 146.83]; // A3, Ab3, G3, D3
+        notes.forEach((freq, idx) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(freq, now + idx * 0.14);
+          gain.gain.setValueAtTime(0.15, now + idx * 0.14);
+          gain.gain.linearRampToValueAtTime(0.01, now + idx * 0.14 + 0.35);
+          
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(now + idx * 0.14);
+          osc.stop(now + idx * 0.14 + 0.35);
+        });
+      }
+    } catch (e) {
+      console.warn("Sound error: ", e);
+    }
+  }
+};
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -197,6 +414,7 @@ export default function App() {
   const [radioTracks, setRadioTracks] = useState<RadioTrack[]>([]);
   const [trackCache, setTrackCache] = useState<Record<string, string>>({});
   const [emojiItems, setEmojiItems] = useState<EmojiItem[]>([]);
+  const [lobbyBg, setLobbyBg] = useState('');
 
   useEffect(() => {
     const unsubLogos = onSnapshot(collection(db, 'gameLogos'), (snapshot) => {
@@ -205,8 +423,24 @@ export default function App() {
         map[doc.id] = (doc.data() as any).url || '';
       });
       setGameLogos(map);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'gameLogos');
     });
-    return unsubLogos;
+
+    const unsubLobbyBg = onSnapshot(doc(db, 'config', 'lobbyBackground'), (snapshot) => {
+      if (snapshot.exists()) {
+        setLobbyBg(snapshot.data().url || '');
+      } else {
+        setLobbyBg('');
+      }
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'config/lobbyBackground');
+    });
+
+    return () => {
+      unsubLogos();
+      unsubLobbyBg();
+    };
   }, []);
 
   useEffect(() => {
@@ -220,6 +454,8 @@ export default function App() {
       });
       setTableSkinsMap(map);
       setTableSkins(list);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'tableSkins');
     });
     return unsubTables;
   }, []);
@@ -227,6 +463,8 @@ export default function App() {
   useEffect(() => {
     const unsub = onSnapshot(collection(db, 'emojiItems'), (snap) => {
       setEmojiItems(snap.docs.map(d => ({ id: d.id, ...d.data() } as EmojiItem)));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'emojiItems');
     });
     return unsub;
   }, []);
@@ -315,6 +553,8 @@ export default function App() {
     const q = query(collection(db, 'radioTracks'), orderBy('createdAt', 'desc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       setRadioTracks(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as RadioTrack)));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'radioTracks');
     });
     return unsubscribe;
   }, []);
@@ -802,7 +1042,7 @@ export default function App() {
   if (activeTab === 'shop') {
     return (
       <>
-        <ShopView user={user} profile={profile!} onBack={() => setActiveTab('home')} setActiveTab={setActiveTab} language={language} />
+        <ShopView user={user} profile={profile!} onBack={() => setActiveTab('home')} setActiveTab={setActiveTab} language={language} lobbyBg={lobbyBg} />
         <RadioHub 
           tracks={radioTracks} 
           active={showRadioHub} 
@@ -934,7 +1174,7 @@ export default function App() {
 
   return (
     <>
-      <LobbyView user={user} profile={profile} onStartSearch={startSearching} onJoin={joinGame} onLogout={signOut} onCreate={createGame} setActiveTab={setActiveTab} onClaimDaily={claimDailyReward} language={language} gameLogos={gameLogos} />
+      <LobbyView user={user} profile={profile} onStartSearch={startSearching} onJoin={joinGame} onLogout={signOut} onCreate={createGame} setActiveTab={setActiveTab} onClaimDaily={claimDailyReward} language={language} gameLogos={gameLogos} lobbyBg={lobbyBg} />
       <RadioHub 
         tracks={radioTracks} 
         active={showRadioHub} 
@@ -1086,12 +1326,16 @@ function AuthView({ onGoogleSignIn, onEmailSignIn, onEmailSignUp }: any) {
   );
 }
 
-function GameLogo({ size = 'large' }: { size?: 'small' | 'large' }) {
+function GameLogo({ size = 'large', profile }: { size?: 'small' | 'large', profile?: UserProfile | null }) {
   if (size === 'small') {
     return (
       <div className="flex items-center gap-2">
-        <div className="w-8 h-8 bg-[#8b0000] rounded-lg sm:rounded-xl flex items-center justify-center text-white shadow-lg rotate-12 border border-yellow-500/30">
-          <Star size={16} fill="currentColor" />
+        <div className="w-8 h-8 bg-[#8b0000] rounded-lg sm:rounded-xl flex items-center justify-center text-white shadow-lg rotate-12 border border-yellow-500/30 overflow-hidden">
+          {profile?.photoURL ? (
+            <img src={profile.photoURL} alt="" className="w-full h-full object-cover" />
+          ) : (
+            <Star size={16} fill="currentColor" />
+          )}
         </div>
         <span className="text-white font-display font-black italic tracking-widest text-base sm:text-lg">PRO DUEL</span>
       </div>
@@ -1104,9 +1348,13 @@ function GameLogo({ size = 'large' }: { size?: 'small' | 'large' }) {
         <motion.div 
           animate={{ rotate: [12, -12, 12] }}
           transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
-          className="w-20 h-20 sm:w-24 sm:h-24 bg-[#8b0000] rounded-[24px] sm:rounded-[32px] border-4 border-yellow-500 shadow-[0_0_50px_rgba(139,0,0,0.4)] flex items-center justify-center text-white relative z-10"
+          className="w-20 h-20 sm:w-24 sm:h-24 bg-[#8b0000] rounded-[24px] sm:rounded-[32px] border-4 border-yellow-500 shadow-[0_0_50px_rgba(139,0,0,0.4)] flex items-center justify-center text-white relative z-10 overflow-hidden"
         >
-          <Crown size={40} className="sm:size-12" fill="currentColor" />
+          {profile?.photoURL ? (
+            <img src={profile.photoURL} alt="Profile Logo" className="w-full h-full object-cover" />
+          ) : (
+            <Crown size={40} className="sm:size-12" fill="currentColor" />
+          )}
           <div className="absolute -bottom-2 -right-2 w-8 h-8 sm:w-10 sm:h-10 bg-yellow-500 rounded-full border-4 border-[#8b0000] flex items-center justify-center text-[#8b0000]">
             <X size={16} sm:size-20 className="font-black" />
           </div>
@@ -1174,15 +1422,306 @@ function FallingCards() {
   );
 }
 
-function AdminView({ onBack }: { onBack: () => void }) {
+function GameSandbox() {
+  const [board, setBoard] = useState<(any | null)[][]>(Array(8).fill(null).map(() => Array(8).fill(null)));
+  const [activeBrush, setActiveBrush] = useState<'red-pawn' | 'red-king' | 'black-pawn' | 'black-king' | 'empty'>('red-pawn');
+  const [mode, setMode] = useState<'edit' | 'move'>('edit');
+  const [selectedPiece, setSelectedPiece] = useState<{ r: number, c: number } | null>(null);
+  const [testResult, setTestResult] = useState<string>('');
+
+  const loadClassicCheckers = () => {
+    const newBoard = Array(8).fill(null).map(() => Array(8).fill(null));
+    for (let r = 0; r < 8; r++) {
+      for (let c = 0; c < 8; c++) {
+        if ((r + c) % 2 === 1) {
+          if (r < 3) {
+            newBoard[r][c] = { type: 'pawn', color: 'black' };
+          } else if (r > 4) {
+            newBoard[r][c] = { type: 'pawn', color: 'red' };
+          }
+        }
+      }
+    }
+    setBoard(newBoard);
+    setTestResult('Loaded Classic starting checkers layout.');
+  };
+
+  const loadEmptyBoard = () => {
+    setBoard(Array(8).fill(null).map(() => Array(8).fill(null)));
+    setTestResult('Cleared entire board canvas.');
+  };
+
+  const loadMidGameSetup = () => {
+    const newBoard = Array(8).fill(null).map(() => Array(8).fill(null));
+    newBoard[1][2] = { type: 'king', color: 'black' };
+    newBoard[2][5] = { type: 'pawn', color: 'red' };
+    newBoard[3][4] = { type: 'pawn', color: 'black' };
+    newBoard[4][3] = { type: 'pawn', color: 'red' };
+    newBoard[5][2] = { type: 'king', color: 'red' };
+    newBoard[6][5] = { type: 'pawn', color: 'black' };
+    setBoard(newBoard);
+    setTestResult('Loaded Mid-Game custom simulation preset.');
+  };
+
+  const saveSandboxToCloud = async () => {
+    try {
+      await setDoc(doc(db, 'config', 'sandboxDama'), {
+        boardState: JSON.stringify(board),
+        updatedAt: Date.now()
+      });
+      alert("Successfully saved current sandbox checker board setup to firebase!");
+    } catch (e) {
+      alert("Error saving: " + (e as Error).message);
+    }
+  };
+
+  const loadSandboxFromCloud = async () => {
+    try {
+      const snap = await getDoc(doc(db, 'config', 'sandboxDama'));
+      if (snap.exists() && snap.data().boardState) {
+        setBoard(JSON.parse(snap.data().boardState));
+        setTestResult('Synchronized layouts from firebase database.');
+      } else {
+        alert("No cloud preset found. Loading starting classic instead.");
+        loadClassicCheckers();
+      }
+    } catch (e) {
+      alert("Error loading: " + (e as Error).message);
+    }
+  };
+
+  useEffect(() => {
+    loadClassicCheckers();
+  }, []);
+
+  const handleTileClick = (r: number, c: number) => {
+    if ((r + c) % 2 === 0) {
+      setTestResult('Cannot place piece on light square (checkers only moves on dark).');
+      return;
+    }
+
+    if (mode === 'edit') {
+      const newBoard = board.map(row => [...row]);
+      if (activeBrush === 'empty') {
+        newBoard[r][c] = null;
+        setTestResult(`Cleared cell at row ${r + 1}, col ${c + 1}.`);
+      } else {
+        const [color, type] = activeBrush.split('-');
+        newBoard[r][c] = { type, color };
+        setTestResult(`Placed ${color} ${type} at tile [${r + 1}, ${c + 1}].`);
+      }
+      setBoard(newBoard);
+    } else {
+      const piece = board[r][c];
+      if (selectedPiece) {
+        if (selectedPiece.r === r && selectedPiece.c === c) {
+          setSelectedPiece(null);
+          return;
+        }
+        if (piece) {
+          setSelectedPiece({ r, c });
+          setTestResult(`Selected new piece at row ${r + 1}, col ${c + 1}.`);
+        } else {
+          const newBoard = board.map(row => [...row]);
+          const movingPiece = board[selectedPiece.r][selectedPiece.c];
+          
+          if (!movingPiece) {
+            setSelectedPiece(null);
+            return;
+          }
+
+          const rDiff = Math.abs(r - selectedPiece.r);
+          const cDiff = Math.abs(c - selectedPiece.c);
+
+          if (rDiff === 1 && cDiff === 1) {
+            newBoard[r][c] = movingPiece;
+            newBoard[selectedPiece.r][selectedPiece.c] = null;
+            
+            if (movingPiece.color === 'red' && r === 0) {
+              newBoard[r][c].type = 'king';
+            } else if (movingPiece.color === 'black' && r === 7) {
+              newBoard[r][c].type = 'king';
+            }
+
+            setBoard(newBoard);
+            setTestResult(`Moved piece to [${r + 1}, ${c + 1}].`);
+            setSelectedPiece(null);
+          } else if (rDiff === 2 && cDiff === 2) {
+            const midR = (r + selectedPiece.r) / 2;
+            const midC = (c + selectedPiece.c) / 2;
+            const enemyPiece = board[midR][midC];
+
+            newBoard[r][c] = movingPiece;
+            newBoard[selectedPiece.r][selectedPiece.c] = null;
+            newBoard[midR][midC] = null;
+
+            if (movingPiece.color === 'red' && r === 0) {
+              newBoard[r][c].type = 'king';
+            } else if (movingPiece.color === 'black' && r === 7) {
+              newBoard[r][c].type = 'king';
+            }
+
+            setBoard(newBoard);
+            setTestResult(`Captured piece at [${midR + 1}, ${midC + 1}] and jumped to [${r + 1}, ${c + 1}]!`);
+            setSelectedPiece(null);
+          } else {
+            setTestResult('Invalid movement! Checkers move diagonally 1 step (or 2 steps to jump/capture).');
+          }
+        }
+      } else {
+        if (piece) {
+          setSelectedPiece({ r, c });
+          setTestResult(`Selected piece at row ${r + 1}, col ${c + 1}. Ready to skip or slide.`);
+        }
+      }
+    }
+  };
+
+  return (
+    <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-6 animate-fade-in text-white">
+      <div className="flex justify-between items-center">
+         <div>
+           <h2 className="text-lg font-black uppercase text-yellow-500 tracking-wider">
+             Dama Game Sandbox & Editor
+           </h2>
+           <p className="text-[10px] text-zinc-400 mt-0.5">
+             Simulate checker board layouts, piece mechanics, and promotional criteria.
+           </p>
+         </div>
+         <span className="px-3 py-1 bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 text-[10px] font-black uppercase rounded-lg">EDITOR ACTIVE</span>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+         <div className="md:col-span-7 flex flex-col items-center">
+            <div className="aspect-square bg-zinc-950 border-4 border-zinc-900 rounded-xl overflow-hidden grid grid-cols-8 grid-rows-8 w-full max-w-[360px] shadow-2xl relative">
+               {board.map((row, r) => 
+                 row.map((cell, c) => {
+                   const isDark = (r + c) % 2 === 1;
+                   const isSelected = selectedPiece && selectedPiece.r === r && selectedPiece.c === c;
+                   return (
+                     <div 
+                       key={`${r}-${c}`}
+                       onClick={() => handleTileClick(r, c)}
+                       className={`aspect-square relative flex items-center justify-center cursor-pointer transition-all ${isDark ? 'bg-zinc-800 hover:bg-zinc-700' : 'bg-orange-100/10'}`}
+                     >
+                       {isSelected && (
+                         <div className="absolute inset-0 border-2 border-yellow-500 animate-pulse z-10" />
+                       )}
+                       
+                       {cell && (
+                         <div className={`w-8 h-8 rounded-full flex items-center justify-center shadow-lg transform active:scale-95 transition-transform ${cell.color === 'red' ? 'bg-[#8b0000] border-2 border-[#ff3b3b]' : 'bg-black border-2 border-zinc-700'}`}>
+                           {cell.type === 'king' && (
+                             <span className="text-yellow-400 text-xs font-black">👑</span>
+                           )}
+                         </div>
+                       )}
+                     </div>
+                   );
+                 })
+               )}
+            </div>
+            
+            <div className="mt-4 p-3 bg-black/40 border border-white/10 rounded-xl w-full max-w-[360px] text-center">
+               <span className="text-[10px] text-yellow-500/80 font-black uppercase tracking-wider block">Sandbox status message</span>
+               <p className="text-xs text-zinc-300 font-bold font-mono mt-1 leading-snug">{testResult || 'IDLE - Ready for input.'}</p>
+            </div>
+         </div>
+
+         <div className="md:col-span-5 space-y-4">
+            <div>
+               <label className="block text-[9px] font-black uppercase text-white/40 tracking-wider mb-2">Sandbox Interactive Mode</label>
+               <div className="flex bg-black/40 p-1 rounded-xl border border-white/10">
+                  <button 
+                    onClick={() => { setMode('edit'); setSelectedPiece(null); }}
+                    className={`flex-1 py-2 text-[10px] font-black uppercase rounded-lg transition-all ${mode === 'edit' ? 'bg-yellow-500 text-black' : 'text-zinc-500 hover:text-white'}`}
+                  >
+                    Edit Brush
+                  </button>
+                  <button 
+                    onClick={() => { setMode('move'); setSelectedPiece(null); }}
+                    className={`flex-1 py-2 text-[10px] font-black uppercase rounded-lg transition-all ${mode === 'move' ? 'bg-yellow-500 text-black' : 'text-zinc-500 hover:text-white'}`}
+                  >
+                    Playtest Moves
+                  </button>
+               </div>
+            </div>
+
+            {mode === 'edit' && (
+               <div className="space-y-2">
+                  <label className="block text-[9px] font-black uppercase text-white/40 tracking-wider">Active Placement Brush</label>
+                  <div className="grid grid-cols-2 gap-2">
+                     <button 
+                       onClick={() => setActiveBrush('red-pawn')}
+                       className={`p-2.5 rounded-xl border text-[10px] font-black uppercase flex items-center gap-2 transition-all ${activeBrush === 'red-pawn' ? 'bg-white/10 border-yellow-500 text-white' : 'bg-black/20 border-white/10 text-white/50'}`}
+                     >
+                       <span className="w-3.5 h-3.5 rounded-full bg-[#8b0000] border border-[#ff3b3b]" /> Red Pawn
+                     </button>
+                     <button 
+                       onClick={() => setActiveBrush('red-king')}
+                       className={`p-2.5 rounded-xl border text-[10px] font-black uppercase flex items-center gap-2 transition-all ${activeBrush === 'red-king' ? 'bg-white/10 border-yellow-500 text-white' : 'bg-black/20 border-white/10 text-white/50'}`}
+                     >
+                       <span className="w-3.5 h-3.5 rounded-full bg-[#8b0000] border border-[#ff3b3b] flex items-center justify-center text-[8px] text-yellow-400">👑</span> Red King
+                     </button>
+                     <button 
+                       onClick={() => setActiveBrush('black-pawn')}
+                       className={`p-2.5 rounded-xl border text-[10px] font-black uppercase flex items-center gap-2 transition-all ${activeBrush === 'black-pawn' ? 'bg-white/10 border-yellow-500 text-white' : 'bg-black/20 border-white/10 text-white/50'}`}
+                     >
+                       <span className="w-3.5 h-3.5 rounded-full bg-black border border-zinc-700" /> Black Pawn
+                     </button>
+                     <button 
+                       onClick={() => setActiveBrush('black-king')}
+                       className={`p-2.5 rounded-xl border text-[10px] font-black uppercase flex items-center gap-2 transition-all ${activeBrush === 'black-king' ? 'bg-white/10 border-yellow-500 text-white' : 'bg-black/20 border-white/10 text-white/50'}`}
+                     >
+                       <span className="w-3.5 h-3.5 rounded-full bg-black border border-zinc-700 flex items-center justify-center text-[8px] text-yellow-400">👑</span> Black King
+                     </button>
+                  </div>
+                  <button 
+                    onClick={() => setActiveBrush('empty')}
+                    className={`w-full p-2.5 rounded-xl border text-[10px] font-black uppercase flex items-center justify-center gap-2 transition-all ${activeBrush === 'empty' ? 'bg-white/10 border-red-500 text-red-400' : 'bg-red-550/15 border-red-550/30 text-red-300 hover:text-white'}`}
+                  >
+                    🗑️ Eraser (Clear Cell)
+                  </button>
+               </div>
+            )}
+
+            <div className="space-y-2 pt-2 border-t border-white/5">
+               <label className="block text-[9px] font-black uppercase text-white/40 tracking-wider">Canvas Setup Presets</label>
+               <div className="grid grid-cols-3 gap-2">
+                  <button onClick={loadClassicCheckers} className="p-2 bg-black/40 border border-white/10 text-[9px] font-bold uppercase rounded-lg hover:border-yellow-500 transition-colors">Starting Dama</button>
+                  <button onClick={loadMidGameSetup} className="p-2 bg-black/40 border border-white/10 text-[9px] font-bold uppercase rounded-lg hover:border-yellow-500 transition-colors">Mid Game Duel</button>
+                  <button onClick={loadEmptyBoard} className="p-2 bg-black/40 border border-white/10 text-[9px] font-bold uppercase rounded-lg hover:border-red-500 hover:text-red-400 transition-colors">Clean Board</button>
+               </div>
+            </div>
+
+            <div className="space-y-2 pt-4 border-t border-white/5">
+               <label className="block text-[9px] font-black uppercase text-white/40 tracking-wider">Draft Setup Synchronizer</label>
+               <div className="flex gap-2">
+                  <button onClick={saveSandboxToCloud} className="flex-1 py-2.5 bg-yellow-500 hover:bg-yellow-400 text-black text-[10px] font-black uppercase rounded-xl shadow tracking-widest transition-colors">
+                     Save Blueprint
+                  </button>
+                  <button onClick={loadSandboxFromCloud} className="flex-1 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-white text-[10px] font-black uppercase rounded-xl border border-white/10 tracking-widest transition-colors">
+                     Load Cloud
+                  </button>
+               </div>
+            </div>
+         </div>
+      </div>
+    </div>
+  );
+}
+
+function AdminView({ onBack, lobbyBg }: { onBack: () => void, lobbyBg?: string }) {
   const [skinName, setSkinName] = useState('');
   const [skinPrice, setSkinPrice] = useState(1000);
   const [skinRarity, setSkinRarity] = useState<'common' | 'rare' | 'epic' | 'legendary'>('common');
   const [skinImage, setSkinImage] = useState('');
   const [skinEmoji, setSkinEmoji] = useState('🃏');
+  const [skinIsNew, setSkinIsNew] = useState(false);
   const [saving, setSaving] = useState(false);
   const [users, setUsers] = useState<UserProfile[]>([]);
-  const [activeTab, setActiveAdminTab] = useState<'skins' | 'users' | 'radio' | 'emojis' | 'tables' | 'logos'>('skins');
+  const [activeTab, setActiveAdminTab] = useState<'skins' | 'users' | 'radio' | 'emojis' | 'tables' | 'logos' | 'sandbox'>('skins');
+  const [tempBgUrl, setTempBgUrl] = useState('');
+  const [lobbyBgState, setLobbyBgState] = useState(lobbyBg || '');
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const [trackName, setTrackName] = useState('');
@@ -1201,9 +1740,10 @@ function AdminView({ onBack }: { onBack: () => void }) {
 
   const [selectedLogoGame, setSelectedLogoGame] = useState<'uno' | 'joker' | 'dama'>('uno');
   const [gameLogoUrl, setGameLogoUrl] = useState('');
-  const [logoScope, setLogoScope] = useState<'game' | 'club'>('game');
+  const [logoScope, setLogoScope] = useState<'game' | 'club' | 'background'>('game');
   const [clubLogoUrl, setClubLogoUrl] = useState('');
   const [clubLogos, setClubLogos] = useState<{ id: string; url: string; createdAt: number }[]>([]);
+  const [tableIsNew, setTableIsNew] = useState(false);
 
   // Real-time collections for editing
   const [skins, setSkins] = useState<CardSkin[]>([]);
@@ -1306,6 +1846,8 @@ function AdminView({ onBack }: { onBack: () => void }) {
         if (activeTab === 'logos') {
           if (logoScope === 'club') {
             setClubLogoUrl(result);
+          } else if (logoScope === 'background') {
+            setTempBgUrl(result);
           } else {
             setGameLogoUrl(result);
           }
@@ -1606,6 +2148,41 @@ function AdminView({ onBack }: { onBack: () => void }) {
     }
   };
 
+  const handleSaveLobbyBg = async () => {
+    if (!tempBgUrl) return;
+    setSaving(true);
+    try {
+      await setDoc(doc(db, 'config', 'lobbyBackground'), {
+        url: tempBgUrl,
+        updatedAt: Date.now()
+      });
+      alert("Home/Lobby background successfully deployed!");
+      setLobbyBgState(tempBgUrl);
+      setTempBgUrl('');
+    } catch (e) {
+      console.error(e);
+      alert("Failed to save background: " + (e as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleClearLobbyBg = async () => {
+    if (!window.confirm("Are you sure you want to revert to the default classic background?")) return;
+    setSaving(true);
+    try {
+      await deleteDoc(doc(db, 'config', 'lobbyBackground'));
+      setLobbyBgState('');
+      setTempBgUrl('');
+      alert("Reverted to default background successfully!");
+    } catch (e) {
+      console.error(e);
+      alert("Error: " + (e as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleCancelEdit = () => {
     setEditingId(null);
     setSkinName('');
@@ -1630,6 +2207,7 @@ function AdminView({ onBack }: { onBack: () => void }) {
 
     setGameLogoUrl('');
     setClubLogoUrl('');
+    setTempBgUrl('');
     setLogoScope('game');
   };
 
@@ -1652,7 +2230,7 @@ function AdminView({ onBack }: { onBack: () => void }) {
               )}
            </div>
            <div className="flex bg-white/10 rounded-xl p-1 overflow-x-auto">
-              {['skins', 'tables', 'logos', 'users', 'radio', 'emojis'].map(tab => (
+              {['skins', 'tables', 'logos', 'users', 'radio', 'emojis', 'sandbox'].map(tab => (
                 <button 
                   key={tab}
                   onClick={() => {
@@ -1912,6 +2490,15 @@ function AdminView({ onBack }: { onBack: () => void }) {
               >
                 Club Presets
               </button>
+              <button 
+                onClick={() => {
+                  setLogoScope('background');
+                  handleCancelEdit();
+                }}
+                className={`flex-1 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all ${logoScope === 'background' ? 'bg-yellow-500 text-black' : 'text-white/40 hover:text-white'}`}
+              >
+                Home Background
+              </button>
             </div>
 
             {logoScope === 'game' ? (
@@ -1936,7 +2523,7 @@ function AdminView({ onBack }: { onBack: () => void }) {
                    {saving ? 'SAVING LOGO...' : 'DEPLOY LOGO ASSET'}
                 </button>
               </div>
-            ) : (
+            ) : logoScope === 'club' ? (
               <div className="space-y-6">
                 <div className="bg-white/5 border border-white/10 rounded-2xl p-5 space-y-4">
                   <h2 className="text-sm font-black uppercase text-yellow-500 tracking-wider">
@@ -1967,8 +2554,50 @@ function AdminView({ onBack }: { onBack: () => void }) {
                   </div>
                 </div>
               </div>
+            ) : (
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-5 space-y-4 animate-fade-in">
+                 <h2 className="text-sm font-black uppercase text-yellow-500 tracking-wider">
+                   Home Background Configuration
+                 </h2>
+                 <p className="text-[10px] text-zinc-400">
+                   Upload a custom high-resolution image file to set as the background for the Lobby, Home, and Shop views.
+                 </p>
+                 <div onClick={() => fileInputRef.current?.click()} className="w-full aspect-[2/1] bg-black/40 border-2 border-dashed border-white/10 rounded-2xl flex flex-col items-center justify-center cursor-pointer hover:border-yellow-500/55 transition-colors overflow-hidden relative">
+                    {tempBgUrl ? (
+                      <img src={tempBgUrl} alt="Lobby background to upload" className="w-full h-full object-cover" />
+                    ) : lobbyBgState ? (
+                      <img src={lobbyBgState} alt="Current lobby background" className="w-full h-full object-cover" />
+                    ) : (
+                      <ImageIcon size={48} className="opacity-25" />
+                    )}
+                    {!tempBgUrl && !lobbyBgState && (
+                      <span className="text-[10px] font-black uppercase hover:text-yellow-500 text-white/40 mt-2">Upload Custom Image File</span>
+                    )}
+                 </div>
+                 <input ref={fileInputRef} type="file" onChange={handleFileChange} className="hidden" accept="image/*" />
+                 
+                 <div className="flex gap-3">
+                   <button 
+                     onClick={handleSaveLobbyBg} 
+                     disabled={saving || !tempBgUrl} 
+                     className="flex-grow py-4 text-xs font-black uppercase tracking-widest rounded-2xl shadow transition-all bg-yellow-500 text-black hover:bg-yellow-400 disabled:opacity-50"
+                   >
+                      {saving ? 'DEPLOING...' : 'APPLY WORLD BACKGROUND'}
+                   </button>
+                   {lobbyBgState && (
+                     <button 
+                       onClick={handleClearLobbyBg} 
+                       className="px-6 py-4 text-xs font-black uppercase tracking-widest rounded-2xl shadow transition-all bg-red-650 text-white hover:bg-red-750"
+                     >
+                       RESET
+                     </button>
+                   )}
+                 </div>
+              </div>
             )}
           </div>
+        ) : activeTab === 'sandbox' ? (
+          <GameSandbox />
         ) : (
           <div className="space-y-4">
              {users.map(u => (
@@ -1994,7 +2623,7 @@ function AdminView({ onBack }: { onBack: () => void }) {
   );
 }
 
-function ShopView({ user, profile, onBack, setActiveTab, language }: { user: User, profile: UserProfile, onBack: () => void, setActiveTab?: (tab: any) => void, language: Language }) {
+function ShopView({ user, profile, onBack, setActiveTab, language, lobbyBg }: { user: User, profile: UserProfile, onBack: () => void, setActiveTab?: (tab: any) => void, language: Language, lobbyBg?: string }) {
   const t = translations[language];
   const [skins, setSkins] = useState<CardSkin[]>([]);
   const [emojis, setEmojis] = useState<EmojiItem[]>([]);
@@ -2004,18 +2633,25 @@ function ShopView({ user, profile, onBack, setActiveTab, language }: { user: Use
   const [adminPass, setAdminPass] = useState('');
   const [showPassInput, setShowPassInput] = useState(false);
   const [previewSkin, setPreviewSkin] = useState<CardSkin | null>(null);
+  const [previewTable, setPreviewTable] = useState<TableSkin | null>(null);
   const [activeShopTab, setActiveShopTab] = useState<'skins' | 'chips' | 'emojis' | 'tables'>('skins');
 
   useEffect(() => {
     const unsubscribeSkins = onSnapshot(collection(db, 'cardSkins'), (snapshot) => {
       setSkins(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CardSkin)));
       setLoading(false);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'cardSkins');
     });
     const unsubscribeEmojis = onSnapshot(collection(db, 'emojiItems'), (snapshot) => {
       setEmojis(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as EmojiItem)));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'emojiItems');
     });
     const unsubscribeTables = onSnapshot(collection(db, 'tableSkins'), (snapshot) => {
       setTableSkins(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TableSkin)));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'tableSkins');
     });
     return () => {
       unsubscribeSkins();
@@ -2041,6 +2677,7 @@ function ShopView({ user, profile, onBack, setActiveTab, language }: { user: Use
         chips: profile.chips - skin.price,
         ownedSkins: [...(profile.ownedSkins || []), skin.id]
       });
+      soundManager.playShopBuy();
       alert(`Purchased ${skin.name}!`);
     } catch (e) {
       handleFirestoreError(e, OperationType.UPDATE, `users/${user.uid}`);
@@ -2064,6 +2701,7 @@ function ShopView({ user, profile, onBack, setActiveTab, language }: { user: Use
         chips: profile.chips - table.price,
         ownedTableSkins: [...(profile.ownedTableSkins || []), table.id]
       });
+      soundManager.playShopBuy();
       alert(`Purchased ${table.name}!`);
     } catch (e) {
       handleFirestoreError(e, OperationType.UPDATE, `users/${user.uid}`);
@@ -2087,6 +2725,7 @@ function ShopView({ user, profile, onBack, setActiveTab, language }: { user: Use
         chips: profile.chips - emoji.price,
         ownedEmojis: [...(profile.ownedEmojis || []), emoji.id]
       });
+      soundManager.playShopBuy();
       alert("Emoji purchased!");
     } catch (e) {
       handleFirestoreError(e, OperationType.UPDATE, `users/${user.uid}`);
@@ -2125,10 +2764,13 @@ function ShopView({ user, profile, onBack, setActiveTab, language }: { user: Use
     }
   };
 
-  if (showAdmin) return <AdminView onBack={() => setShowAdmin(false)} />;
+  if (showAdmin) return <AdminView onBack={() => setShowAdmin(false)} lobbyBg={lobbyBg} />;
 
   return (
-    <div className="min-h-screen bg-lobby-vintage p-6 sm:p-8 font-vintage flex flex-col relative pb-32 overflow-y-auto">
+    <div 
+      className="min-h-screen bg-lobby-vintage p-6 sm:p-8 font-vintage flex flex-col relative pb-32 overflow-y-auto"
+      style={lobbyBg ? { backgroundImage: `url(${lobbyBg})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundAttachment: 'fixed' } : {}}
+    >
       <FallingCards />
       <header className="flex justify-between items-center mb-12 z-20">
         <div className="flex items-center gap-4">
@@ -2476,7 +3118,14 @@ function ProfileView({ user, profile, onBack, onLogout, setActiveTab, language, 
             <div className="flex items-center justify-center gap-2">
                <h2 className="text-3xl font-black uppercase tracking-tight">{profile.displayName}</h2>
                <button onClick={onEditProfile} className="text-zinc-500 hover:text-white"><Edit size={16} /></button>
-               <span className="text-lg">🌍</span>
+               {profile.country && COUNTRY_MAP[profile.country] ? (
+                  <span className="flex items-center gap-1.5 bg-zinc-850 px-2 rounded-full border border-white/5 text-[9px] font-black uppercase tracking-wider text-zinc-300">
+                    <span>{COUNTRY_MAP[profile.country].flag}</span>
+                    <span>{COUNTRY_MAP[profile.country].name}</span>
+                  </span>
+                ) : (
+                  <span className="text-lg">🌍</span>
+                )}
             </div>
             <div className="flex items-center justify-center gap-2 mt-1">
                <p className="text-xs font-black text-white/40 uppercase tracking-[0.3em]">ID: {profile.shortId || '-------'}</p>
@@ -2843,7 +3492,7 @@ function SearchingView({ user, gameType, onCancel }: { user: User, gameType: str
   );
 }
 
-function LobbyView({ user, profile, onStartSearch, onJoin, onLogout, onCreate, setActiveTab, onClaimDaily, language, gameLogos }: any) {
+function LobbyView({ user, profile, onStartSearch, onJoin, onLogout, onCreate, setActiveTab, onClaimDaily, language, gameLogos, lobbyBg }: any) {
   const t = translations[language];
   const [games, setGames] = useState<Game[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -2909,7 +3558,10 @@ function LobbyView({ user, profile, onStartSearch, onJoin, onLogout, onCreate, s
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0a0b] p-4 sm:p-8 font-sans flex flex-col relative overflow-hidden pb-32">
+    <div 
+      className="min-h-screen bg-[#0a0a0b] p-4 sm:p-8 font-sans flex flex-col relative overflow-hidden pb-32"
+      style={lobbyBg ? { backgroundImage: `url(${lobbyBg})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundAttachment: 'fixed' } : {}}
+    >
       {/* Dynamic Background Elements */}
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(139,0,0,0.15),transparent_70%)] pointer-events-none" />
       <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-[0.03] pointer-events-none" />
@@ -2924,7 +3576,7 @@ function LobbyView({ user, profile, onStartSearch, onJoin, onLogout, onCreate, s
           >
             <div className="relative">
               <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-[#8b0000] shadow-inner">
-                <img src={user.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.uid}`} alt="me" className="w-full h-full object-cover" />
+                <img src={profile?.photoURL || user.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.uid}`} alt="me" className="w-full h-full object-cover" />
               </div>
               <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-[#8b0000] rounded-full flex items-center justify-center border-2 border-[#0a0a0b] text-[10px] font-bold text-white">
                 {profile?.level || 1}
@@ -2973,7 +3625,7 @@ function LobbyView({ user, profile, onStartSearch, onJoin, onLogout, onCreate, s
       <div className="flex-1 flex flex-col items-center justify-center gap-16 relative text-center w-full max-w-7xl mx-auto">
         <div className="relative group">
           <div className="absolute -inset-8 bg-[#8b0000]/20 blur-[100px] opacity-50 group-hover:opacity-80 transition-opacity" />
-          <GameLogo />
+          <GameLogo profile={profile} />
         </div>
 
         {profile.chips <= 0 && (
@@ -3314,6 +3966,8 @@ function GameView({ user, game, onLeave, profile, skinsMap, emojiItems }: {
     const q = query(collection(db, `games/${game.id}/chat`), orderBy('createdAt', 'asc'), limit(50));
     const unsub = onSnapshot(q, (snap) => {
       setMessages(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, `games/${game.id}/chat`);
     });
     return unsub;
   }, [game.id]);
@@ -4042,8 +4696,20 @@ function DamaBoard({ game, user, onMove, opponentProfile, opponentId }: any) {
 function ProfileEditor({ profile, user, onSave, onCancel }: { profile: UserProfile, user: User, onSave: (p: Partial<UserProfile>) => void, onCancel: () => void }) {
   const [displayName, setDisplayName] = useState(profile.displayName);
   const [photoURL, setPhotoURL] = useState(profile.photoURL);
+  const [country, setCountry] = useState(profile.country || '');
   const [zoom, setZoom] = useState(1);
   const [isUploading, setIsUploading] = useState(false);
+
+  const countriesList = [
+    { code: 'Kurdistan', name: '☀ Kurdistan' },
+    { code: 'USA', name: '🇺🇸 United States' },
+    { code: 'UK', name: '🇬🇧 United Kingdom' },
+    { code: 'Germany', name: '🇩🇪 Germany' },
+    { code: 'Canada', name: '🇨🇦 Canada' },
+    { code: 'Sweden', name: '🇸🇪 Sweden' },
+    { code: 'Iraq', name: '🇮🇶 Iraq' },
+    { code: 'Turkey', name: '🇹🇷 Turkey' }
+  ];
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -4078,7 +4744,7 @@ function ProfileEditor({ profile, user, onSave, onCancel }: { profile: UserProfi
              </button>
           </div>
 
-          <div className="flex flex-col items-center gap-8 relative">
+          <div className="flex flex-col items-center gap-6 relative">
              <div className="relative group">
                 <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-[#8b0000] shadow-2xl bg-black">
                    <div style={{ transform: `scale(${zoom})`, transition: 'transform 0.2s' }} className="w-full h-full origin-center">
@@ -4115,7 +4781,23 @@ function ProfileEditor({ profile, user, onSave, onCancel }: { profile: UserProfi
                 />
              </div>
 
-             <div className="w-full grid grid-cols-2 gap-4 mt-4">
+             <div className="w-full space-y-2">
+                <label className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-4">Location / Country</label>
+                <select 
+                  value={country} 
+                  onChange={(e) => setCountry(e.target.value)}
+                  className="w-full bg-[#111112] border border-white/10 rounded-2xl px-6 py-4 outline-none focus:border-[#8b0000] text-sm text-white font-bold cursor-pointer"
+                >
+                  <option value="" disabled>Select your Country</option>
+                  {countriesList.map(c => (
+                    <option key={c.code} value={c.code} className="text-white bg-zinc-950 font-bold">
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+             </div>
+
+             <div className="w-full grid grid-cols-2 gap-4 mt-2">
                 <button 
                   onClick={onCancel}
                   className="py-4 bg-white/5 border border-white/10 rounded-2xl text-white/60 font-black uppercase text-[10px] tracking-widest hover:bg-white/10 transition-all"
@@ -4123,7 +4805,7 @@ function ProfileEditor({ profile, user, onSave, onCancel }: { profile: UserProfi
                   Cancel
                 </button>
                 <button 
-                  onClick={() => onSave({ displayName, photoURL })}
+                  onClick={() => onSave({ displayName, photoURL, country })}
                   disabled={isUploading}
                   className="py-4 bg-[#8b0000] text-white rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-[#a00000] transition-all shadow-[0_10px_20px_rgba(139,0,0,0.3)] disabled:opacity-50"
                 >
@@ -4153,6 +4835,8 @@ function ClubsView({ user, profile, onJoinClub, onCreateClub, onBack }: { user: 
 
     const unsubscribeLogos = onSnapshot(collection(db, 'clubLogos'), (snapshot) => {
       setClubLogos(snapshot.docs.map(doc => ({ id: doc.id, url: doc.data().url || '' })));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'clubLogos');
     });
 
     return () => {
@@ -4771,10 +5455,14 @@ function MyItemsView({
     const unsubSkins = onSnapshot(collection(db, 'cardSkins'), (snapshot) => {
       setSkins(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CardSkin)));
       setLoading(false);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'cardSkins');
     });
 
     const unsubTables = onSnapshot(collection(db, 'tableSkins'), (snapshot) => {
       setTableSkins(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TableSkin)));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'tableSkins');
     });
 
     return () => {

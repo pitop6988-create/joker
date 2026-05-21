@@ -54,6 +54,12 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // Config (Lobby Background, Sandbox Preset, etc.)
+    match /config/{configId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
     // Card Skins
     match /cardSkins/{skinId} {
       allow read: if true;
@@ -112,10 +118,7 @@ service cloud.firestore {
       allow delete: if isSignedIn() && existing().ownerId == request.auth.uid;
 
       match /messages/{messageId} {
-        allow read: if isSignedIn() && (
-          !exists(/databases/$(database)/documents/clubs/$(clubId)) ||
-          (exists(/databases/$(database)/documents/clubs/$(clubId)) && request.auth.uid in get(/databases/$(database)/documents/clubs/$(clubId)).data.members)
-        );
+        allow read: if isSignedIn();
         allow create: if isSignedIn() && request.auth.uid in get(/databases/$(database)/documents/clubs/$(clubId)).data.members
           && isValidClubMessage(incoming()) && incoming().userId == request.auth.uid;
       }
@@ -146,10 +149,7 @@ service cloud.firestore {
       allow delete: if isSignedIn() && (existing().hostId == request.auth.uid || existing().players[0] == request.auth.uid);
 
       match /chat/{chatId} {
-        allow read: if isSignedIn() && (
-          !exists(/databases/$(database)/documents/games/$(gameId)) ||
-          (exists(/databases/$(database)/documents/games/$(gameId)) && request.auth.uid in get(/databases/$(database)/documents/games/$(gameId)).data.players)
-        );
+        allow read: if isSignedIn();
         allow create: if isSignedIn() && request.auth.uid in get(/databases/$(database)/documents/games/$(gameId)).data.players
           && incoming().userId == request.auth.uid && incoming().text is string && incoming().text.size() <= 1000;
       }

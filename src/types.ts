@@ -5,6 +5,7 @@ export interface CardSkin {
   price: number;
   rarity: 'common' | 'rare' | 'epic' | 'legendary';
   emoji?: string;
+  isNew?: boolean;
 }
 
 export interface UserProfile {
@@ -31,6 +32,7 @@ export interface TableSkin {
   price: number;
   rarity: 'common' | 'rare' | 'epic' | 'legendary';
   emoji?: string;
+  isNew?: boolean;
 }
 
 export interface RadioTrack {

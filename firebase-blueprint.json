@@ -128,9 +128,23 @@
         "createdAt": { "type": "integer" }
       },
       "required": ["userId", "userName", "text", "createdAt"]
+    },
+    "Config": {
+      "title": "Configuration Settings",
+      "description": "App configuration parameters such as current lobby background or sandbox templates",
+      "type": "object",
+      "properties": {
+        "url": { "type": "string" },
+        "boardState": { "type": "string" },
+        "updatedAt": { "type": "integer" }
+      }
     }
   },
   "firestore": {
+    "config/{configId}": {
+      "schema": "Config",
+      "description": "System-wide configs and presets"
+    },
     "users/{userId}": {
       "schema": "User",
       "description": "User profiles"
