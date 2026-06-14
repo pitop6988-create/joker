@@ -1,12 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { onAuthStateChanged, User } from 'firebase/auth';
+import { onAuthStateChanged } from 'firebase/auth';
+import type { User } from 'firebase/auth';
 import { doc, getDoc, getDocs, setDoc, onSnapshot, collection, query, where, limit, addDoc, updateDoc, deleteDoc, orderBy } from 'firebase/firestore';
 import { auth, db, signIn, signOut, signInEmail, signUpEmail } from './lib/firebase';
 import { motion, AnimatePresence } from 'motion/react';
-import { LogIn, LogOut, Play, Trophy, Users, RefreshCcw, Hand, Plus, Lock, MoreVertical, Coins, ShoppingBag, X, Mail, Key, User as UserIcon, Menu, Settings, MessageSquare, Gift, MoreHorizontal, ChevronUp, Edit, Camera, Save, Check, Image as ImageIcon, Crown, ShieldCheck, Star, Eye, LayoutGrid, ArrowLeft, Radio, Music, Volume2, VolumeX, Smile, Send, Copy, Search, Trash } from 'lucide-react';
+import { LogIn, LogOut, Play, Trophy, Users, RefreshCcw, Hand, Plus, Lock, MoreVertical, Coins, ShoppingBag, X, Mail, Key, User as UserIcon, Menu, Settings, MessageSquare, Gift, MoreHorizontal, ChevronUp, ChevronRight, Edit, Camera, Save, Check, Image as ImageIcon, Crown, ShieldCheck, Star, Eye, LayoutGrid, ArrowLeft, Radio, Music, Volume2, VolumeX, Smile, Send, Copy, Search, Trash } from 'lucide-react';
+import DobbleBoard from './DobbleBoard';
 import { Game, GameStatus, Card, UserProfile, CardSkin, Club, ClubMessage, RadioTrack, EmojiItem, TableSkin } from './types';
 import { createDeck, shuffle } from './gameLogic';
 import confetti from 'canvas-confetti';
+// @ts-ignore
+import homeBgBlackImage from './assets/images/home_bg_black_1781448504157.jpg';
+// @ts-ignore
+import clubLogoDefaultImage from './assets/images/club_logo_default_1781448519688.jpg';
+// @ts-ignore
+import levelLogoImage from './assets/images/level_logo_badge_1781449343797.jpg';
 
 function dataUrlToBlobUrl(dataUrl: string): string {
   if (!dataUrl || !dataUrl.startsWith('data:')) {
@@ -1372,54 +1380,7 @@ function GameLogo({ size = 'large', profile }: { size?: 'small' | 'large', profi
 }
 
 function FallingCards() {
-  const [cards, setCards] = useState<{ id: number; suit: string; left: number; delay: number; duration: number }[]>([]);
-  
-  useEffect(() => {
-    const suits = ['hearts', 'diamonds', 'clubs', 'spades', 'joker'];
-    const newCards = Array.from({ length: 15 }).map((_, i) => ({
-      id: i,
-      suit: suits[Math.floor(Math.random() * suits.length)],
-      left: Math.random() * 100,
-      delay: Math.random() * 5,
-      duration: 15 + Math.random() * 10
-    }));
-    setCards(newCards);
-  }, []);
-
-  return (
-    <div className="fixed inset-0 pointer-events-none overflow-hidden z-0 opacity-10">
-      {cards.map(card => (
-        <motion.div
-          key={card.id}
-          initial={{ y: -300, rotate: 0 }}
-          animate={{ 
-            y: 1200, 
-            rotate: 720,
-          }}
-          transition={{ 
-            duration: card.duration, 
-            delay: card.delay, 
-            repeat: Infinity, 
-            ease: "linear" 
-          }}
-          className="absolute"
-          style={{ left: `${card.left}%` }}
-        >
-          <div className={`w-16 h-24 sm:w-24 sm:h-36 bg-white border border-black/10 rounded-xl shadow-2xl flex flex-col justify-between p-2 font-display ${card.suit === 'hearts' || card.suit === 'diamonds' || card.suit === 'joker' ? 'text-red-600' : 'text-black'}`}>
-             <div className="text-sm font-bold">{card.suit === 'joker' ? '★' : 'A'}</div>
-             <div className="self-center text-4xl sm:text-6xl">
-                {card.suit === 'hearts' && '♥'}
-                {card.suit === 'diamonds' && '♦'}
-                {card.suit === 'clubs' && '♣'}
-                {card.suit === 'spades' && '♠'}
-                {card.suit === 'joker' && '★'}
-             </div>
-             <div className="text-sm font-bold rotate-180">{card.suit === 'joker' ? '★' : 'A'}</div>
-          </div>
-        </motion.div>
-      ))}
-    </div>
-  );
+  return null;
 }
 
 function GameSandbox() {
@@ -2767,64 +2728,20 @@ function ShopView({ user, profile, onBack, setActiveTab, language, lobbyBg }: { 
   if (showAdmin) return <AdminView onBack={() => setShowAdmin(false)} lobbyBg={lobbyBg} />;
 
   return (
-    <div 
-      className="min-h-screen bg-lobby-vintage p-6 sm:p-8 font-vintage flex flex-col relative pb-32 overflow-y-auto"
-      style={lobbyBg ? { backgroundImage: `url(${lobbyBg})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundAttachment: 'fixed' } : {}}
-    >
-      <FallingCards />
-      <header className="flex justify-between items-center mb-12 z-20">
-        <div className="flex items-center gap-4">
-          <button onClick={onBack} className="w-12 h-12 flex items-center justify-center rounded-full bg-white/40 text-[#8b0000] hover:bg-white/60 transition-colors shadow-sm"><X size={24} /></button>
-          <div className="relative">
-             <h1 className="text-3xl font-display font-black text-[#8b0000] italic tracking-widest cursor-pointer group" onClick={() => setShowPassInput(!showPassInput)}>
-               THE BOUTIQUE
-               <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-[#8b0000] transition-all group-hover:w-full"></span>
-             </h1>
-             {showPassInput && (
-               <div className="absolute top-10 left-0 bg-white p-4 rounded-xl shadow-2xl border border-black/5 z-50 flex gap-2">
-                 <input 
-                   type="password" 
-                   value={adminPass}
-                   onChange={(e) => setAdminPass(e.target.value)}
-                   className="bg-black/5 px-3 py-2 rounded-lg outline-none"
-                   placeholder="Admin Pass"
-                 />
-                 <button onClick={checkAdmin} className="bg-[#8b0000] text-white px-4 rounded-lg font-bold">GO</button>
-               </div>
-             )}
-          </div>
-        </div>
-        <div className="flex items-center gap-2 px-5 py-2.5 bg-yellow-500/10 border-2 border-yellow-500/30 rounded-full text-yellow-700 font-bold shadow-sm">
-           <Coins size={18} className="text-yellow-600" />
-           <span className="text-lg leading-none">{profile.chips?.toLocaleString()}</span>
-        </div>
+    <div className="min-h-screen bg-[#f8f9fa] text-black font-sans relative pb-24 flex flex-col pt-[max(env(safe-area-inset-top),_16px)]">
+      <header className="flex items-center justify-between px-4 py-3 shrink-0 shadow-[0_2px_10px_rgba(0,0,0,0.02)] relative z-20 bg-white">
+         <button onClick={onBack} className="p-2 -ml-2 text-gray-900 border-none outline-none"><ChevronLeft size={24} weight="bold" /></button>
+         <h1 className="text-lg font-black font-sans tracking-tight pt-1">Decoration shop</h1>
+         <button className="flex items-center gap-1.5 bg-[#ff4f64] text-white px-3 py-1.5 rounded-full text-xs font-black uppercase tracking-wider shadow-sm relative overflow-hidden" onClick={() => setActiveTab && setActiveTab('profile')}>
+            <User size={14} weight="bold" /> Mine<span className="w-2.5 h-2.5 bg-red-500 border-2 border-[#ff4f64] rounded-full absolute top-0.5 right-0.5 shadow-sm" />
+         </button>
       </header>
 
-      <div className="flex bg-white/40 border-4 border-[#868378] rounded-[32px] p-1.5 mb-12 self-center z-20">
-         <button 
-           onClick={() => setActiveShopTab('skins')}
-           className={`px-8 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${activeShopTab === 'skins' ? 'bg-[#8b0000] text-white shadow-lg' : 'text-[#8b0000]/60 hover:text-[#8b0000]'}`}
-         >
-           Skins
-         </button>
-         <button 
-           onClick={() => setActiveShopTab('tables')}
-           className={`px-8 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${activeShopTab === 'tables' ? 'bg-[#8b0000] text-white shadow-lg' : 'text-[#8b0000]/60 hover:text-[#8b0000]'}`}
-         >
-           Tables
-         </button>
-         <button 
-           onClick={() => setActiveShopTab('emojis')}
-           className={`px-8 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${activeShopTab === 'emojis' ? 'bg-[#8b0000] text-white shadow-lg' : 'text-[#8b0000]/60 hover:text-[#8b0000]'}`}
-         >
-           Emojis
-         </button>
-         <button 
-           onClick={() => setActiveShopTab('chips')}
-           className={`px-8 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${activeShopTab === 'chips' ? 'bg-[#8b0000] text-white shadow-lg' : 'text-[#8b0000]/60 hover:text-[#8b0000]'}`}
-         >
-           Chips
-         </button>
+      <div className="flex px-4 gap-6 text-sm font-black text-gray-400 overflow-x-auto no-scrollbar shrink-0 bg-white relative pb-0 shadow-sm z-10 tracking-widest">
+        <button onClick={() => setActiveShopTab('skins')} className={`py-4 relative whitespace-nowrap transition-colors ${activeShopTab === 'skins' ? 'text-black' : ''}`}>Headframe{activeShopTab === 'skins' && <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-1 rounded-full bg-[#1b5df2]" />}</button>
+        <button onClick={() => setActiveShopTab('tables')} className={`py-4 relative whitespace-nowrap transition-colors ${activeShopTab === 'tables' ? 'text-black' : ''}`}>Fantasy profile{activeShopTab === 'tables' && <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-1 rounded-full bg-[#1b5df2]" />}</button>
+        <button onClick={() => setActiveShopTab('emojis')} className={`py-4 relative whitespace-nowrap transition-colors ${activeShopTab === 'emojis' ? 'text-black' : ''}`}>Entrance{activeShopTab === 'emojis' && <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-1 rounded-full bg-[#1b5df2]" />}</button>
+        <button onClick={() => setActiveShopTab('chips')} className={`py-4 relative whitespace-nowrap transition-colors flex items-center gap-1 ${activeShopTab === 'chips' ? 'text-black' : ''}`}>Chips {activeShopTab === 'chips' && <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-1 rounded-full bg-[#1b5df2]" />}<ChevronDown size={14} className="ml-1" /></button>
       </div>
 
       {loading ? (
@@ -2834,139 +2751,59 @@ function ShopView({ user, profile, onBack, setActiveTab, language, lobbyBg }: { 
       ) : (
         <div className="w-full max-w-6xl mx-auto z-10">
           {activeShopTab === 'skins' && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div className="grid grid-cols-3 gap-x-3 gap-y-6 pt-2">
               {skins.map(skin => (
-                <motion.div 
-                  key={skin.id} 
-                  whileHover={{ y: -10 }}
-                  className="bg-white/40 border-4 border-[#868378] p-6 rounded-[48px] flex flex-col items-center gap-4 shadow-xl hover:border-[#8b0000] transition-colors group relative overflow-hidden"
-                >
-                   <div className="w-full aspect-[2/3] rounded-[32px] overflow-hidden border-2 border-black/5 shadow-inner relative">
-                      <img src={skin.imageUrl} alt={skin.name} className="w-full h-full object-cover" />
-                      <div className="absolute top-4 right-4 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setPreviewSkin(skin);
-                          }}
-                          className="p-3 bg-black/60 backdrop-blur-md rounded-full text-white border border-white/20 hover:bg-white/20 transition-all"
-                        >
-                          <Eye size={20} />
-                        </button>
-                      </div>
-                   </div>
-                   <div className="text-center">
-                      <h3 className="text-2xl font-display font-black text-[#8b0000] italic tracking-tight">{skin.emoji || '🃏'} {skin.name}</h3>
-                      <div className={`text-[8px] font-black uppercase tracking-[0.2em] px-2 py-0.5 rounded-full border mb-2 inline-block
-                        ${skin.rarity === 'legendary' ? 'bg-yellow-500/10 border-yellow-500 text-yellow-700' :
-                          skin.rarity === 'epic' ? 'bg-purple-500/10 border-purple-500 text-purple-700' :
-                          skin.rarity === 'rare' ? 'bg-blue-500/10 border-blue-500 text-blue-700' :
-                          'bg-green-500/10 border-green-500 text-green-700'}
-                      `}>
-                        {skin.rarity}
-                      </div>
-                   </div>
-                   
-                   <button 
+                <div key={skin.id} className="flex flex-col items-center">
+                   <div 
+                     className="w-full aspect-square bg-gradient-to-b from-[#11162d] to-[#252f53] rounded-[24px] rounded-t-[10px] relative flex items-center justify-center overflow-hidden cursor-pointer shadow-[0_8px_16px_rgba(37,47,83,0.3)] mb-3"
                      onClick={() => handleBuy(skin)}
-                     disabled={profile.ownedSkins?.includes(skin.id)}
-                     className={`w-full py-4 rounded-2xl flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-all text-xs font-black uppercase tracking-widest
-                        ${profile.ownedSkins?.includes(skin.id) 
-                          ? 'bg-white/40 text-[#8b0000]/20 cursor-not-allowed border-2 border-[#868378]' 
-                          : 'bg-[#8b0000] text-white hover:bg-[#a00000]'}
-                     `}
                    >
-                      {profile.ownedSkins?.includes(skin.id) ? (
-                        <><Check size={18} /> OWNED</>
-                      ) : (
-                        <><Coins size={18} /> {skin.price.toLocaleString()}</>
-                      )}
-                   </button>
-                </motion.div>
+                      <img src={skin.imageUrl} className="w-[70%] max-h-[70%] object-contain drop-shadow-[0_0_15px_rgba(255,255,255,0.2)] rounded-full border-[3px] border-white/20" />
+                   </div>
+                   <div className="relative z-10 w-[85%] bg-white rounded-xl shadow-[0_4px_10px_rgba(0,0,0,0.05)] py-1.5 flex items-center justify-center gap-1 border border-gray-100">
+                      <Star size={12} weight="fill" className="text-[#ffcc00]" />
+                      <span className="text-[#ff9500] font-black text-xs">{skin.price}</span>
+                   </div>
+                </div>
               ))}
             </div>
           )}
 
           {activeShopTab === 'emojis' && (
-            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-6">
+            <div className="grid grid-cols-3 gap-x-3 gap-y-6 pt-2">
               {emojis.map(emoji => (
-                <motion.div 
-                  key={emoji.id}
-                  whileHover={{ scale: 1.05 }}
-                  className="bg-white/40 border-4 border-[#868378] p-4 rounded-[32px] flex flex-col items-center gap-3 relative"
-                >
-                  <div className="w-16 h-16 flex items-center justify-center">
-                    <img src={emoji.url} alt={emoji.name} className="max-w-full max-h-full object-contain" />
-                  </div>
-                  <div className="text-center">
-                    <h4 className="text-[10px] font-black uppercase text-[#8b0000] mb-2">{emoji.name}</h4>
-                    {profile.ownedEmojis?.includes(emoji.id) ? (
-                      <div className="text-[8px] font-black text-[#8b0000]/20 uppercase">Collected</div>
-                    ) : (
-                      <button 
-                        onClick={() => handleBuyEmoji(emoji)}
-                        className="py-1.5 px-4 bg-[#8b0000] text-white rounded-xl text-[10px] font-black flex items-center gap-1 shadow-md hover:bg-[#a00000] transition-all"
-                      >
-                         <Coins size={10} /> {emoji.price}
-                      </button>
-                    )}
-                  </div>
-                </motion.div>
+                <div key={emoji.id} className="flex flex-col items-center">
+                   <div 
+                     className="w-full aspect-square bg-gradient-to-b from-[#11162d] to-[#252f53] rounded-[24px] rounded-t-[10px] relative flex items-center justify-center overflow-hidden cursor-pointer shadow-[0_8px_16px_rgba(37,47,83,0.3)] mb-3"
+                     onClick={() => handleBuyEmoji(emoji)}
+                   >
+                      <img src={emoji.url} className="w-1/2 max-h-[50%] object-contain drop-shadow" />
+                   </div>
+                   <div className="relative z-10 w-[85%] bg-white rounded-xl shadow-[0_4px_10px_rgba(0,0,0,0.05)] py-1.5 flex items-center justify-center gap-1 border border-gray-100">
+                      <Star size={12} weight="fill" className="text-[#ffcc00]" />
+                      <span className="text-[#ff9500] font-black text-xs">{emoji.price}</span>
+                   </div>
+                </div>
               ))}
             </div>
           )}
 
           {activeShopTab === 'tables' && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-              {tableSkins.map(table => {
-                const isOwned = profile.ownedTableSkins?.includes(table.id);
-                return (
-                  <motion.div 
-                    key={table.id} 
-                    whileHover={{ y: -5 }}
-                    className="bg-white/40 border-4 border-[#868378] p-6 rounded-[48px] flex flex-col items-center gap-4 shadow-xl hover:border-[#8b0000] transition-colors group relative overflow-hidden"
-                  >
-                     <div className="w-full aspect-[3/2] rounded-[32px] overflow-hidden border-2 border-black/5 shadow-inner relative bg-zinc-900 flex items-center justify-center text-xs text-white/20 uppercase font-mono tracking-widest">
-                        {table.imageUrl ? (
-                           <img src={table.imageUrl} alt={table.name} className="w-full h-full object-cover" />
-                        ) : (
-                           <span>Table Preview</span>
-                        )}
-                     </div>
-                     <div className="text-center w-full">
-                        <h3 className="text-xl font-display font-black text-[#8b0000] italic tracking-tight truncate">{table.emoji || '🎴'} {table.name}</h3>
-                        <div className={`text-[8px] font-black uppercase tracking-[0.2em] px-2 py-0.5 rounded-full border mb-2 mt-1 inline-block
-                          ${table.rarity === 'legendary' ? 'bg-yellow-500/10 border-yellow-500 text-yellow-700' :
-                            table.rarity === 'epic' ? 'bg-purple-500/10 border-purple-500 text-purple-700' :
-                            table.rarity === 'rare' ? 'bg-blue-500/10 border-blue-500 text-blue-700' :
-                            'bg-green-500/10 border-green-500 text-green-700'}
-                        `}>
-                          {table.rarity}
-                        </div>
-                        <div className="flex items-center justify-center gap-1.5 text-[#8b0000]/60 font-mono text-xs font-bold mt-1">
-                          <Coins size={12} className="text-[#8b0000]/40" />
-                          <span>{table.price.toLocaleString()} Chips</span>
-                        </div>
-                     </div>
-                     
-                     <button 
-                       onClick={() => handleBuyTable(table)}
-                       disabled={isOwned}
-                       className={`w-full py-4 rounded-2xl flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-all text-xs font-black uppercase tracking-widest
-                          ${isOwned 
-                            ? 'bg-neutral-200 text-[#8b0000]/30 cursor-not-allowed border-2 border-[#868378]' 
-                            : 'bg-[#8b0000] text-white hover:bg-[#a00000]'}
-                       `}
-                     >
-                        {isOwned ? (
-                          <><Check size={18} /> OWNED</>
-                        ) : (
-                          `BUY FOR ${table.price.toLocaleString()}`
-                        )}
-                     </button>
-                  </motion.div>
-                );
-              })}
+            <div className="grid grid-cols-2 gap-x-4 gap-y-6 pt-2">
+              {tableSkins.map(table => (
+                <div key={table.id} className="flex flex-col items-center">
+                   <div 
+                     className="w-full aspect-square bg-[#11162d] rounded-[32px] rounded-t-[12px] relative flex items-center justify-center overflow-hidden cursor-pointer shadow-[0_8px_16px_rgba(37,47,83,0.3)] mb-3"
+                     onClick={() => handleBuyTable(table)}
+                   >
+                      <img src={table.imageUrl} className="w-[95%] h-[95%] object-cover rounded-[28px] overflow-hidden bg-zinc-900" />
+                   </div>
+                   <div className="relative z-10 w-[85%] bg-white rounded-xl shadow-[0_4px_10px_rgba(0,0,0,0.05)] py-2 flex items-center justify-center gap-1 border border-gray-100">
+                      <Star size={14} weight="fill" className="text-[#ffcc00]" />
+                      <span className="text-[#ff9500] font-black text-sm leading-none mt-0.5">{table.price}</span>
+                   </div>
+                </div>
+              ))}
               {tableSkins.length === 0 && (
                 <div className="col-span-full py-20 text-center border-4 border-dashed border-[#868378] rounded-[48px] w-full max-w-md mx-auto">
                    <p className="text-[#8b0000] font-black uppercase tracking-widest text-xs">NO TABLES IN BOUTIQUE YET</p>
@@ -2976,64 +2813,37 @@ function ShopView({ user, profile, onBack, setActiveTab, language, lobbyBg }: { 
           )}
 
           {activeShopTab === 'chips' && (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 max-w-4xl mx-auto">
+            <div className="grid grid-cols-3 gap-x-3 gap-y-6 pt-2">
               {coinPackages.map(pkg => (
-                <motion.div
-                  key={pkg.amount}
-                  whileHover={{ y: -10 }}
-                  onClick={() => handleCoinPurchase(pkg.amount)}
-                  className="group cursor-pointer bg-white/40 border-4 border-[#868378] p-8 rounded-[48px] flex flex-col items-center gap-6 shadow-xl hover:border-yellow-600 transition-all text-center"
-                >
-                   <div className="w-20 h-20 bg-yellow-500 rounded-[24px] flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-                      <Coins size={40} className="text-[#8b0000]" />
+                <div key={pkg.amount} className="flex flex-col items-center">
+                   <div 
+                     className="w-full aspect-square bg-[#ffcc00] rounded-[24px] rounded-t-[10px] relative flex items-center justify-center overflow-hidden cursor-pointer shadow-[0_8px_16px_rgba(37,47,83,0.3)] border border-yellow-400 mb-3"
+                     onClick={() => handleCoinPurchase(pkg.amount)}
+                   >
+                      <Coins size={36} className="text-yellow-700 drop-shadow-sm" />
                    </div>
-                   <div>
-                      <h3 className="text-4xl font-display font-black text-[#8b0000] italic tracking-tight">{pkg.amount.toLocaleString()}</h3>
-                      <p className="text-[#8b0000]/40 font-black text-[10px] uppercase tracking-widest mt-1">Chips Package</p>
+                   <div className="relative z-10 w-[85%] bg-white rounded-xl shadow-[0_4px_10px_rgba(0,0,0,0.05)] py-1.5 flex flex-col items-center justify-center border border-gray-100">
+                      <span className="text-[#ff9500] font-black text-[10px] leading-tight flex items-center gap-1"><Star size={10} weight="fill" className="text-[#ffcc00]" /> {pkg.amount.toLocaleString()}</span>
+                      <span className="text-gray-400 font-extrabold text-[8px] leading-tight">{pkg.price}</span>
                    </div>
-                   <div className="w-full py-4 bg-[#8b0000] text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg">
-                      {pkg.price}
-                   </div>
-                </motion.div>
+                </div>
               ))}
             </div>
           )}
         </div>
       )}
 
-      {setActiveTab && <TapBar activeTab="shop" setActiveTab={setActiveTab} language={language} />}
-
-      <AnimatePresence>
-        {previewSkin && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/90 backdrop-blur-md"
-            onClick={() => setPreviewSkin(null)}
-          >
-            <motion.div 
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="relative w-full max-w-sm aspect-[2/3] rounded-[48px] overflow-hidden border-4 border-white/20 shadow-2xl"
-              onClick={e => e.stopPropagation()}
-            >
-              <img src={previewSkin.imageUrl} alt={previewSkin.name} className="w-full h-full object-cover" />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex flex-col justify-end p-10 text-center">
-                 <h2 className="text-4xl font-display font-black text-white italic mb-2">{previewSkin.name}</h2>
-                 <p className="text-white/60 font-black uppercase tracking-[0.3em] text-xs">{previewSkin.rarity}</p>
-                 <button 
-                   onClick={() => setPreviewSkin(null)}
-                   className="mt-8 py-4 bg-white text-[#8b0000] rounded-2xl font-black text-xs uppercase tracking-widest"
-                 >
-                   CLOSE
-                 </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Fixed Bottom Bar */}
+      <div className="fixed bottom-0 inset-x-0 h-[68px] bg-white flex flex-col justify-center px-6 z-50 pointer-events-none shadow-[0_-4px_20px_rgba(0,0,0,0.02)]">
+         <div className="flex items-center gap-2 pointer-events-auto">
+            <span className="text-gray-900 font-extrabold text-[11px] uppercase tracking-widest mt-0.5">Balance:</span>
+            <div className="flex items-center bg-gray-100 border border-gray-200 rounded-full pl-1.5 pr-1.5 py-1">
+               <Star size={18} weight="fill" className="text-[#ffcc00] mr-1.5 drop-shadow-sm" />
+               <span className="font-black text-gray-900 tracking-tight mr-2.5 text-sm">{profile.chips?.toLocaleString()}</span>
+               <button className="w-[18px] h-[18px] bg-[#32d74b] text-white rounded-full flex items-center justify-center shadow-[0_2px_4px_rgba(50,215,75,0.4)] font-black text-sm leading-none pt-0.5 cursor-pointer flex-shrink-0" onClick={() => setActiveShopTab('chips')}>+</button>
+            </div>
+         </div>
+      </div>
     </div>
   )
 }
@@ -3147,8 +2957,12 @@ function ProfileView({ user, profile, onBack, onLogout, setActiveTab, language, 
                  )}
                </button>
             </div>
-            <div className="mt-3 px-6 py-1.5 bg-zinc-950/50 border border-white/5 rounded-full inline-block">
-               <span className="text-xs font-bold text-zinc-400 capitalize">{t.level} {profile.level || 1}</span>
+            <div className="mt-4 flex flex-col items-center justify-center gap-1">
+               <div className="relative w-[52px] h-[52px] flex items-center justify-center rounded-full shadow-[0_0_15px_rgba(0,0,0,0.5)]">
+                  <img src={levelLogoImage} className="absolute inset-0 w-full h-full object-cover rounded-full" alt="Level Badge" />
+                  <span className="relative z-10 text-white font-black text-base drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] mt-0.5">{profile.level || 1}</span>
+               </div>
+               <span className="text-[10px] font-black text-yellow-500/80 uppercase tracking-widest leading-none drop-shadow-sm">{t.level}</span>
             </div>
          </div>
       </div>
@@ -3559,330 +3373,239 @@ function LobbyView({ user, profile, onStartSearch, onJoin, onLogout, onCreate, s
 
   return (
     <div 
-      className="min-h-screen bg-[#0a0a0b] p-4 sm:p-8 font-sans flex flex-col relative overflow-hidden pb-32"
-      style={lobbyBg ? { backgroundImage: `url(${lobbyBg})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundAttachment: 'fixed' } : {}}
+      className="min-h-screen bg-black p-4 sm:p-8 font-sans flex flex-col relative overflow-hidden pb-32"
+      style={{ backgroundImage: `url(${lobbyBg || homeBgBlackImage})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundAttachment: 'fixed' }}
     >
-      {/* Dynamic Background Elements */}
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(139,0,0,0.15),transparent_70%)] pointer-events-none" />
-      <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-[0.03] pointer-events-none" />
-      
-      <FallingCards />
-      <header className="flex justify-between items-center mb-12 z-20 w-full max-w-7xl mx-auto">
-        <div className="flex items-center gap-6">
-          <motion.div 
-            whileHover={{ scale: 1.02 }}
-            onClick={() => setActiveTab('profile')}
-            className="group cursor-pointer flex items-center gap-4 bg-white/[0.03] border border-white/10 backdrop-blur-md py-2.5 px-5 rounded-full hover:bg-white/[0.06] transition-all shadow-xl"
-          >
-            <div className="relative">
-              <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-[#8b0000] shadow-inner">
-                <img src={profile?.photoURL || user.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.uid}`} alt="me" className="w-full h-full object-cover" />
-              </div>
-              <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-[#8b0000] rounded-full flex items-center justify-center border-2 border-[#0a0a0b] text-[10px] font-bold text-white">
-                {profile?.level || 1}
-              </div>
-            </div>
-            <div className="flex flex-col">
-              <span className="text-sm font-black text-white uppercase tracking-tight leading-none">{profile?.displayName?.split(' ')[0]}</span>
-              <span className="text-[10px] font-black text-white/40 mt-1 uppercase tracking-wider">ID: {profile?.shortId || '-------'}</span>
-              <div className="flex items-center gap-2 mt-1.5">
-                <div className="w-16 h-1 bg-white/10 rounded-full overflow-hidden">
-                  <motion.div 
-                    initial={{ width: 0 }}
-                    animate={{ width: `${((profile?.xp || 0) / ((profile?.level || 1) * 500)) * 100}%` }}
-                    className="h-full bg-[#8b0000] shadow-[0_0_8px_rgba(139,0,0,0.5)]" 
-                  />
-                </div>
-              </div>
-            </div>
-          </motion.div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-yellow-500/10 border border-yellow-500/25 rounded-full text-yellow-500 font-extrabold text-sm shadow backdrop-blur-md">
-             <Coins size={14} className="drop-shadow-[0_0_4px_rgba(234,179,8,0.4)]" />
-             <span className="tracking-tight leading-none">{profile?.chips?.toLocaleString() || 0}</span>
-          </div>
-          <motion.button
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
-            onClick={() => (window as any).toggleRadioHub?.()}
-            className="w-9 h-9 rounded-full bg-white/[0.03] border border-white/10 flex items-center justify-center text-white/40 hover:text-white transition-colors"
-          >
-            <Radio size={16} />
-          </motion.button>
-          <motion.button
-            whileHover={{ scale: 1.1, rotate: 90 }}
-            whileTap={{ scale: 0.9 }}
-            onClick={() => setActiveTab('settings')}
-            className="w-9 h-9 rounded-full bg-white/[0.03] border border-white/10 flex items-center justify-center text-white/40 hover:text-white transition-colors"
-          >
-            <Settings size={16} />
-          </motion.button>
-        </div>
+      <header className="w-full max-w-lg mb-4 flex justify-between items-center px-4 pt-6 z-20 mx-auto">
+         <h1 className="text-white text-2xl font-bold tracking-tight">Casual Games</h1>
+         <button onClick={() => setShowCreateModal(true)} className="px-4 py-2 bg-white/10 hover:bg-white/20 transition-all rounded-full text-white text-sm font-medium flex items-center gap-1 border border-white/5 shadow-md">
+            Private room <Plus size={16} />
+         </button>
       </header>
 
-      <div className="flex-1 flex flex-col items-center justify-center gap-16 relative text-center w-full max-w-7xl mx-auto">
-        <div className="relative group">
-          <div className="absolute -inset-8 bg-[#8b0000]/20 blur-[100px] opacity-50 group-hover:opacity-80 transition-opacity" />
-          <GameLogo profile={profile} />
-        </div>
+      <div className="flex-1 w-full max-w-lg mx-auto z-20 pb-10 px-4 mt-2">
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+           {/* Card 1: Still Standing (OONO) */}
+           <div 
+             onClick={() => onStartSearch('uno')}
+             className="relative group cursor-pointer"
+           >
+             <div className="w-full aspect-[4/5] rounded-[18px] bg-gradient-to-b from-[#29b6f6] to-[#0277bd] p-[3px] shadow-lg relative overflow-hidden transition-transform duration-300 active:scale-95">
+                <div className="w-full h-full rounded-[15px] bg-[#4fc3f7] flex flex-col items-center justify-end relative shadow-inner overflow-hidden top-glow">
+                   <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/30 to-transparent pointer-events-none z-10" />
+                   
+                   <div className="flex-1 flex items-center justify-center w-full px-2 pt-4 relative z-20 mb-8">
+                      {gameLogos?.uno ? (
+                        <img src={gameLogos?.uno} alt="Uno" className="w-auto h-full object-contain drop-shadow-md" />
+                      ) : (
+                        <div className="text-3xl sm:text-4xl font-display font-black text-white italic drop-shadow-md">OONO</div>
+                      )}
+                   </div>
+                   <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/40 to-transparent pt-8 pb-3 z-20 flex items-center justify-center">
+                     <h2 className="text-white font-black text-lg drop-shadow-md tracking-tight">Still Standing</h2>
+                   </div>
+                </div>
+             </div>
+             <div className="absolute -bottom-1 -left-2 bg-[#ff1744] text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-md z-30 tracking-widest border border-white/20">NEW</div>
+           </div>
 
-        {profile.chips <= 0 && (
-          <motion.button 
-            whileHover={{ scale: 1.05, y: -5 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={onClaimDaily}
-            className="bg-yellow-500 text-black px-12 py-5 rounded-2xl font-black flex items-center gap-4 animate-pulse shadow-[0_0_30px_rgba(234,179,8,0.3)] z-50 hover:bg-yellow-400 transition-all uppercase tracking-widest text-sm"
-          >
-            <Gift size={24} /> CLAIM 1,000 CHIPS
-          </motion.button>
-        )}
+           {/* Card 2: KonKan (Joker) */}
+           <div 
+             onClick={() => onStartSearch('joker')}
+             className="relative group cursor-pointer"
+           >
+             <div className="w-full aspect-[4/5] rounded-[18px] bg-gradient-to-b from-[#d81b60] to-[#880e4f] p-[3px] shadow-lg relative overflow-hidden transition-transform duration-300 active:scale-95">
+                <div className="w-full h-full rounded-[15px] bg-[#ec407a] flex flex-col items-center justify-end relative shadow-inner overflow-hidden top-glow">
+                   <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/30 to-transparent pointer-events-none z-10" />
+                   
+                   <div className="flex-1 flex items-center justify-center w-full px-2 pt-4 relative z-20 mb-8">
+                      {gameLogos?.joker ? (
+                        <img src={gameLogos?.joker} alt="Joker" className="w-auto h-full object-contain drop-shadow-md" />
+                      ) : (
+                         <div className="flex flex-col items-center justify-center pt-2">
+                           <div className="text-4xl text-yellow-300 drop-shadow-md relative z-10">★</div>
+                           <div className="text-xl text-yellow-300 font-display font-black italic drop-shadow-md tracking-wide mt-2">JOKER</div>
+                         </div>
+                      )}
+                   </div>
+                   <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/40 to-transparent pt-8 pb-3 z-20 flex items-center justify-center">
+                     <h2 className="text-white font-black text-lg drop-shadow-md tracking-tight">KonKan</h2>
+                   </div>
+                </div>
+             </div>
+             <div className="absolute -bottom-1 -left-2 bg-[#ff1744] text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-md z-30 tracking-widest border border-white/20">NEW</div>
+           </div>
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 z-10 w-full max-w-7xl px-4">
-          {/* Uno Selection */}
-          <div className="flex-1 w-full text-center group cursor-pointer" onClick={() => onStartSearch('uno')}>
-            <motion.div 
-              whileHover={{ y: -12, scale: 1.02 }}
-              className="w-full h-56 sm:h-72 bg-gradient-to-br from-white/[0.08] to-white/[0.02] border border-white/10 rounded-[48px] flex flex-col items-center justify-center shadow-2xl relative overflow-hidden backdrop-blur-xl group-hover:border-[#8b0000]/50 transition-all duration-500"
-            >
-              <div className="absolute inset-0 bg-gradient-to-br from-[#8b0000]/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-              <div className="absolute -top-10 -right-10 w-32 h-32 bg-[#8b0000]/10 rounded-full blur-3xl group-hover:bg-[#8b0000]/30 transition-all" />
-              
-              {gameLogos?.uno ? (
-                <img src={gameLogos.uno} alt="Uno logo" className="max-w-[80%] max-h-[55%] object-contain pointer-events-none drop-shadow-[0_4px_12px_rgba(0,0,0,0.5)]" />
-              ) : (
-                <div className="text-7xl sm:text-8xl font-display font-black text-[#8b0000] italic pointer-events-none tracking-tighter drop-shadow-[0_0_20px_rgba(139,0,0,0.3)]">OONO</div>
-              )}
-              <div className="text-white/40 font-black uppercase tracking-[0.4em] text-[10px] mt-4 group-hover:text-white/60 transition-colors">Elite 1V1 Arena</div>
-              
-              <div className="absolute top-6 right-6 p-3 bg-[#8b0000] text-white rounded-2xl shadow-2xl transform translate-x-16 group-hover:translate-x-0 transition-all duration-500 rotate-12 group-hover:rotate-0">
-                <Play size={20} fill="currentColor" />
-              </div>
-            </motion.div>
-            <p className="mt-6 text-[#8b0000] font-black uppercase tracking-[0.3em] text-xs opacity-40 group-hover:opacity-100 transition-all">Enter Tournament</p>
-          </div>
+           {/* Card 3: Dobble */}
+           <div 
+             onClick={() => onStartSearch('dobble')}
+             className="relative group cursor-pointer"
+           >
+             <div className="w-full aspect-[4/5] rounded-[18px] bg-gradient-to-b from-[#4caf50] to-[#1b5e20] p-[3px] shadow-lg relative overflow-hidden transition-transform duration-300 active:scale-95">
+                <div className="w-full h-full rounded-[15px] bg-[#66bb6a] flex flex-col items-center justify-end relative shadow-inner overflow-hidden top-glow">
+                   <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/30 to-transparent pointer-events-none z-10" />
+                   
+                   <div className="flex-1 flex items-center justify-center w-full px-2 pt-4 relative z-20 mb-8">
+                      {gameLogos?.dobble ? (
+                        <img src={gameLogos?.dobble} alt="Dobble" className="w-auto h-full object-contain drop-shadow-md" />
+                      ) : (
+                         <div className="flex items-center justify-center gap-1">
+                           <Star size={36} className="text-yellow-300 drop-shadow-md" fill="currentColor" />
+                           <Smile size={36} className="text-pink-200 drop-shadow-md" />
+                         </div>
+                      )}
+                   </div>
+                   <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/40 to-transparent pt-8 pb-3 z-20 flex items-center justify-center">
+                     <h2 className="text-white font-black text-lg drop-shadow-md tracking-tight">Dobble</h2>
+                   </div>
+                </div>
+             </div>
+             <div className="absolute -bottom-1 -left-2 bg-[#ff1744] text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-md z-30 tracking-widest border border-white/20">NEW</div>
+           </div>
 
-          {/* Joker Selection */}
-          <div className="flex-1 w-full text-center group cursor-pointer" onClick={() => onStartSearch('joker')}>
-            <motion.div 
-              whileHover={{ y: -12, scale: 1.02 }}
-              className="w-full h-56 sm:h-72 bg-gradient-to-br from-white/[0.08] to-white/[0.02] border border-white/10 rounded-[48px] flex flex-col items-center justify-center shadow-2xl relative overflow-hidden backdrop-blur-xl group-hover:border-yellow-500/50 transition-all duration-500"
-            >
-              <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-              <div className="absolute -top-10 -right-10 w-32 h-32 bg-yellow-500/5 rounded-full blur-3xl group-hover:bg-yellow-500/20 transition-all" />
-              
-              {gameLogos?.joker ? (
-                <img src={gameLogos.joker} alt="Joker logo" className="max-w-[80%] max-h-[55%] object-contain pointer-events-none drop-shadow-[0_4px_12px_rgba(0,0,0,0.5)]" />
-              ) : (
-                <>
-                  <div className="text-7xl sm:text-8xl text-yellow-500 pointer-events-none drop-shadow-[0_0_20px_rgba(234,179,8,0.35)]">★</div>
-                  <div className="text-yellow-500 font-display font-black italic text-4xl uppercase tracking-tight mt-2 drop-shadow-md">JOKER</div>
-                </>
-              )}
-              <div className="text-white/40 font-black uppercase tracking-[0.4em] text-[10px] mt-2 group-hover:text-white/60 transition-colors">High Stakes 51</div>
-              
-              <div className="absolute top-6 right-6 p-3 bg-yellow-500 text-black rounded-2xl shadow-2xl transform translate-x-16 group-hover:translate-x-0 transition-all duration-500 rotate-12 group-hover:rotate-0">
-                <Play size={20} fill="currentColor" />
-              </div>
-            </motion.div>
-            <p className="mt-6 text-yellow-500 font-black uppercase tracking-[0.3em] text-xs opacity-40 group-hover:opacity-100 transition-all">Classic Royale</p>
-          </div>
+           {/* Card 4: Domino 50 (Dama) */}
+           <div 
+             onClick={() => onStartSearch('dama')}
+             className="relative group cursor-pointer"
+           >
+             <div className="w-full aspect-[4/5] rounded-[18px] bg-gradient-to-b from-[#ff5722] to-[#bf360c] p-[3px] shadow-lg relative overflow-hidden transition-transform duration-300 active:scale-95">
+                <div className="w-full h-full rounded-[15px] bg-[#ff7043] flex flex-col items-center justify-end relative shadow-inner overflow-hidden top-glow">
+                   <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/30 to-transparent pointer-events-none z-10" />
+                   
+                   <div className="flex-1 flex items-center justify-center w-full px-2 pt-4 pb-2 relative z-20 mb-8">
+                      {gameLogos?.dama ? (
+                        <img src={gameLogos?.dama} alt="Dama" className="w-auto h-full object-contain drop-shadow-md" />
+                      ) : (
+                         <div className="flex gap-1 -rotate-12 drop-shadow-lg">
+                           <div className="w-8 h-12 bg-white rounded-md border border-[#ccc] flex flex-col justify-between p-[2px] shadow-xl">
+                             <div className="grid grid-cols-2 gap-[2px] content-start h-1/2 border-b-2 border-gray-300 pb-1">
+                               <div className="w-1.5 h-1.5 bg-black rounded-full" /><div className="w-1.5 h-1.5 bg-black rounded-full" />
+                               <div className="w-1.5 h-1.5 bg-black rounded-full" /><div className="w-1.5 h-1.5 bg-black rounded-full" />
+                             </div>
+                             <div className="h-1/2 pt-1 flex justify-center"></div>
+                           </div>
+                         </div>
+                      )}
+                   </div>
+                   <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/40 to-transparent pt-8 pb-3 z-20 flex items-center justify-center">
+                     <h2 className="text-white font-black text-lg drop-shadow-md tracking-tight">Domino 50</h2>
+                   </div>
+                </div>
+             </div>
+             <div className="absolute -bottom-1 -left-2 bg-[#ff1744] text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-md z-30 tracking-widest border border-white/20">NEW</div>
+           </div>
 
-          {/* Dama Selection */}
-          <div className="flex-1 w-full text-center group cursor-pointer" onClick={() => onStartSearch('dama')}>
-            <motion.div 
-              whileHover={{ y: -12, scale: 1.02 }}
-              className="w-full h-56 sm:h-72 bg-gradient-to-br from-white/[0.08] to-white/[0.02] border border-white/10 rounded-[48px] flex flex-col items-center justify-center shadow-2xl relative overflow-hidden backdrop-blur-xl group-hover:border-[#795548]/80 transition-all duration-500"
-            >
-              <div className="absolute inset-0 bg-gradient-to-br from-[#795548]/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-              
-              {gameLogos?.dama ? (
-                <img src={gameLogos.dama} alt="Dama logo" className="max-w-[80%] max-h-[55%] object-contain pointer-events-none drop-shadow-[0_4px_12px_rgba(0,0,0,0.5)]" />
-              ) : (
-                <>
-                  <div className="flex gap-2 mb-4">
-                     <div className="w-10 h-10 bg-yellow-500 rounded-full shadow-[0_0_15px_rgba(234,179,8,0.4)] border-2 border-yellow-600" />
-                     <div className="w-10 h-10 bg-black/80 rounded-full shadow-lg border-2 border-white/5" />
-                  </div>
-                  <div className="text-white font-display font-black italic text-4xl uppercase tracking-tighter drop-shadow-md">DAMA</div>
-                </>
-              )}
-              <div className="text-[#a1887f] font-black uppercase tracking-[0.4em] text-[10px] mt-2 group-hover:text-[#d7ccc8] transition-colors">Master Strategy</div>
-              
-              <div className="absolute top-6 right-6 p-3 bg-[#795548] text-white rounded-2xl shadow-2xl transform translate-x-16 group-hover:translate-x-0 transition-all duration-500 rotate-12 group-hover:rotate-0">
-                <Play size={20} fill="currentColor" />
-              </div>
-            </motion.div>
-            <p className="mt-6 text-[#795548] font-black uppercase tracking-[0.3em] text-xs opacity-40 group-hover:opacity-100 transition-all">Kings' Board</p>
-          </div>
-
-        </div>
-
-        <motion.button 
-          whileHover={{ scale: 1.05, backgroundColor: "rgba(255,255,255,0.08)" }}
-          whileTap={{ scale: 0.95 }}
-          onClick={() => setShowCreateModal(true)}
-          className="flex items-center gap-4 px-12 py-5 bg-white/[0.03] border border-white/10 text-white rounded-2xl font-black hover:border-white/20 transition-all uppercase tracking-[0.2em] text-[10px] z-10 shadow-2xl backdrop-blur-sm"
-        >
-          <Plus size={18} /> Host Private Table
-        </motion.button>
-
-        <div className="w-full max-w-xl space-y-8 z-10">
-          <div className="flex items-center justify-between px-4">
-            <h2 className="text-[10px] font-black text-white/40 uppercase tracking-[0.5em] flex items-center gap-3">
-               <ShieldCheck size={14} className="text-[#8b0000]" />
-               Live Game Tables
-            </h2>
-            <div className="px-3 py-1 bg-white/[0.03] border border-white/10 rounded-lg text-[9px] font-black text-white/20 uppercase tracking-widest">
-              {games.length} online
-            </div>
-          </div>
-          
-          <div className="space-y-4 overflow-y-auto max-h-[35vh] pr-2 custom-scrollbar">
-             {games.length === 0 ? (
-               <div className="bg-white/20 p-10 rounded-[32px] border-2 border-dashed border-[#868378]/40 text-center">
-                  <div className="w-16 h-16 bg-[#868378]/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Users size={32} className="text-[#868378]/40" />
-                  </div>
-                  <p className="text-[#8b0000]/40 font-bold uppercase tracking-widest text-[10px]">No active games tonight</p>
-               </div>
-             ) : (
-               games.map(g => (
-                 <motion.div 
-                    key={g.id} 
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    className="group flex justify-between items-center bg-white/60 p-6 rounded-[32px] border-2 border-[#868378]/20 backdrop-blur-md hover:border-[#8b0000] hover:bg-white/80 transition-all shadow-sm"
-                 >
-                    <div className="flex items-center gap-6">
-                      <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-inner 
-                        ${g.gameType === 'uno' ? 'bg-[#8b0000]/10 text-[#8b0000]' : 
-                          g.gameType === 'joker' ? 'bg-yellow-500/10 text-yellow-600' :
-                          'bg-[#795548]/10 text-[#795548]'}`}>
-                        {g.gameType === 'uno' ? <div className="text-xl font-display font-black italic">U</div> : 
-                        g.gameType === 'joker' ? <div className="text-xl">★</div> :
-                        <LayoutGrid size={24} />}
+           {/* Card 5: 8 Ball */}
+           <div 
+             onClick={() => alert("Coming Soon!")}
+             className="relative group cursor-pointer"
+           >
+             <div className="w-full aspect-[4/5] rounded-[18px] bg-gradient-to-b from-[#2196f3] to-[#0d47a1] p-[3px] shadow-lg relative overflow-hidden transition-transform duration-300 active:scale-95">
+                <div className="w-full h-full rounded-[15px] bg-[#42a5f5] flex flex-col items-center justify-end relative shadow-inner overflow-hidden top-glow">
+                   <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/30 to-transparent pointer-events-none z-10" />
+                   
+                   <div className="flex-1 flex items-center justify-center w-full px-2 pt-4 relative z-20 mb-8">
+                      <div className="w-16 h-16 bg-[#1a1a1a] rounded-full shadow-lg border-[3px] border-gray-800 flex items-center justify-center relative drop-shadow-[0_4px_10px_rgba(0,0,0,0.5)]">
+                         <div className="absolute top-1 left-2 w-5 h-2.5 bg-white/40 rounded-full rotate-45 blur-[1px]" />
+                         <div className="w-7 h-7 bg-white rounded-full flex items-center justify-center">
+                           <span className="text-black font-black text-xs">8</span>
+                         </div>
                       </div>
-                      <div className="flex flex-col">
-                        <div className="flex items-center gap-3">
-                          <span className="font-bold text-[#8b0000] text-lg tracking-tight uppercase">{g.roomName}</span>
-                          {g.isPrivate && <Lock size={14} className="text-[#8b0000]/40" />}
-                        </div>
-                        <div className="flex items-center gap-3 text-[10px] font-bold text-[#8b0000]/50 mt-1 uppercase tracking-widest">
-                          <span>{g.gameType}</span>
-                          <span className="w-1 h-1 rounded-full bg-black/10" />
-                          <span>HOST: {g.playerNames[g.players[0]]?.split(' ')[0]}</span>
-                        </div>
+                   </div>
+                   <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/40 to-transparent pt-8 pb-3 z-20 flex items-center justify-center">
+                     <h2 className="text-white font-black text-lg drop-shadow-md tracking-tight">8 Ball</h2>
+                   </div>
+                </div>
+             </div>
+           </div>
+
+           {/* Card 6: Backgammon */}
+           <div 
+             onClick={() => alert("Coming Soon!")}
+             className="relative group cursor-pointer"
+           >
+             <div className="w-full aspect-[4/5] rounded-[18px] bg-gradient-to-b from-[#ff9800] to-[#e65100] p-[3px] shadow-lg relative overflow-hidden transition-transform duration-300 active:scale-95">
+                <div className="w-full h-full rounded-[15px] bg-[#ffb74d] flex flex-col items-center justify-end relative shadow-inner overflow-hidden top-glow">
+                   <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/30 to-transparent pointer-events-none z-10" />
+                   
+                   <div className="flex-1 flex items-center justify-center w-full px-2 pt-4 relative z-20 mb-8">
+                      <div className="w-16 h-10 bg-[#5d4037] rounded-md border border-[#3e2723] flex items-center justify-center gap-1 drop-shadow-lg rotate-[-10deg]">
+                         <div className="w-6 h-6 bg-white rounded border border-[#e0e0e0] flex items-center justify-center">
+                            <div className="w-1 h-1 bg-black rounded-full" />
+                         </div>
+                         <div className="w-6 h-6 bg-white rounded border border-[#e0e0e0] grid grid-cols-2 gap-[1px] p-[2px]">
+                            <div className="w-[3px] h-[3px] bg-black rounded-full" />
+                            <div className="w-[3px] h-[3px] bg-black rounded-full justify-self-end col-start-2 row-start-2" />
+                         </div>
                       </div>
-                    </div>
-                    <button 
-                      onClick={() => handleJoinClick(g)}
-                      className="px-8 py-3 bg-[#8b0000] text-white rounded-2xl font-bold hover:bg-[#a00000] text-xs uppercase tracking-widest shadow-lg group-hover:scale-105 transition-all active:scale-95"
-                    >
-                      SIT DOWN
-                    </button>
-                 </motion.div>
-               ))
-             )}
-          </div>
+                   </div>
+                   <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/40 to-transparent pt-8 pb-3 z-20 flex items-center justify-center">
+                     <h2 className="text-white font-black text-lg drop-shadow-md tracking-tight leading-none text-center">Backgammon</h2>
+                   </div>
+                </div>
+             </div>
+             <div className="absolute -bottom-1 -left-2 bg-[#ff1744] text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-md z-30 tracking-widest border border-white/20">NEW</div>
+           </div>
+
         </div>
       </div>
 
-      <TapBar activeTab="home" setActiveTab={setActiveTab} language={language} />
-
-      {/* Create Room Modal */}
       <AnimatePresence>
         {showCreateModal && (
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[300] bg-black/80 flex items-center justify-center p-6 backdrop-blur-sm"
+            className="fixed inset-0 z-[400] bg-black/80 flex items-center justify-center p-6 backdrop-blur-sm"
           >
-            <motion.div 
-              initial={{ scale: 0.9, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-              className="max-w-md w-full bg-[#c0bba9] border-4 border-[#868378] p-10 rounded-[56px] shadow-2xl space-y-10"
-            >
-              <div className="text-center">
-                <h2 className="text-4xl font-display font-bold text-[#8b0000] tracking-widest italic">OPEN A TABLE</h2>
-                <div className="w-12 h-1 bg-[#8b0000]/20 mx-auto mt-4 rounded-full" />
-              </div>
+            <div className="bg-[#111] p-8 rounded-3xl w-full max-w-sm border border-white/10 relative">
+              <button onClick={() => setShowCreateModal(false)} className="absolute top-4 right-4 p-2 text-white/50 hover:text-white bg-white/5 hover:bg-white/10 rounded-full transition-colors"><X size={20}/></button>
               
-              <div className="space-y-8">
-                <div>
-                  <label className="text-[10px] font-black text-[#8b0000]/40 uppercase ml-2 mb-3 block tracking-widest">Game Variant</label>
-                  <div className="flex gap-4">
-                    <button 
-                      onClick={() => setSelectedType('uno')}
-                      className={`flex-1 py-5 rounded-[24px] font-display font-black italic transition-all border-4 ${selectedType === 'uno' ? 'bg-[#8b0000] text-white border-[#8b0000]' : 'bg-white/40 text-[#8b0000] border-transparent hover:bg-white/60'}`}
-                    >
-                      UNO
-                    </button>
-                    <button 
-                      onClick={() => setSelectedType('joker')}
-                      className={`flex-1 py-5 rounded-[24px] font-display font-black italic transition-all border-4 ${selectedType === 'joker' ? 'bg-yellow-500 text-black border-yellow-500 shadow-xl' : 'bg-white/40 text-[#8b0000] border-transparent hover:bg-white/60'}`}
-                    >
-                      JOKER
-                    </button>
-                    <button 
-                      onClick={() => setSelectedType('dama')}
-                      className={`flex-1 py-5 rounded-[24px] font-display font-black italic transition-all border-4 ${selectedType === 'dama' ? 'bg-[#795548] text-white border-[#795548]' : 'bg-white/40 text-[#8b0000] border-transparent hover:bg-white/60'}`}
-                    >
-                      DAMA
-                    </button>
-                  </div>
-                </div>
-
-                <div className="space-y-5">
-                  <div className="relative group">
-                    <label className="text-[10px] font-black text-[#8b0000]/40 uppercase ml-2 block tracking-widest mb-2">Room Title</label>
-                    <input 
-                      type="text" 
-                      placeholder="e.g. Royal Flush"
-                      value={roomName}
-                      onChange={(e) => setRoomName(e.target.value)}
-                      className="w-full bg-white/60 border-2 border-[#868378]/30 rounded-[20px] px-6 py-4 outline-none focus:border-[#8b0000] focus:bg-white transition-all font-sans text-sm font-bold uppercase tracking-tighter"
-                    />
-                  </div>
-                  <div className="relative group">
-                    <label className="text-[10px] font-black text-[#8b0000]/40 uppercase ml-2 block tracking-widest mb-2">Secret Entry Code</label>
-                    <div className="relative">
-                      <Lock className="absolute left-6 top-1/2 -translate-y-1/2 text-[#8b0000]/30" size={20} />
-                      <input 
-                        type="password" 
-                        placeholder="••••"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        className="w-full bg-white/60 border-2 border-[#868378]/30 rounded-[20px] pl-14 pr-6 py-4 outline-none focus:border-[#8b0000] focus:bg-white transition-all font-sans text-sm font-bold tracking-[0.5em]"
-                      />
-                    </div>
-                  </div>
-                </div>
+              <h2 className="text-2xl font-black text-white uppercase tracking-tighter mb-6 relative z-10">Private Room</h2>
+              
+              <div className="space-y-4 mb-6 relative z-10">
+                <input 
+                  type="text" 
+                  placeholder="Room Name" 
+                  value={roomName} 
+                  onChange={(e) => setRoomName(e.target.value)}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white font-bold outline-none focus:border-yellow-500/50 transition-colors"
+                />
+                <input 
+                  type="password" 
+                  placeholder="Password (Optional)" 
+                  value={password} 
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white font-bold outline-none focus:border-yellow-500/50 transition-colors"
+                />
+                <select 
+                  value={selectedType}
+                  onChange={(e) => setSelectedType(e.target.value as any)}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white font-bold outline-none focus:border-yellow-500/50 transition-colors appearance-none"
+                >
+                  <option value="uno" className="text-black">Still Standing</option>
+                  <option value="joker" className="text-black">KonKan</option>
+                  <option value="dobble" className="text-black">Dobble</option>
+                  <option value="dama" className="text-black">Domino 50</option>
+                </select>
               </div>
 
-              <div className="flex gap-4 pt-4">
-                <button 
-                  onClick={() => setShowCreateModal(false)}
-                  className="flex-1 py-5 border-2 border-[#8b0000]/30 text-[#8b0000]/60 font-bold rounded-[24px] hover:text-[#8b0000] hover:bg-[#8b0000]/5 transition-all font-sans uppercase tracking-[0.2em] text-[10px]"
-                >
-                  RETIRE
-                </button>
-                <button 
-                  onClick={() => {
-                    onCreate(roomName, password, selectedType);
-                    setShowCreateModal(false);
-                  }}
-                  className="flex-1 py-5 bg-[#8b0000] text-white font-bold rounded-[24px] hover:bg-[#a00000] shadow-2xl shadow-[#8b0000]/30 font-sans uppercase tracking-[0.2em] text-[10px]"
-                >
-                  DEAL ME IN
-                </button>
-              </div>
-            </motion.div>
+              <button 
+                onClick={() => {
+                  onCreate(roomName, password, selectedType);
+                  setShowCreateModal(false);
+                }}
+                disabled={!roomName.trim()}
+                className="w-full py-4 bg-yellow-500 text-black rounded-xl font-black uppercase tracking-widest shadow-lg hover:scale-105 transition-transform disabled:opacity-50 disabled:hover:scale-100"
+              >
+                Host Match
+              </button>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
+
+      <TapBar activeTab="home" setActiveTab={setActiveTab} language={language} />
 
       {/* Join Password Modal */}
       <AnimatePresence>
@@ -4029,6 +3752,8 @@ function GameView({ user, game, onLeave, profile, skinsMap, emojiItems }: {
           const currentData = userSnap.data() as UserProfile;
           const isWinner = game.winner === user.uid;
           
+          soundManager.playGameEnd(isWinner);
+          
           let newChips = (currentData.chips || 0) + (isWinner ? 500 : -200);
           if (newChips < 0) newChips = 0;
 
@@ -4072,6 +3797,7 @@ function GameView({ user, game, onLeave, profile, skinsMap, emojiItems }: {
     const card = myHand[cardIndex];
     if (!canPlay(card, topCard)) return;
 
+    soundManager.playCardDeal();
     const newHand = [...myHand];
     newHand.splice(cardIndex, 1);
     const newPile = [...game.pile, card];
@@ -4104,6 +3830,7 @@ function GameView({ user, game, onLeave, profile, skinsMap, emojiItems }: {
     if (!isMyTurn || game.status !== 'active') return;
     if (game.deck.length === 0) return;
 
+    soundManager.playCardDeal();
     const newDeck = [...game.deck];
     const drawn = newDeck.pop()!;
     const newHand = [...myHand, drawn];
@@ -4167,6 +3894,7 @@ function GameView({ user, game, onLeave, profile, skinsMap, emojiItems }: {
         // For simplicity here, we allow orthogonal 1 step
         newBoard[toR * 8 + toC] = piece;
         newBoard[fromR * 8 + fromC] = null;
+        soundManager.playDamaMove();
     } 
     // Capture move (2 steps)
     else if ((dr === 2 && dc === 0) || (dr === 0 && dc === 2)) {
@@ -4179,6 +3907,7 @@ function GameView({ user, game, onLeave, profile, skinsMap, emojiItems }: {
             newBoard[fromR * 8 + fromC] = null;
             newBoard[victimR * 8 + victimC] = null;
             isCapture = true;
+            soundManager.playDamaCapture();
         } else {
             return; // Invalid jump
         }
@@ -4228,6 +3957,7 @@ function GameView({ user, game, onLeave, profile, skinsMap, emojiItems }: {
   return (
     <div className={`fixed inset-0 overflow-hidden flex flex-col font-sans select-none touch-none ${game.gameType === 'dama' ? 'bg-[#1a1a1a]' : game.gameType === 'joker' ? 'bg-[#1a1a1a]' : 'bg-[#232323]'}`}>
       {/* Header */}
+      {game.gameType !== 'dobble' && (
       <div className="absolute top-0 w-full h-14 border-b border-white/5 flex items-center justify-between px-4 z-[110]">
         <div className="flex items-center gap-4">
            <button onClick={onLeave} className="text-white/60 hover:text-white relative">
@@ -4259,6 +3989,7 @@ function GameView({ user, game, onLeave, profile, skinsMap, emojiItems }: {
            </button>
         </div>
       </div>
+      )}
 
       <AnimatePresence>
         {showChat && (
@@ -4309,7 +4040,9 @@ function GameView({ user, game, onLeave, profile, skinsMap, emojiItems }: {
       </AnimatePresence>
 
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-         {game.gameType === 'dama' ? (
+         {game.gameType === 'dobble' ? (
+           <DobbleBoard game={game} user={user} opponentProfile={opponentProfile} opponentId={opponentId} />
+         ) : game.gameType === 'dama' ? (
            <DamaBoard game={game} user={user} onMove={handleDamaMove} opponentProfile={opponentProfile} opponentId={opponentId!} />
          ) : game.gameType === 'joker' ? (
            <JokerField game={game} user={user} drawCard={drawCard} topCard={topCard} opponentProfile={opponentProfile} opponentId={opponentId!} />
@@ -4319,7 +4052,7 @@ function GameView({ user, game, onLeave, profile, skinsMap, emojiItems }: {
       </div>
 
       {/* Footer / Hand Area */}
-      {game.gameType !== 'dama' && (
+      {game.gameType !== 'dama' && game.gameType !== 'dobble' && (
         <div className="absolute bottom-0 w-full h-44 bg-gradient-to-t from-[#0d0d0d] to-transparent z-[120]">
            <div className="flex h-full items-center px-6">
               <div className="flex flex-col items-center gap-1 -translate-y-4">
@@ -4729,91 +4462,116 @@ function ProfileEditor({ profile, user, onSave, onCancel }: { profile: UserProfi
   };
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[300] flex items-center justify-center p-4">
-       <motion.div 
-         initial={{ scale: 0.9, opacity: 0 }}
-         animate={{ scale: 1, opacity: 1 }}
-         className="w-full max-w-md bg-[#1a1a1a] border border-white/10 rounded-[40px] p-8 shadow-2xl relative overflow-hidden"
-       >
-          <div className="absolute top-0 left-0 w-full h-1/2 bg-gradient-to-b from-[#8b0000]/10 to-transparent pointer-events-none" />
-          
-          <div className="flex justify-between items-center mb-8 relative">
-             <h2 className="text-xl font-black text-white uppercase tracking-widest">Edit Profile</h2>
-             <button onClick={onCancel} className="p-2 bg-white/5 rounded-full hover:bg-white/10 transition-colors">
-                <X size={20} className="text-white/60" />
-             </button>
-          </div>
+    <div className="fixed inset-0 z-[400] bg-white font-sans text-black flex flex-col items-center overflow-hidden">
+      <div className="w-full max-w-lg flex flex-col h-full relative">
+         <div className="flex items-center justify-between px-4 py-4 relative bg-white z-10 w-full shrink-0">
+           <button onClick={onCancel} className="p-2 -ml-2"><ChevronLeft size={24} className="text-gray-900" /></button>
+           <div className="text-center absolute left-1/2 -translate-x-1/2">
+              <h2 className="text-lg font-black tracking-tight">Edit Profile</h2>
+              <div className="text-[10px] text-gray-400 font-bold tracking-widest mt-0.5">Current Data Completion: 37%</div>
+           </div>
+           <div className="w-10"></div>
+         </div>
 
-          <div className="flex flex-col items-center gap-6 relative">
-             <div className="relative group">
-                <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-[#8b0000] shadow-2xl bg-black">
-                   <div style={{ transform: `scale(${zoom})`, transition: 'transform 0.2s' }} className="w-full h-full origin-center">
-                      <img src={photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.uid}`} alt="Profile" className="w-full h-full object-cover" />
-                   </div>
-                </div>
-                <label className="absolute bottom-0 right-0 w-10 h-10 bg-[#8b0000] text-white rounded-full flex items-center justify-center cursor-pointer shadow-lg border-2 border-[#1a1a1a] hover:scale-110 transition-transform">
-                   <Camera size={18} />
-                   <input type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
-                </label>
-             </div>
+         <div className="flex-1 overflow-y-auto px-4 py-2 bg-white w-full">
+           {/* Avatar */}
+           <div className="flex justify-between items-center py-5 border-b border-gray-100/50 cursor-pointer" onClick={() => {
+              const fileInput = document.getElementById('profile-avatar-upload');
+              if (fileInput) fileInput.click();
+           }}>
+              <span className="font-bold text-gray-800 tracking-tight">Avatar</span>
+              <div className="flex items-center gap-2">
+                 <div className="w-10 h-10 rounded-full overflow-hidden shadow-sm border border-gray-100">
+                    <img src={photoURL || profile.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.uid}`} className="w-full h-full object-cover" />
+                 </div>
+                 <ChevronRight size={18} className="text-gray-300" />
+              </div>
+           </div>
+           <input type="file" id="profile-avatar-upload" className="hidden" accept="image/*" onChange={handleFileChange} />
 
-             <div className="w-full space-y-2">
-                <label className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-4">Profile Zoom</label>
-                <input 
-                  type="range" 
-                  min="1" 
-                  max="3" 
-                  step="0.1" 
-                  value={zoom} 
-                  onChange={(e) => setZoom(parseFloat(e.target.value))}
-                  className="w-full h-2 bg-white/10 rounded-full appearance-none cursor-pointer accent-[#8b0000]"
-                />
-             </div>
+           {/* Nickname */}
+           <div className="flex justify-between items-center py-5 border-b border-gray-100/50">
+              <span className="font-bold text-gray-800 tracking-tight">Nickname</span>
+              <div className="flex items-center gap-2">
+                 <input 
+                   type="text" 
+                   value={displayName} 
+                   onChange={e => setDisplayName(e.target.value)} 
+                   className="text-right text-gray-900 font-black bg-transparent outline-none tracking-tight w-32" 
+                 />
+                 <ChevronRight size={18} className="text-gray-300" />
+              </div>
+           </div>
 
-             <div className="w-full space-y-2">
-                <label className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-4">Display Name</label>
-                <input 
-                  type="text" 
-                  value={displayName} 
-                  onChange={(e) => setDisplayName(e.target.value)}
-                  className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white font-bold focus:outline-none focus:border-[#8b0000]/50"
-                  placeholder="Enter name..."
-                />
-             </div>
+           {/* Gender */}
+           <div className="flex justify-between items-center py-5 border-b border-gray-100/50 cursor-pointer">
+              <span className="font-bold text-gray-800 tracking-tight">Gender</span>
+              <div className="flex items-center gap-2 text-gray-900 font-bold text-sm">
+                 <Eye size={16} className="text-gray-400" /> Male
+                 <ChevronRight size={18} className="text-gray-300 ml-1" />
+              </div>
+           </div>
 
-             <div className="w-full space-y-2">
-                <label className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-4">Location / Country</label>
-                <select 
-                  value={country} 
-                  onChange={(e) => setCountry(e.target.value)}
-                  className="w-full bg-[#111112] border border-white/10 rounded-2xl px-6 py-4 outline-none focus:border-[#8b0000] text-sm text-white font-bold cursor-pointer"
-                >
-                  <option value="" disabled>Select your Country</option>
-                  {countriesList.map(c => (
-                    <option key={c.code} value={c.code} className="text-white bg-zinc-950 font-bold">
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-             </div>
+           {/* Birthday */}
+           <div className="flex justify-between items-center py-5 border-b border-gray-100/50 cursor-pointer">
+              <span className="font-bold text-gray-800 tracking-tight">Birthday</span>
+              <div className="flex items-center gap-2 text-gray-900 font-bold text-sm">
+                 <ChevronRight size={18} className="text-gray-300 ml-1" />
+              </div>
+           </div>
 
-             <div className="w-full grid grid-cols-2 gap-4 mt-2">
-                <button 
-                  onClick={onCancel}
-                  className="py-4 bg-white/5 border border-white/10 rounded-2xl text-white/60 font-black uppercase text-[10px] tracking-widest hover:bg-white/10 transition-all"
-                >
-                  Cancel
-                </button>
-                <button 
-                  onClick={() => onSave({ displayName, photoURL, country })}
-                  disabled={isUploading}
-                  className="py-4 bg-[#8b0000] text-white rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-[#a00000] transition-all shadow-[0_10px_20px_rgba(139,0,0,0.3)] disabled:opacity-50"
-                >
-                  {isUploading ? 'Uploading...' : 'Save Changes'}
-                </button>
-             </div>
-          </div>
-       </motion.div>
+           {/* Age */}
+           <div className="flex justify-between items-center py-5 border-b border-gray-100/50 cursor-pointer">
+              <span className="font-bold text-gray-800 tracking-tight">Age</span>
+              <div className="flex items-center gap-2 text-gray-900 font-bold text-sm">
+                 <Eye size={16} className="text-gray-400" /> 28
+                 <ChevronRight size={18} className="text-gray-300 ml-1" />
+              </div>
+           </div>
+
+           {/* MBTI */}
+           <div className="flex justify-between items-center py-5 border-b border-gray-100/50 cursor-pointer">
+              <span className="font-bold text-gray-800 tracking-tight">MBTI</span>
+              <div className="flex items-center gap-2 text-gray-900 font-bold text-sm">
+                 <ChevronRight size={18} className="text-gray-300 ml-1" />
+              </div>
+           </div>
+
+           {/* Self-Introduction */}
+           <div className="flex justify-between items-center py-5 border-b border-gray-100/50 cursor-pointer">
+              <span className="font-bold text-gray-800 tracking-tight">Self-Introduction</span>
+              <div className="flex items-center gap-2 text-gray-900 font-bold text-sm">
+                 <ChevronRight size={18} className="text-gray-300 ml-1" />
+              </div>
+           </div>
+
+           {/* My hometown */}
+           <div className="flex justify-between items-center py-5 border-b border-gray-100/50 cursor-pointer">
+              <span className="font-bold text-gray-800 tracking-tight">My hometown</span>
+              <div className="flex items-center gap-2 text-gray-900 font-bold text-sm">
+                 <ChevronRight size={18} className="text-gray-300 ml-1" />
+              </div>
+           </div>
+
+           {/* Residency */}
+           <div className="flex justify-between items-center py-5 cursor-pointer pb-24">
+              <span className="font-bold text-gray-800 tracking-tight">Residency</span>
+              <div className="flex items-center gap-2 text-gray-900 font-bold text-sm">
+                 <ChevronRight size={18} className="text-gray-300 ml-1" />
+              </div>
+           </div>
+         </div>
+
+         <div className="p-4 bg-white/90 backdrop-blur-md absolute bottom-0 left-0 right-0 border-t border-gray-100 flex items-center justify-center pointer-events-auto shrink-0 w-full">
+           <button 
+              onClick={() => onSave({ displayName, photoURL })}
+              disabled={isUploading}
+              className="w-full py-4 bg-[#8b0000] text-white rounded-full font-black tracking-widest hover:bg-[#a00000] transition-all shadow-md active:scale-95 disabled:opacity-50"
+           >
+              {isUploading ? 'Uploading...' : 'Save Changes'}
+           </button>
+         </div>
+      </div>
     </div>
   );
 }
@@ -4852,116 +4610,111 @@ function ClubsView({ user, profile, onJoinClub, onCreateClub, onBack }: { user: 
   );
 
   return (
-    <div className="w-full max-w-7xl mx-auto px-4 py-8">
-       <div className="flex flex-col md:flex-row justify-between md:items-center mb-12 gap-6 pb-6 border-b border-white/10">
-          <div className="flex items-center gap-6">
-             <button onClick={onBack} className="p-3 bg-white/5 rounded-full hover:bg-white/10 transition-colors">
-                <ArrowLeft size={24} className="text-white" />
-             </button>
-             <div className="flex flex-col">
-                <h1 className="text-4xl font-display font-black text-white italic tracking-tighter drop-shadow-lg leading-none">SYNDICATES</h1>
-                <p className="text-yellow-500 font-black text-[10px] uppercase tracking-[0.4em] mt-2">Join a Private Club Arena</p>
+    <div className="fixed inset-0 overflow-hidden flex flex-col font-sans bg-white pb-32">
+      <div className="relative w-full overflow-hidden bg-gradient-to-br from-[#6b73eb] via-[#8598ed] to-[#c6d7ff] rounded-b-[40px] shadow-sm shrink-0">
+         {/* Top bar */}
+         <div className="flex items-center justify-between px-4 pt-14 pb-4">
+            <button onClick={onBack} className="p-2 -ml-2 text-white">
+               <ChevronUp className="transform -rotate-90 w-7 h-7" />
+            </button>
+            <h1 className="text-white text-xl font-bold">Tribe</h1>
+            <div className="flex items-center gap-3">
+               <button onClick={() => setShowCreate(true)} className="flex items-center font-bold gap-1 px-4 py-1.5 bg-white text-black rounded-full shadow-md text-sm">
+                  <Plus size={16} /> Create
+               </button>
+               <button className="p-1 text-white">
+                  <Search size={24} />
+               </button>
+            </div>
+         </div>
+
+         {/* Banner / 3D Character Area */}
+         <div className="relative h-32 px-6 flex items-center justify-between">
+            <div className="flex items-center gap-1 font-black text-xl text-[#0d226b] px-4 py-2 bg-white/20 rounded-full backdrop-blur-sm self-start mt-6">
+                Tribe Bonus <ChevronRight size={20} className="mt-0.5" />
+            </div>
+            {/* The character in Image 2 */}
+            <div className="absolute right-2 bottom-0 w-44 h-44 drop-shadow-xl pointer-events-none">
+                <img src={`https://api.dicebear.com/7.x/bottts/svg?seed=kingbot&backgroundColor=transparent`} alt="" className="w-full h-full object-cover scale-125 translate-y-4" />
+            </div>
+         </div>
+
+         {/* 4 Tabs Container */}
+         <div className="bg-white/80 backdrop-blur-md rounded-[28px] mx-4 mb-5 p-4 flex items-center justify-between shadow-[0_4px_20px_rgba(0,0,0,0.05)] border border-white">
+             <div className="flex flex-col items-center gap-1 flex-1">
+                 <div className="w-12 h-12 bg-white rounded-full shadow-sm flex items-center justify-center text-2xl">🪙</div>
+                 <span className="text-xs font-bold text-gray-800 tracking-tight">Coin Bonus</span>
              </div>
-          </div>
-          
-          <div className="flex flex-1 max-w-md relative">
-            <input 
-              type="text" 
-              value={clubSearchQuery} 
-              onChange={(e) => setClubSearchQuery(e.target.value)} 
-              placeholder="Filter clubs by name or manifesto..." 
-              className="w-full bg-white/[0.03] border border-white/10 rounded-2xl py-3 pl-10 pr-4 outline-none focus:border-yellow-500/50 text-white font-bold text-xs"
-            />
-            <Search size={14} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/30" />
-          </div>
-
-          <motion.button 
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => setShowCreate(true)}
-            className="flex items-center gap-3 px-8 py-4 bg-yellow-500 text-black rounded-2xl font-black uppercase tracking-widest text-xs shadow-[0_0_30px_rgba(234,179,8,0.3)] self-start md:self-auto"
-          >
-             <Plus size={18} /> Found Syndicate (30K)
-          </motion.button>
-       </div>
-
-       {loading ? (
-         <div className="flex items-center justify-center p-20">
-            <RefreshCcw className="animate-spin text-yellow-500" size={40} />
+             <div className="flex flex-col items-center gap-1 flex-1 border-l border-white/40">
+                 <div className="w-12 h-12 bg-white rounded-full shadow-sm flex items-center justify-center text-2xl">💬</div>
+                 <span className="text-xs font-bold text-gray-800 tracking-tight">Tribe Group</span>
+             </div>
+             <div className="flex flex-col items-center gap-1 flex-1 border-l border-white/40">
+                 <div className="w-12 h-12 bg-white rounded-full shadow-sm flex items-center justify-center text-2xl">🏠</div>
+                 <span className="text-xs font-bold text-gray-800 tracking-tight">Tribe Room</span>
+             </div>
+             <div className="flex flex-col items-center gap-1 flex-1 border-l border-white/40">
+                 <div className="w-12 h-12 bg-white rounded-full shadow-sm flex items-center justify-center text-2xl">⭐</div>
+                 <span className="text-xs font-bold text-gray-800 tracking-tight">Tribe Brand</span>
+             </div>
          </div>
-       ) : filteredClubs.length === 0 ? (
-         <div className="text-center p-20 bg-white/[0.02] border border-dashed border-white/10 rounded-3xl">
-           <Users size={48} className="mx-auto text-white/10 mb-4" />
-           <p className="text-sm font-bold text-white/40 uppercase tracking-widest">No syndicates matched your search</p>
-         </div>
-       ) : (
-         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {filteredClubs.map((club) => (
-               <motion.div 
-                 key={club.id}
-                 whileHover={{ y: -8, borderColor: "rgba(234,179,8,0.3)" }}
-                 className="bg-zinc-950/60 border border-white/5 rounded-[32px] p-8 flex flex-col gap-6 relative overflow-hidden group hover:bg-[#0e0e11] hover:shadow-[0_20px_40px_rgba(0,0,0,0.5)] transition-all duration-300"
-               >
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-yellow-500/5 to-transparent pointer-events-none" />
-                  
-                  <div className="flex items-center gap-5">
-                     <div className="w-16 h-16 rounded-2xl bg-black border border-white/10 flex items-center justify-center overflow-hidden shrink-0">
-                        <img src={club.logo || `https://api.dicebear.com/7.x/shapes/svg?seed=${club.id}`} alt="" className="w-full h-full object-cover" />
-                     </div>
-                     <div className="flex flex-col min-w-0">
-                        <h3 className="text-lg font-black text-white uppercase tracking-tight leading-tight truncate">{club.name}</h3>
-                        <div className="flex items-center gap-2 mt-1">
-                           <Users size={12} className="text-yellow-500" />
-                           <span className="text-[11px] font-bold text-white/50">{club.members?.length || 0} / {club.maxMembers || 30} Elite Members</span>
-                        </div>
-                     </div>
-                  </div>
+      </div>
 
-                  <p className="text-xs text-white/60 line-clamp-2 min-h-[32px] italic font-medium leading-relaxed">
-                     {club.description || "The ultimate elite gambling society where legends are born."}
-                  </p>
-
-                  <div className="flex items-center justify-between pt-4 border-t border-white/5">
-                     <div className="flex items-center gap-2">
-                        {club.isPrivate ? (
-                          <>
-                            <Lock size={12} className="text-yellow-500" />
-                            <span className="text-[9px] font-black text-yellow-500 uppercase tracking-wider">Passcode Locked</span>
-                          </>
-                        ) : (
-                          <>
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                            <span className="text-[9px] font-black text-zinc-500 uppercase tracking-wider">Open Audition</span>
-                          </>
-                        )}
-                     </div>
-                     <button 
-                       onClick={() => onJoinClub(club.id)}
-                       className="px-6 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white font-black uppercase text-[10px] tracking-widest hover:bg-yellow-500 hover:text-black hover:border-yellow-500 transition-all shadow"
-                     >
-                        Enter Arena
-                     </button>
-                  </div>
-               </motion.div>
-            ))}
-         </div>
-       )}
+      <div className="flex-1 overflow-y-auto w-full max-w-2xl mx-auto p-4 pt-6 space-y-6">
+        {loading ? (
+          <div className="text-center py-10">Loading tribes...</div>
+        ) : filteredClubs.length === 0 ? (
+          <div className="text-center py-10 text-gray-400 font-bold">No tribes matched your search</div>
+        ) : (
+          filteredClubs.map(club => (
+             <div key={club.id} className="flex items-center justify-between pb-6 border-b border-gray-100 last:border-b-0">
+                <div className="flex items-center gap-4">
+                   <div className="relative">
+                      <div className="w-16 h-16 rounded-xl bg-gradient-to-b from-teal-400 to-teal-600 border-[3px] border-white shadow-md p-1 relative flex items-center justify-center">
+                         <div className="absolute inset-0 bg-black/10 rounded-lg"></div>
+                         <img src={club.logo || clubLogoDefaultImage} alt="Tribe Logo" className="w-full h-full rounded-lg object-cover z-10 drop-shadow-md brightness-110" />
+                      </div>
+                      <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 flex items-center justify-center">
+                         <div className="relative w-6 h-6 flex items-center justify-center rounded-full shadow-sm border border-yellow-500/50">
+                            <img src={levelLogoImage} className="absolute inset-0 w-full h-full object-cover rounded-full" />
+                            <span className="relative z-10 text-white font-black text-[9px] drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)] mt-0.5">{Math.floor(Math.random() * 5) + 1}</span>
+                         </div>
+                      </div>
+                   </div>
+                   <div className="flex flex-col gap-1 -mt-2">
+                      <h3 className="text-black font-black text-[17px]">{club.name}</h3>
+                      <p className="text-gray-500 font-medium text-[13px]">{club.description || "بەخێربێیت بۆ هۆزەکەم"}</p>
+                      <div className="flex items-center text-gray-400 text-xs font-bold mt-0.5">
+                         <UserIcon size={12} className="mr-1" /> {club.members?.length || 0}/{club.maxMembers || 50}
+                      </div>
+                   </div>
+                </div>
+                <button 
+                  onClick={() => onJoinClub(club.id)}
+                  className="px-6 py-2.5 bg-[#4a80f0] text-white font-bold rounded-full text-sm hover:bg-blue-600 shadow-md"
+                >
+                  Join
+                </button>
+             </div>
+          ))
+        )}
+      </div>
 
        {showCreate && (
-         <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-[400] flex items-center justify-center p-4">
+         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
             <motion.div 
                initial={{ scale: 0.9, opacity: 0 }}
                animate={{ scale: 1, opacity: 1 }}
-               className="w-full max-w-lg bg-[#111] border border-white/10 rounded-[48px] p-10 overflow-hidden relative shadow-2xl"
+               className="w-full max-w-md bg-white rounded-3xl p-6 shadow-2xl relative"
             >
                <div className="absolute top-0 left-0 w-full h-1/2 bg-gradient-to-b from-yellow-500/5 to-transparent pointer-events-none" />
-               <div className="flex justify-between items-center mb-10 relative">
+               <div className="flex justify-between items-center mb-10 relative z-10">
                   <div>
-                    <h2 className="text-2xl font-black text-white uppercase tracking-tighter">Found Syndicate</h2>
-                    <p className="text-yellow-500/60 font-black text-[9px] uppercase tracking-widest mt-1">Creation Fee: 30,000 Chips</p>
+                    <h2 className="text-2xl font-black text-black tracking-tight">Create Tribe</h2>
+                    <p className="text-blue-500 font-bold text-xs mt-1">Creation Fee: 30,000 Coins</p>
                   </div>
-                  <button onClick={() => setShowCreate(false)} className="p-3 bg-white/5 rounded-full hover:bg-white/10 transition-colors">
-                     <X size={20} className="text-white/60" />
+                  <button onClick={() => setShowCreate(false)} className="p-2 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors">
+                     <X size={20} className="text-gray-500" />
                   </button>
                </div>
 
@@ -4992,24 +4745,24 @@ function ClubCreateForm({ chips, clubLogos = [], onSubmit }: any) {
     <div className="space-y-6 relative">
        <div className="space-y-4">
           <div className="space-y-2">
-             <label className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em] ml-4">Club Moniker</label>
-             <input value={name} onChange={e => setName(e.target.value)} placeholder="Elite Kings" className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white font-bold" />
+             <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] ml-4">Tribe Name</label>
+             <input value={name} onChange={e => setName(e.target.value)} placeholder="Elite Kings" className="w-full bg-gray-50 border border-gray-200 rounded-2xl px-6 py-4 text-black font-bold outline-none focus:border-blue-500" />
           </div>
           <div className="space-y-2">
-             <label className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em] ml-4">Manifesto</label>
-             <textarea value={desc} onChange={e => setDesc(e.target.value)} placeholder="Short description..." className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white font-bold h-24 resize-none" />
+             <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] ml-4">Description</label>
+             <textarea value={desc} onChange={e => setDesc(e.target.value)} placeholder="Short description..." className="w-full bg-gray-50 border border-gray-200 rounded-2xl px-6 py-4 text-black font-bold h-24 resize-none outline-none focus:border-blue-500" />
           </div>
           
           {clubLogos.length > 0 && (
              <div className="space-y-2">
-                <label className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em] ml-4">Select Syndicate Logo Preset</label>
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] ml-4">Select Tribe Logo</label>
                 <div className="flex gap-3 overflow-x-auto pb-2 custom-scrollbar">
                    {clubLogos.map((logoItem: any) => (
                       <button
                          key={logoItem.id} 
                          type="button"
                          onClick={() => setSelectedLogo(logoItem.url)}
-                         className={`w-14 h-14 rounded-2xl overflow-hidden border-2 transition-all relative shrink-0 ${selectedLogo === logoItem.url ? 'border-yellow-500 bg-white/10' : 'border-white/15 hover:border-white/30 bg-black/40'}`}
+                         className={`w-14 h-14 rounded-2xl overflow-hidden border-2 transition-all relative shrink-0 ${selectedLogo === logoItem.url ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300 bg-white'}`}
                       >
                          <img src={logoItem.url} alt="" className="w-full h-full object-cover" />
                          {selectedLogo === logoItem.url && (
@@ -5025,12 +4778,12 @@ function ClubCreateForm({ chips, clubLogos = [], onSubmit }: any) {
 
           <div className="grid grid-cols-2 gap-4">
              <div className="space-y-2">
-                <label className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em] ml-4">Capacity (1-30)</label>
-                <input type="number" min="1" max="30" value={max} onChange={e => setMax(parseInt(e.target.value))} className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white font-bold" />
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] ml-4">Capacity (1-30)</label>
+                <input type="number" min="1" max="30" value={max} onChange={e => setMax(parseInt(e.target.value))} className="w-full bg-gray-50 border border-gray-200 rounded-2xl px-6 py-4 text-black font-bold outline-none focus:border-blue-500" />
              </div>
              <div className="space-y-2">
-                <label className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em] ml-4">Entry Code</label>
-                <input type="password" value={pass} onChange={e => { setPass(e.target.value); setIsPrivate(!!e.target.value); }} placeholder="Optional" className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white font-bold" />
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] ml-4">Entry Code</label>
+                <input type="password" value={pass} onChange={e => { setPass(e.target.value); setIsPrivate(!!e.target.value); }} placeholder="Optional" className="w-full bg-gray-50 border border-gray-200 rounded-2xl px-6 py-4 text-black font-bold outline-none focus:border-blue-500" />
              </div>
           </div>
        </div>
@@ -5038,11 +4791,11 @@ function ClubCreateForm({ chips, clubLogos = [], onSubmit }: any) {
        <button 
          disabled={chips < 30000 || !name}
          onClick={() => onSubmit({ name, description: desc, maxMembers: max, password: pass, isPrivate, logo: selectedLogo })}
-         className={`w-full py-5 rounded-2xl font-black uppercase text-[11px] tracking-[0.3em] shadow-xl transition-all
-           ${chips < 30000 || !name ? 'bg-white/5 text-white/20 cursor-not-allowed' : 'bg-yellow-500 text-black shadow-[0_10px_30px_rgba(234,179,8,0.3)] hover:scale-[1.02]'}
+         className={`w-full py-5 rounded-2xl font-black uppercase text-[11px] tracking-[0.3em] shadow-lg transition-all
+           ${chips < 30000 || !name ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-blue-500 text-white hover:bg-blue-600 hover:scale-[1.02]'}
          `}
        >
-         Establish Syndicate
+         Create Tribe
        </button>
     </div>
   );
