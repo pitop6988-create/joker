@@ -23,6 +23,7 @@ export interface UserProfile {
   country?: string;
   ownedTableSkins?: string[];
   activeTableSkinId?: string | null;
+  isAdmin?: boolean;
 }
 
 export interface TableSkin {

@@ -4,7 +4,7 @@ import type { User } from 'firebase/auth';
 import { doc, getDoc, getDocs, setDoc, onSnapshot, collection, query, where, limit, addDoc, updateDoc, deleteDoc, orderBy } from 'firebase/firestore';
 import { auth, db, signIn, signOut, signInEmail, signUpEmail } from './lib/firebase';
 import { motion, AnimatePresence } from 'motion/react';
-import { LogIn, LogOut, Play, Trophy, Users, RefreshCcw, Hand, Plus, Lock, MoreVertical, Coins, ShoppingBag, X, Mail, Key, User as UserIcon, Menu, Settings, MessageSquare, Gift, MoreHorizontal, ChevronUp, ChevronRight, Edit, Camera, Save, Check, Image as ImageIcon, Crown, ShieldCheck, Star, Eye, LayoutGrid, ArrowLeft, Radio, Music, Volume2, VolumeX, Smile, Send, Copy, Search, Trash } from 'lucide-react';
+import { LogIn, LogOut, Play, Trophy, Users, RefreshCcw, Hand, Plus, Lock, MoreVertical, Coins, ShoppingBag, X, Mail, Key, User as UserIcon, Menu, Settings, MessageSquare, Gift, MoreHorizontal, ChevronUp, ChevronRight, ChevronLeft, ChevronDown, Edit, Camera, Save, Check, Image as ImageIcon, Crown, ShieldCheck, Star, Eye, LayoutGrid, ArrowLeft, Radio, Music, Volume2, VolumeX, Smile, Send, Copy, Search, Trash, UserPlus } from 'lucide-react';
 import DobbleBoard from './DobbleBoard';
 import { Game, GameStatus, Card, UserProfile, CardSkin, Club, ClubMessage, RadioTrack, EmojiItem, TableSkin } from './types';
 import { createDeck, shuffle } from './gameLogic';
@@ -13,8 +13,9 @@ import confetti from 'canvas-confetti';
 import homeBgBlackImage from './assets/images/home_bg_black_1781448504157.jpg';
 // @ts-ignore
 import clubLogoDefaultImage from './assets/images/club_logo_default_1781448519688.jpg';
-// @ts-ignore
-import levelLogoImage from './assets/images/level_logo_badge_1781449343797.jpg';
+import { FriendSearchView } from './components/FriendSearchView';
+import { PublicProfileView } from './components/PublicProfileView';
+import { CharmLevelView } from './components/CharmLevelView';
 
 function dataUrlToBlobUrl(dataUrl: string): string {
   if (!dataUrl || !dataUrl.startsWith('data:')) {
@@ -396,6 +397,48 @@ const soundManager = {
   }
 };
 
+export function LevelBadge({ level, className = "w-[52px] h-[52px]" }: { level: number, className?: string }) {
+  let theme = { 
+    outer: 'from-[#82a4a1] to-[#608584]', 
+    inner: 'bg-[#a1c4c1]', 
+    crown: 'from-[#e0efef] to-[#9dbbbb]',
+    gem: '#569b82',
+    textBg: 'bg-[#719593]',
+    leaves: 'text-[#82a4a1]'
+  };
+  
+  if (level >= 101) theme = { outer: 'from-[#ffd84a] to-[#d6961c]', inner: 'bg-[#ffec8b]', crown: 'from-[#fff6cc] to-[#ffb700]', gem: '#ff003c', textBg: 'bg-[#e5a624]', leaves: 'text-[#ffd84a]' };
+  else if (level >= 81) theme = { outer: 'from-[#ffa1d6] to-[#d85c9f]', inner: 'bg-[#ffcce7]', crown: 'from-[#ffe8f4] to-[#ff7ebf]', gem: '#ff0084', textBg: 'bg-[#df6ea9]', leaves: 'text-[#ffa1d6]' };
+  else if (level >= 65) theme = { outer: 'from-[#b176ff] to-[#7c38db]', inner: 'bg-[#cd9eff]', crown: 'from-[#ebd4ff] to-[#a65bff]', gem: '#5b00ff', textBg: 'bg-[#8d4be6]', leaves: 'text-[#b176ff]' };
+  else if (level >= 49) theme = { outer: 'from-[#549cff] to-[#1c66d6]', inner: 'bg-[#8abdff]', crown: 'from-[#d4e7ff] to-[#3a8bff]', gem: '#0033ff', textBg: 'bg-[#2975e0]', leaves: 'text-[#549cff]' };
+  else if (level >= 33) theme = { outer: 'from-[#4de0d3] to-[#1ca196]', inner: 'bg-[#87efe5]', crown: 'from-[#cefcfa] to-[#25d3c6]', gem: '#0066ff', textBg: 'bg-[#28b3a8]', leaves: 'text-[#4de0d3]' };
+  else if (level >= 17) theme = { outer: 'from-[#8ee069] to-[#51a329]', inner: 'bg-[#b6f09e]', crown: 'from-[#e6ffd6] to-[#7be04a]', gem: '#00a35c', textBg: 'bg-[#62b53a]', leaves: 'text-[#8ee069]' };
+
+  return (
+    <div className={`relative flex flex-col items-center justify-center ${className} shrink-0`}>
+      {/* Outer Glow/Leaves */}
+      <div className="absolute inset-0 flex items-center justify-center opacity-50 scale-125">
+         <div className={`w-full h-full rounded-full bg-gradient-to-tr ${theme.outer} blur-[6px]`}></div>
+      </div>
+      
+      {/* Circle Badge */}
+      <div className={`relative w-full h-full rounded-full bg-gradient-to-b ${theme.outer} p-[2px] shadow-lg flex items-center justify-center`}>
+         <div className={`w-full h-full rounded-full ${theme.inner} shadow-inner flex items-center justify-center relative overflow-hidden`}>
+            {/* Crown */}
+            <div className={`w-[65%] h-[55%] bg-gradient-to-b ${theme.crown} relative flex items-end justify-center shadow-sm drop-shadow-md pb-[10%]`} style={{ clipPath: 'polygon(0 20%, 20% 60%, 50% 0, 80% 60%, 100% 20%, 90% 100%, 10% 100%)' }}>
+               <div className="w-1.5 h-2.5 mx-auto -mb-0.5 relative z-10" style={{ backgroundColor: theme.gem, clipPath: 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)' }}></div>
+            </div>
+         </div>
+      </div>
+      
+      {/* Level text */}
+      <div className={`absolute -bottom-[8px] ${theme.textBg} px-2.5 py-[3px] rounded-full text-[9px] font-black text-white leading-none shadow-md border-[1.5px] border-white/30 whitespace-nowrap z-10 uppercase tracking-wider`}>
+         LV {level}
+      </div>
+    </div>
+  )
+}
+
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -416,6 +459,8 @@ export default function App() {
   const [activeClubId, setActiveClubId] = useState<string | null>(null);
   const [currentClub, setCurrentClub] = useState<Club | null>(null);
   const [showProfileEditor, setShowProfileEditor] = useState(false);
+  const [showFriendSearch, setShowFriendSearch] = useState(false);
+  const [selectedPublicUid, setSelectedPublicUid] = useState<string | null>(null);
   const [showRadioHub, setShowRadioHub] = useState(false);
   const [isMusicOn, setIsMusicOn] = useState(false);
   const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
@@ -1033,7 +1078,26 @@ export default function App() {
   if (activeGameId && currentGame) {
     return (
       <>
-        <GameView user={user} game={currentGame} onLeave={handleLeaveGame} profile={profile} skinsMap={skinsMap} emojiItems={emojiItems} />
+        <GameView user={user} game={currentGame} onLeave={handleLeaveGame} profile={profile} skinsMap={skinsMap} emojiItems={emojiItems} onOpenSearch={() => setShowFriendSearch(true)} />
+        {showFriendSearch && (
+          <FriendSearchView 
+            user={user} 
+            profile={profile!} 
+            onBack={() => setShowFriendSearch(false)} 
+            onUserClick={(uid) => {
+               setShowFriendSearch(false);
+               setSelectedPublicUid(uid);
+            }} 
+          />
+        )}
+        {selectedPublicUid && (
+          <PublicProfileView 
+            uid={selectedPublicUid} 
+            onBack={() => setSelectedPublicUid(null)} 
+            onAddFriend={() => { alert('Friend request sent!'); setSelectedPublicUid(null); }} 
+            onChat={() => { alert('Chat feature coming soon!'); setSelectedPublicUid(null); }} 
+          />
+        )}
         <RadioHub 
           tracks={radioTracks} 
           active={showRadioHub} 
@@ -1182,7 +1246,26 @@ export default function App() {
 
   return (
     <>
-      <LobbyView user={user} profile={profile} onStartSearch={startSearching} onJoin={joinGame} onLogout={signOut} onCreate={createGame} setActiveTab={setActiveTab} onClaimDaily={claimDailyReward} language={language} gameLogos={gameLogos} lobbyBg={lobbyBg} />
+      <LobbyView user={user} profile={profile} onStartSearch={startSearching} onJoin={joinGame} onLogout={signOut} onCreate={createGame} setActiveTab={setActiveTab} onClaimDaily={claimDailyReward} language={language} gameLogos={gameLogos} lobbyBg={lobbyBg} onOpenSearch={() => setShowFriendSearch(true)} />
+      {showFriendSearch && (
+        <FriendSearchView 
+          user={user} 
+          profile={profile!} 
+          onBack={() => setShowFriendSearch(false)} 
+          onUserClick={(uid) => {
+             setShowFriendSearch(false);
+             setSelectedPublicUid(uid);
+          }} 
+        />
+      )}
+      {selectedPublicUid && (
+        <PublicProfileView 
+          uid={selectedPublicUid} 
+          onBack={() => setSelectedPublicUid(null)} 
+          onAddFriend={() => { alert('Friend request sent!'); setSelectedPublicUid(null); }} 
+          onChat={() => { alert('Chat feature coming soon!'); setSelectedPublicUid(null); }} 
+        />
+      )}
       <RadioHub 
         tracks={radioTracks} 
         active={showRadioHub} 
@@ -2729,19 +2812,21 @@ function ShopView({ user, profile, onBack, setActiveTab, language, lobbyBg }: { 
 
   return (
     <div className="min-h-screen bg-[#f8f9fa] text-black font-sans relative pb-24 flex flex-col pt-[max(env(safe-area-inset-top),_16px)]">
-      <header className="flex items-center justify-between px-4 py-3 shrink-0 shadow-[0_2px_10px_rgba(0,0,0,0.02)] relative z-20 bg-white">
-         <button onClick={onBack} className="p-2 -ml-2 text-gray-900 border-none outline-none"><ChevronLeft size={24} weight="bold" /></button>
-         <h1 className="text-lg font-black font-sans tracking-tight pt-1">Decoration shop</h1>
-         <button className="flex items-center gap-1.5 bg-[#ff4f64] text-white px-3 py-1.5 rounded-full text-xs font-black uppercase tracking-wider shadow-sm relative overflow-hidden" onClick={() => setActiveTab && setActiveTab('profile')}>
-            <User size={14} weight="bold" /> Mine<span className="w-2.5 h-2.5 bg-red-500 border-2 border-[#ff4f64] rounded-full absolute top-0.5 right-0.5 shadow-sm" />
+      <header className="flex items-center justify-between px-4 py-3 shrink-0 relative z-20 bg-white">
+         <div className="flex items-center gap-3">
+           <button onClick={onBack} className="p-1 -ml-1 text-gray-900 border-none outline-none"><ChevronLeft size={28} weight="bold" /></button>
+           <h1 className="text-xl font-black font-sans tracking-tight">Decoration shop</h1>
+         </div>
+         <button className="flex items-center gap-1.5 bg-[#ff6b57] text-white px-3 py-1.5 rounded-full text-sm font-bold shadow-sm relative overflow-hidden" onClick={() => setActiveTab && setActiveTab('profile')}>
+            <UserIcon size={16} /> Mine<span className="w-2 h-2 bg-[#ff3a3a] border border-white rounded-full absolute top-1 right-1 shadow-sm" />
          </button>
       </header>
 
-      <div className="flex px-4 gap-6 text-sm font-black text-gray-400 overflow-x-auto no-scrollbar shrink-0 bg-white relative pb-0 shadow-sm z-10 tracking-widest">
-        <button onClick={() => setActiveShopTab('skins')} className={`py-4 relative whitespace-nowrap transition-colors ${activeShopTab === 'skins' ? 'text-black' : ''}`}>Headframe{activeShopTab === 'skins' && <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-1 rounded-full bg-[#1b5df2]" />}</button>
-        <button onClick={() => setActiveShopTab('tables')} className={`py-4 relative whitespace-nowrap transition-colors ${activeShopTab === 'tables' ? 'text-black' : ''}`}>Fantasy profile{activeShopTab === 'tables' && <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-1 rounded-full bg-[#1b5df2]" />}</button>
-        <button onClick={() => setActiveShopTab('emojis')} className={`py-4 relative whitespace-nowrap transition-colors ${activeShopTab === 'emojis' ? 'text-black' : ''}`}>Entrance{activeShopTab === 'emojis' && <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-1 rounded-full bg-[#1b5df2]" />}</button>
-        <button onClick={() => setActiveShopTab('chips')} className={`py-4 relative whitespace-nowrap transition-colors flex items-center gap-1 ${activeShopTab === 'chips' ? 'text-black' : ''}`}>Chips {activeShopTab === 'chips' && <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-1 rounded-full bg-[#1b5df2]" />}<ChevronDown size={14} className="ml-1" /></button>
+      <div className="flex px-4 gap-6 text-[15px] font-black text-gray-400 overflow-x-auto no-scrollbar shrink-0 bg-white relative pb-0 z-10">
+        <button onClick={() => setActiveShopTab('skins')} className={`py-3 relative whitespace-nowrap transition-colors ${activeShopTab === 'skins' ? 'text-black' : ''}`}>Headframe{activeShopTab === 'skins' && <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-6 h-1 rounded-full bg-[#1b5df2]" />}</button>
+        <button onClick={() => setActiveShopTab('tables')} className={`py-3 relative whitespace-nowrap transition-colors ${activeShopTab === 'tables' ? 'text-black' : ''}`}>Fantasy profile{activeShopTab === 'tables' && <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-6 h-1 rounded-full bg-[#1b5df2]" />}</button>
+        <button onClick={() => setActiveShopTab('emojis')} className={`py-3 relative whitespace-nowrap transition-colors ${activeShopTab === 'emojis' ? 'text-black' : ''}`}>Entrance{activeShopTab === 'emojis' && <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-6 h-1 rounded-full bg-[#1b5df2]" />}</button>
+        <button onClick={() => setActiveShopTab('chips')} className={`py-3 relative whitespace-nowrap transition-colors flex items-center gap-1 ${activeShopTab === 'chips' ? 'text-black' : ''}`}>Chips <ChevronDown size={14} className="ml-0.5" />{activeShopTab === 'chips' && <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-6 h-1 rounded-full bg-[#1b5df2]" />}</button>
       </div>
 
       {loading ? (
@@ -2751,18 +2836,18 @@ function ShopView({ user, profile, onBack, setActiveTab, language, lobbyBg }: { 
       ) : (
         <div className="w-full max-w-6xl mx-auto z-10">
           {activeShopTab === 'skins' && (
-            <div className="grid grid-cols-3 gap-x-3 gap-y-6 pt-2">
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-4 pt-4 px-2">
               {skins.map(skin => (
                 <div key={skin.id} className="flex flex-col items-center">
                    <div 
-                     className="w-full aspect-square bg-gradient-to-b from-[#11162d] to-[#252f53] rounded-[24px] rounded-t-[10px] relative flex items-center justify-center overflow-hidden cursor-pointer shadow-[0_8px_16px_rgba(37,47,83,0.3)] mb-3"
+                     className="w-full aspect-[9/10] bg-[#1a203f] rounded-2xl relative flex items-center justify-center overflow-hidden cursor-pointer"
                      onClick={() => handleBuy(skin)}
                    >
-                      <img src={skin.imageUrl} className="w-[70%] max-h-[70%] object-contain drop-shadow-[0_0_15px_rgba(255,255,255,0.2)] rounded-full border-[3px] border-white/20" />
+                      <img src={skin.imageUrl} className="w-[85%] max-h-[85%] object-contain" />
                    </div>
-                   <div className="relative z-10 w-[85%] bg-white rounded-xl shadow-[0_4px_10px_rgba(0,0,0,0.05)] py-1.5 flex items-center justify-center gap-1 border border-gray-100">
-                      <Star size={12} weight="fill" className="text-[#ffcc00]" />
-                      <span className="text-[#ff9500] font-black text-xs">{skin.price}</span>
+                   <div className="w-full bg-white rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] py-2.5 flex items-center justify-center gap-1.5 mt-2">
+                      <Star size={16} weight="fill" className="text-[#ffcc00]" />
+                      <span className="text-[#ff9500] font-bold text-[15px]">{skin.price}</span>
                    </div>
                 </div>
               ))}
@@ -2770,18 +2855,18 @@ function ShopView({ user, profile, onBack, setActiveTab, language, lobbyBg }: { 
           )}
 
           {activeShopTab === 'emojis' && (
-            <div className="grid grid-cols-3 gap-x-3 gap-y-6 pt-2">
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-4 pt-4 px-2">
               {emojis.map(emoji => (
                 <div key={emoji.id} className="flex flex-col items-center">
                    <div 
-                     className="w-full aspect-square bg-gradient-to-b from-[#11162d] to-[#252f53] rounded-[24px] rounded-t-[10px] relative flex items-center justify-center overflow-hidden cursor-pointer shadow-[0_8px_16px_rgba(37,47,83,0.3)] mb-3"
+                     className="w-full aspect-[9/10] bg-[#1a203f] rounded-2xl relative flex items-center justify-center overflow-hidden cursor-pointer"
                      onClick={() => handleBuyEmoji(emoji)}
                    >
-                      <img src={emoji.url} className="w-1/2 max-h-[50%] object-contain drop-shadow" />
+                      <img src={emoji.url} className="w-[60%] max-h-[60%] object-contain drop-shadow" />
                    </div>
-                   <div className="relative z-10 w-[85%] bg-white rounded-xl shadow-[0_4px_10px_rgba(0,0,0,0.05)] py-1.5 flex items-center justify-center gap-1 border border-gray-100">
-                      <Star size={12} weight="fill" className="text-[#ffcc00]" />
-                      <span className="text-[#ff9500] font-black text-xs">{emoji.price}</span>
+                   <div className="w-full bg-white rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] py-2.5 flex items-center justify-center gap-1.5 mt-2">
+                      <Star size={16} weight="fill" className="text-[#ffcc00]" />
+                      <span className="text-[#ff9500] font-bold text-[15px]">{emoji.price}</span>
                    </div>
                 </div>
               ))}
@@ -2789,42 +2874,42 @@ function ShopView({ user, profile, onBack, setActiveTab, language, lobbyBg }: { 
           )}
 
           {activeShopTab === 'tables' && (
-            <div className="grid grid-cols-2 gap-x-4 gap-y-6 pt-2">
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-4 pt-4 px-2">
               {tableSkins.map(table => (
                 <div key={table.id} className="flex flex-col items-center">
                    <div 
-                     className="w-full aspect-square bg-[#11162d] rounded-[32px] rounded-t-[12px] relative flex items-center justify-center overflow-hidden cursor-pointer shadow-[0_8px_16px_rgba(37,47,83,0.3)] mb-3"
+                     className="w-full aspect-[9/10] bg-[#1a203f] rounded-2xl relative flex items-center justify-center overflow-hidden cursor-pointer"
                      onClick={() => handleBuyTable(table)}
                    >
-                      <img src={table.imageUrl} className="w-[95%] h-[95%] object-cover rounded-[28px] overflow-hidden bg-zinc-900" />
+                      <img src={table.imageUrl} className="w-[90%] h-[90%] object-cover rounded-xl bg-zinc-900 shadow-md" />
                    </div>
-                   <div className="relative z-10 w-[85%] bg-white rounded-xl shadow-[0_4px_10px_rgba(0,0,0,0.05)] py-2 flex items-center justify-center gap-1 border border-gray-100">
-                      <Star size={14} weight="fill" className="text-[#ffcc00]" />
-                      <span className="text-[#ff9500] font-black text-sm leading-none mt-0.5">{table.price}</span>
+                   <div className="w-full bg-white rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] py-2.5 flex items-center justify-center gap-1.5 mt-2">
+                      <Star size={16} weight="fill" className="text-[#ffcc00]" />
+                      <span className="text-[#ff9500] font-bold text-[15px]">{table.price}</span>
                    </div>
                 </div>
               ))}
               {tableSkins.length === 0 && (
-                <div className="col-span-full py-20 text-center border-4 border-dashed border-[#868378] rounded-[48px] w-full max-w-md mx-auto">
-                   <p className="text-[#8b0000] font-black uppercase tracking-widest text-xs">NO TABLES IN BOUTIQUE YET</p>
+                <div className="col-span-full py-20 text-center border-2 border-dashed border-gray-200 rounded-[24px] w-full max-w-md mx-auto">
+                   <p className="text-gray-400 font-bold text-sm">NO TABLES IN BOUTIQUE YET</p>
                 </div>
               )}
             </div>
           )}
 
           {activeShopTab === 'chips' && (
-            <div className="grid grid-cols-3 gap-x-3 gap-y-6 pt-2">
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-4 pt-4 px-2">
               {coinPackages.map(pkg => (
                 <div key={pkg.amount} className="flex flex-col items-center">
                    <div 
-                     className="w-full aspect-square bg-[#ffcc00] rounded-[24px] rounded-t-[10px] relative flex items-center justify-center overflow-hidden cursor-pointer shadow-[0_8px_16px_rgba(37,47,83,0.3)] border border-yellow-400 mb-3"
+                     className="w-full aspect-[9/10] bg-gradient-to-b from-[#ffd84a] to-[#d6961c] rounded-2xl relative flex items-center justify-center overflow-hidden cursor-pointer shadow-sm border border-yellow-400"
                      onClick={() => handleCoinPurchase(pkg.amount)}
                    >
-                      <Coins size={36} className="text-yellow-700 drop-shadow-sm" />
+                      <Coins size={40} className="text-white drop-shadow-sm" />
                    </div>
-                   <div className="relative z-10 w-[85%] bg-white rounded-xl shadow-[0_4px_10px_rgba(0,0,0,0.05)] py-1.5 flex flex-col items-center justify-center border border-gray-100">
-                      <span className="text-[#ff9500] font-black text-[10px] leading-tight flex items-center gap-1"><Star size={10} weight="fill" className="text-[#ffcc00]" /> {pkg.amount.toLocaleString()}</span>
-                      <span className="text-gray-400 font-extrabold text-[8px] leading-tight">{pkg.price}</span>
+                   <div className="w-full bg-white rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] py-2 flex flex-col items-center justify-center mt-2">
+                      <span className="text-[#ff9500] font-bold text-[13px] leading-none flex items-center gap-1"><Star size={12} weight="fill" className="text-[#ffcc00]" /> {pkg.amount.toLocaleString()}</span>
+                      <span className="text-gray-400 font-extrabold text-[9px] leading-none mt-0.5">{pkg.price}</span>
                    </div>
                 </div>
               ))}
@@ -2834,13 +2919,13 @@ function ShopView({ user, profile, onBack, setActiveTab, language, lobbyBg }: { 
       )}
 
       {/* Fixed Bottom Bar */}
-      <div className="fixed bottom-0 inset-x-0 h-[68px] bg-white flex flex-col justify-center px-6 z-50 pointer-events-none shadow-[0_-4px_20px_rgba(0,0,0,0.02)]">
-         <div className="flex items-center gap-2 pointer-events-auto">
-            <span className="text-gray-900 font-extrabold text-[11px] uppercase tracking-widest mt-0.5">Balance:</span>
-            <div className="flex items-center bg-gray-100 border border-gray-200 rounded-full pl-1.5 pr-1.5 py-1">
-               <Star size={18} weight="fill" className="text-[#ffcc00] mr-1.5 drop-shadow-sm" />
-               <span className="font-black text-gray-900 tracking-tight mr-2.5 text-sm">{profile.chips?.toLocaleString()}</span>
-               <button className="w-[18px] h-[18px] bg-[#32d74b] text-white rounded-full flex items-center justify-center shadow-[0_2px_4px_rgba(50,215,75,0.4)] font-black text-sm leading-none pt-0.5 cursor-pointer flex-shrink-0" onClick={() => setActiveShopTab('chips')}>+</button>
+      <div className="fixed bottom-0 inset-x-0 h-[68px] bg-[#f8f9fa] flex flex-col justify-center px-4 z-50 pointer-events-auto">
+         <div className="flex items-center justify-between max-w-lg mx-auto w-full">
+            <span className="text-[#64748b] font-black text-[15px]">Balance:</span>
+            <div className="flex items-center bg-white rounded-full pl-2 pr-1 py-1 min-w-[90px] h-[34px] shadow-sm border border-gray-100">
+               <Star size={20} weight="fill" className="text-[#ffcc00] mr-2" />
+               <span className="font-extrabold text-gray-900 text-sm tracking-tight flex-1 mb-0.5">{profile.chips?.toLocaleString() || '866'}</span>
+               <button className="w-7 h-7 bg-[#34c759] text-white rounded-full flex items-center justify-center shadow-md font-black text-xl mb-0.5 ml-1" onClick={() => setActiveShopTab('chips')}>+</button>
             </div>
          </div>
       </div>
@@ -2870,6 +2955,8 @@ function ProfileView({ user, profile, onBack, onLogout, setActiveTab, language, 
   const [showAvatars, setShowAvatars] = useState(false);
   const [skins, setSkins] = useState<CardSkin[]>([]);
   const [copied, setCopied] = useState(false);
+  const [showCharmLevel, setShowCharmLevel] = useState(false);
+  const [showPublicProfile, setShowPublicProfile] = useState(false);
 
   const handleCopyId = () => {
     const idToCopy = profile.shortId || user.uid;
@@ -2903,6 +2990,7 @@ function ProfileView({ user, profile, onBack, onLogout, setActiveTab, language, 
   const ownedSkinsData = skins.filter(s => profile.ownedSkins?.includes(s.id));
 
   return (
+    <>
     <div className={`min-h-screen bg-[#1c1c1c] text-white p-6 font-sans flex flex-col items-center pb-32 overflow-y-auto ${language === 'ku' ? 'rtl text-right' : ''}`}>
       <header className="w-full max-w-lg mb-8 flex justify-end gap-2 px-2 z-20">
          <button onClick={onOpenSettings} className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 transition-colors">
@@ -2913,7 +3001,7 @@ function ProfileView({ user, profile, onBack, onLogout, setActiveTab, language, 
          </button>
       </header>
 
-      <div className="flex flex-col items-center mb-10 w-full max-w-lg">
+      <div className="flex flex-col items-center mb-10 w-full max-w-lg cursor-pointer" onClick={() => setShowPublicProfile(true)}>
          <div className="relative mb-4 group">
             <div className="w-40 h-40 rounded-full border-[6px] border-zinc-800 shadow-2xl p-1 bg-gradient-to-b from-zinc-700 to-zinc-900 group-hover:scale-105 transition-transform duration-500">
                <img 
@@ -2927,7 +3015,7 @@ function ProfileView({ user, profile, onBack, onLogout, setActiveTab, language, 
        <div className="text-center w-full">
             <div className="flex items-center justify-center gap-2">
                <h2 className="text-3xl font-black uppercase tracking-tight">{profile.displayName}</h2>
-               <button onClick={onEditProfile} className="text-zinc-500 hover:text-white"><Edit size={16} /></button>
+               <button onClick={(e) => { e.stopPropagation(); onEditProfile(); }} className="text-zinc-500 hover:text-white"><Edit size={16} /></button>
                {profile.country && COUNTRY_MAP[profile.country] ? (
                   <span className="flex items-center gap-1.5 bg-zinc-850 px-2 rounded-full border border-white/5 text-[9px] font-black uppercase tracking-wider text-zinc-300">
                     <span>{COUNTRY_MAP[profile.country].flag}</span>
@@ -2940,7 +3028,7 @@ function ProfileView({ user, profile, onBack, onLogout, setActiveTab, language, 
             <div className="flex items-center justify-center gap-2 mt-1">
                <p className="text-xs font-black text-white/40 uppercase tracking-[0.3em]">ID: {profile.shortId || '-------'}</p>
                <button 
-                 onClick={handleCopyId}
+                 onClick={(e) => { e.stopPropagation(); handleCopyId(); }}
                  className="p-1 px-2.5 rounded-lg bg-zinc-900 border border-white/5 hover:bg-zinc-800 hover:border-white/10 active:scale-95 text-zinc-400 hover:text-white transition-all flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest"
                  title="Copy ID"
                >
@@ -2957,15 +3045,31 @@ function ProfileView({ user, profile, onBack, onLogout, setActiveTab, language, 
                  )}
                </button>
             </div>
-            <div className="mt-4 flex flex-col items-center justify-center gap-1">
-               <div className="relative w-[52px] h-[52px] flex items-center justify-center rounded-full shadow-[0_0_15px_rgba(0,0,0,0.5)]">
-                  <img src={levelLogoImage} className="absolute inset-0 w-full h-full object-cover rounded-full" alt="Level Badge" />
-                  <span className="relative z-10 text-white font-black text-base drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] mt-0.5">{profile.level || 1}</span>
+
+            <div className="mt-4 flex items-center justify-center gap-3">
+               <div className="bg-[#42a5f5]/20 text-[#42a5f5] p-1.5 rounded-full px-3 flex items-center gap-1 shadow-sm border border-[#42a5f5]/30">
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2a5 5 0 00-5 5c0 2.39 1.68 4.38 3.9 4.9V14H9v2h1.9v4h2.2v-4H15v-2h-1.9v-2.1A5.002 5.002 0 0012 2zm0 8a3 3 0 110-6 3 3 0 010 6z" /></svg>
                </div>
+               <div className="bg-white/5 text-white/60 text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 border border-white/10">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                  13 Days
+               </div>
+            </div>
+
+            <div className="mt-4 flex flex-col items-center justify-center gap-1.5 cursor-pointer" onClick={(e) => { e.stopPropagation(); setShowCharmLevel(true); }}>
+               <LevelBadge level={profile.level || 1} />
                <span className="text-[10px] font-black text-yellow-500/80 uppercase tracking-widest leading-none drop-shadow-sm">{t.level}</span>
             </div>
          </div>
       </div>
+
+      {profile.isAdmin && (
+         <div className="w-full max-w-lg px-2 mb-6 z-10" onClick={(e) => e.stopPropagation()}>
+            <button className="w-full py-4 bg-[#8b0000] border border-white/10 shadow-[0_0_15px_rgba(139,0,0,0.4)] hover:bg-[#a00000] text-white text-xs font-black rounded-2xl transition-all uppercase tracking-widest flex items-center justify-center gap-2">
+               <ShieldCheck size={18} /> Admin Panel
+            </button>
+         </div>
+      )}
 
       <div className="w-full max-w-lg grid grid-cols-2 gap-3 mb-8">
          <button className="flex flex-col items-center justify-center p-6 bg-zinc-900/50 border border-white/5 rounded-2xl hover:bg-zinc-800/50 transition-colors group">
@@ -3029,6 +3133,22 @@ function ProfileView({ user, profile, onBack, onLogout, setActiveTab, language, 
       </div>
       <TapBar activeTab="profile" setActiveTab={setActiveTab} language={language} />
     </div>
+    <AnimatePresence>
+      {showCharmLevel && (
+        <CharmLevelView profile={profile} onBack={() => setShowCharmLevel(false)} />
+      )}
+    </AnimatePresence>
+    <AnimatePresence>
+      {showPublicProfile && (
+        <PublicProfileView 
+          uid={user.uid} 
+          onBack={() => setShowPublicProfile(false)} 
+          onAddFriend={() => { alert('Cannot add yourself!'); }} 
+          onChat={() => { alert('Cannot chat with yourself!'); }} 
+        />
+      )}
+    </AnimatePresence>
+    </>
   );
 }
 
@@ -3232,6 +3352,16 @@ function SettingsView({ language, setLanguage, onBack, user, profile }: { langua
              </select>
           </div>
 
+          {/* Admin Panel */}
+          <div className="pt-8 border-t border-white/5 pb-4">
+            <button 
+              onClick={() => alert("Admin panel coming soon!")}
+              className="w-full py-4 bg-[#8b0000] hover:bg-[#a00000] text-white font-bold rounded-2xl flex items-center justify-center gap-2 transition-all shadow-md mt-4"
+            >
+              ADMIN PANEL
+            </button>
+          </div>
+
           {/* Version */}
           <div className="pt-8 border-t border-white/5 text-center flex flex-col items-center">
              <span className="text-[10px] font-black tracking-[0.2em] text-white/30 uppercase">BUILD SYSTEM ACTIVE</span>
@@ -3306,7 +3436,7 @@ function SearchingView({ user, gameType, onCancel }: { user: User, gameType: str
   );
 }
 
-function LobbyView({ user, profile, onStartSearch, onJoin, onLogout, onCreate, setActiveTab, onClaimDaily, language, gameLogos, lobbyBg }: any) {
+function LobbyView({ user, profile, onStartSearch, onJoin, onLogout, onCreate, setActiveTab, onClaimDaily, language, gameLogos, lobbyBg, onOpenSearch }: any) {
   const t = translations[language];
   const [games, setGames] = useState<Game[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -3315,34 +3445,6 @@ function LobbyView({ user, profile, onStartSearch, onJoin, onLogout, onCreate, s
   const [roomName, setRoomName] = useState('');
   const [password, setPassword] = useState('');
   const [selectedType, setSelectedType] = useState<'uno' | 'joker' | 'dama'>('uno');
-
-  const [userSearchQuery, setUserSearchQuery] = useState('');
-  const [userSearchResults, setUserSearchResults] = useState<any[]>([]);
-  const [searchingUsers, setSearchingUsers] = useState(false);
-
-  const handleUserSearch = async (val: string) => {
-    setUserSearchQuery(val);
-    if (!val.trim()) {
-      setUserSearchResults([]);
-      return;
-    }
-    setSearchingUsers(true);
-    try {
-      const q = query(collection(db, 'users'), limit(50));
-      const snap = await getDocs(q);
-      const results = snap.docs.map(doc => ({ uid: doc.id, ...doc.data() })).filter((u: any) => {
-        const queryLower = val.toLowerCase();
-        const dispMatch = u.displayName?.toLowerCase().includes(queryLower);
-        const idMatch = u.shortId?.includes(queryLower);
-        return dispMatch || idMatch;
-      });
-      setUserSearchResults(results);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setSearchingUsers(false);
-    }
-  };
 
   useEffect(() => {
     const q = query(collection(db, 'games'), where('status', '==', 'waiting'), limit(10));
@@ -3376,8 +3478,11 @@ function LobbyView({ user, profile, onStartSearch, onJoin, onLogout, onCreate, s
       className="min-h-screen bg-black p-4 sm:p-8 font-sans flex flex-col relative overflow-hidden pb-32"
       style={{ backgroundImage: `url(${lobbyBg || homeBgBlackImage})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundAttachment: 'fixed' }}
     >
-      <header className="w-full max-w-lg mb-4 flex justify-between items-center px-4 pt-6 z-20 mx-auto">
-         <h1 className="text-white text-2xl font-bold tracking-tight">Casual Games</h1>
+      <header className="w-full max-w-lg mb-4 flex justify-between items-center px-4 pt-6 z-20 mx-auto gap-2">
+         <h1 className="text-white text-2xl font-bold tracking-tight mr-auto">Casual Games</h1>
+         <button onClick={onOpenSearch} className="w-9 h-9 bg-white/10 hover:bg-white/20 transition-all rounded-full flex items-center justify-center text-white border border-white/5 shadow-md">
+            <UserPlus size={18} strokeWidth={2} />
+         </button>
          <button onClick={() => setShowCreateModal(true)} className="px-4 py-2 bg-white/10 hover:bg-white/20 transition-all rounded-full text-white text-sm font-medium flex items-center gap-1 border border-white/5 shadow-md">
             Private room <Plus size={16} />
          </button>
@@ -3661,13 +3766,14 @@ function LobbyView({ user, profile, onStartSearch, onJoin, onLogout, onCreate, s
   );
 }
 
-function GameView({ user, game, onLeave, profile, skinsMap, emojiItems }: { 
+function GameView({ user, game, onLeave, profile, skinsMap, emojiItems, onOpenSearch }: { 
   user: User, 
   game: Game, 
   onLeave: () => void, 
   profile: UserProfile | null, 
   skinsMap: Record<string, CardSkin>,
-  emojiItems: EmojiItem[]
+  emojiItems: EmojiItem[],
+  onOpenSearch?: () => void
 }) {
   const [showMore, setShowMore] = useState(false);
   const [rewardClaimed, setRewardClaimed] = useState(false);
@@ -4201,6 +4307,32 @@ function GameView({ user, game, onLeave, profile, skinsMap, emojiItems }: {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <AnimatePresence>
+        {game.status === 'waiting' && game.hostId === user.uid && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="fixed inset-0 z-[150] bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center p-6"
+          >
+            <div className="bg-[#1a1a1a] border border-white/10 rounded-[32px] p-8 max-w-sm w-full text-center shadow-2xl">
+              <h2 className="text-2xl font-black text-white uppercase tracking-tighter mb-2">Waiting for opponent</h2>
+              {game.isPrivate && <p className="text-white/40 text-xs font-bold mb-6">Password: {game.password}</p>}
+              
+              <div className="w-16 h-16 border-4 border-[#8b0000] border-t-transparent rounded-full animate-spin mx-auto mb-8" />
+              
+              {onOpenSearch && (
+                <button 
+                  onClick={onOpenSearch}
+                  className="w-full py-4 bg-[#8b0000] hover:bg-[#a00000] text-white font-bold rounded-2xl flex items-center justify-center gap-2 transition-all uppercase tracking-widest text-xs"
+                >
+                  <Plus size={18} /> INVITE FRIEND
+                </button>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -4675,10 +4807,7 @@ function ClubsView({ user, profile, onJoinClub, onCreateClub, onBack }: { user: 
                          <img src={club.logo || clubLogoDefaultImage} alt="Tribe Logo" className="w-full h-full rounded-lg object-cover z-10 drop-shadow-md brightness-110" />
                       </div>
                       <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 flex items-center justify-center">
-                         <div className="relative w-6 h-6 flex items-center justify-center rounded-full shadow-sm border border-yellow-500/50">
-                            <img src={levelLogoImage} className="absolute inset-0 w-full h-full object-cover rounded-full" />
-                            <span className="relative z-10 text-white font-black text-[9px] drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)] mt-0.5">{Math.floor(Math.random() * 5) + 1}</span>
-                         </div>
+                         <LevelBadge level={Math.floor(Math.random() * 5) + 1} className="w-[30px] h-[30px]" />
                       </div>
                    </div>
                    <div className="flex flex-col gap-1 -mt-2">

@@ -49,7 +49,7 @@ service cloud.firestore {
       allow read: if isSignedIn();
       allow create: if isOwner(userId) && isValidUser(incoming());
       allow update: if (isOwner(userId) || isAdmin()) && isValidUser(incoming()) && (
-        incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL', 'totalWins', 'chips', 'level', 'xp', 'ownedSkins', 'activeSkinId', 'clubId', 'shortId', 'ownedEmojis', 'ownedTableSkins', 'activeTableSkinId', 'country'])
+        incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL', 'totalWins', 'chips', 'level', 'xp', 'ownedSkins', 'activeSkinId', 'clubId', 'shortId', 'ownedEmojis', 'ownedTableSkins', 'activeTableSkinId', 'country', 'isAdmin', 'lastDailyClaim'])
       );
       allow delete: if isAdmin();
     }
