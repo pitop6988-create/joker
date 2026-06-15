@@ -1008,47 +1008,72 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-[#0d0d0d] relative overflow-hidden font-vintage">
-        {/* Dark Red Curtain Gradient Background */}
-        <div className="absolute inset-0 bg-gradient-to-b from-[#8b0000]/20 to-black" />
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[#0a0a0a] relative overflow-hidden font-sans">
+        {/* Animated grid background */}
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:40px_40px] [mask-image:radial-gradient(ellipse_60%_60%_at_50%_50%,#000_10%,transparent_100%)]" />
         
-        <div className="z-10 flex flex-col items-center gap-12 w-full max-w-sm px-8">
-          <div className="flex flex-col items-center">
-             <div className="relative mb-6">
-                <motion.div 
-                  initial={{ scale: 0.8, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  transition={{ duration: 0.8, ease: "easeOut" }}
-                  className="flex flex-col items-center"
-                >
-                   <div className="flex gap-1 mb-2">
-                      <div className="w-12 h-16 bg-red-600 rounded-lg shadow-xl -rotate-12 flex items-center justify-center text-white text-4xl border-2 border-white/20">🃏</div>
-                      <div className="w-12 h-16 bg-[#ffcc00] rounded-lg shadow-xl rotate-12 flex items-center justify-center text-[#8b0000] text-4xl border-2 border-white/20">★</div>
-                   </div>
-                   <h1 className="text-7xl font-display font-black text-white tracking-tighter drop-shadow-[0_5px_15px_rgba(0,0,0,0.5)]">Jawaker</h1>
-                </motion.div>
-             </div>
-          </div>
+        {/* Glowing orb behind logo */}
+        <motion.div 
+          animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.6, 0.3] }}
+          transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute w-96 h-96 bg-[#8b0000] rounded-full blur-[120px] opacity-40 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none"
+        />
 
-          <div className="w-full space-y-6 mt-20">
-             <div className="relative">
-                <p className="text-white font-black text-center text-lg mb-4">Loading...</p>
-                <div className="w-full h-2 bg-black/40 rounded-full border border-white/10 overflow-hidden">
-                   <motion.div 
-                     initial={{ width: "0%" }}
-                     animate={{ width: "100%" }}
-                     transition={{ duration: 3, ease: "linear" }}
-                     className="h-full bg-gradient-to-r from-yellow-600 via-yellow-400 to-yellow-600 rounded-full"
+        <div className="z-10 flex flex-col items-center justify-center gap-16 w-full max-w-sm px-8">
+           <motion.div 
+             initial={{ y: 20, opacity: 0 }}
+             animate={{ y: 0, opacity: 1 }}
+             transition={{ duration: 0.8, ease: "easeOut" }}
+             className="flex flex-col items-center relative"
+           >
+              {/* Elegant floating chips */}
+              <motion.div 
+                animate={{ y: [-10, 10, -10], rotate: [0, 5, -5, 0] }}
+                transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+                className="absolute -top-12 -left-12 w-16 h-16 bg-gradient-to-br from-red-600 to-[#8b0000] rounded-full border-[4px] border-white/20 shadow-2xl flex items-center justify-center text-white font-black text-2xl"
+              >
+                 <span className="opacity-50">♦</span>
+              </motion.div>
+
+              <motion.div 
+                animate={{ y: [10, -10, 10], rotate: [0, -10, 10, 0] }}
+                transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+                className="absolute -bottom-4 -right-10 w-14 h-14 bg-gradient-to-br from-zinc-800 to-black rounded-full border-[4px] border-white/20 shadow-2xl flex items-center justify-center text-white font-black text-xl"
+              >
+                 <span className="opacity-50">♠</span>
+              </motion.div>
+              
+              <div className="text-center space-y-2 relative z-10 backdrop-blur-sm bg-black/20 p-8 rounded-3xl border border-white/5 shadow-2xl">
+                 <h1 className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white to-white/60 tracking-tight drop-shadow-sm mb-2 uppercase">Casual</h1>
+                 <h1 className="text-4xl font-bold text-[#8b0000] tracking-widest uppercase flex items-center justify-center gap-3">
+                   <div className="w-12 h-[2px] bg-gradient-to-r from-transparent to-[#8b0000]" />
+                     Arena
+                   <div className="w-12 h-[2px] bg-gradient-to-l from-transparent to-[#8b0000]" />
+                 </h1>
+              </div>
+           </motion.div>
+
+           <div className="w-full flex flex-col items-center gap-4">
+              <motion.div className="flex gap-2 mb-2">
+                 {[0, 1, 2].map((i) => (
+                   <motion.div
+                     key={i}
+                     animate={{ 
+                       scale: [1, 1.5, 1],
+                       opacity: [0.3, 1, 0.3]
+                     }}
+                     transition={{
+                       duration: 1,
+                       repeat: Infinity,
+                       delay: i * 0.2,
+                       ease: "easeInOut"
+                     }}
+                     className="w-2 h-2 rounded-full bg-red-600"
                    />
-                </div>
-             </div>
-          </div>
-        </div>
-
-        {/* Thematic elements at bottom */}
-        <div className="absolute bottom-32 w-full flex justify-center gap-4 opacity-40">
-           <div className="w-16 h-24 bg-white/5 rounded-lg border border-white/10" />
-           <div className="w-16 h-24 bg-white/5 rounded-lg border border-white/10 rotate-12" />
+                 ))}
+              </motion.div>
+              <p className="text-white/40 font-black text-xs uppercase tracking-[0.4em] mb-4">Initializing Client</p>
+           </div>
         </div>
       </div>
     );
@@ -1181,13 +1206,32 @@ export default function App() {
   if (activeTab === 'profile') {
     return (
       <>
-        <ProfileView user={user} profile={profile!} onBack={() => setActiveTab('home')} onLogout={signOut} setActiveTab={setActiveTab} language={language} onOpenSettings={() => setActiveTab('settings')} onEditProfile={() => setShowProfileEditor(true)} />
+        <ProfileView user={user} profile={profile!} onBack={() => setActiveTab('home')} onLogout={signOut} setActiveTab={setActiveTab} language={language} onOpenSettings={() => setActiveTab('settings')} onEditProfile={() => setShowProfileEditor(true)} onOpenSearch={() => setShowFriendSearch(true)} />
         {showProfileEditor && (
           <ProfileEditor 
             profile={profile!} 
             user={user} 
             onSave={handleSaveProfile} 
             onCancel={() => setShowProfileEditor(false)} 
+          />
+        )}
+        {showFriendSearch && (
+          <FriendSearchView 
+            user={user} 
+            profile={profile!} 
+            onBack={() => setShowFriendSearch(false)} 
+            onUserClick={(uid) => {
+               setShowFriendSearch(false);
+               setSelectedPublicUid(uid);
+            }} 
+          />
+        )}
+        {selectedPublicUid && (
+          <PublicProfileView 
+            uid={selectedPublicUid} 
+            onBack={() => setSelectedPublicUid(null)} 
+            onAddFriend={() => { alert('Friend request sent!'); setSelectedPublicUid(null); }} 
+            onChat={() => { alert('Chat feature coming soon!'); setSelectedPublicUid(null); }} 
           />
         )}
         <RadioHub 
@@ -2950,7 +2994,7 @@ function CardBack({ skinUrl, className = "", style = {} }: { skinUrl?: string, c
   );
 }
 
-function ProfileView({ user, profile, onBack, onLogout, setActiveTab, language, onOpenSettings, onEditProfile }: { user: User, profile: UserProfile, onBack: () => void, onLogout: () => void, setActiveTab: (tab: any) => void, language: Language, onOpenSettings: () => void, onEditProfile: () => void }) {
+function ProfileView({ user, profile, onBack, onLogout, setActiveTab, language, onOpenSettings, onEditProfile, onOpenSearch }: { user: User, profile: UserProfile, onBack: () => void, onLogout: () => void, setActiveTab: (tab: any) => void, language: Language, onOpenSettings: () => void, onEditProfile: () => void, onOpenSearch: () => void }) {
   const t = translations[language];
   const [showAvatars, setShowAvatars] = useState(false);
   const [skins, setSkins] = useState<CardSkin[]>([]);
@@ -2993,6 +3037,9 @@ function ProfileView({ user, profile, onBack, onLogout, setActiveTab, language, 
     <>
     <div className={`min-h-screen bg-[#1c1c1c] text-white p-6 font-sans flex flex-col items-center pb-32 overflow-y-auto ${language === 'ku' ? 'rtl text-right' : ''}`}>
       <header className="w-full max-w-lg mb-8 flex justify-end gap-2 px-2 z-20">
+         <button onClick={onOpenSearch} className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 transition-colors">
+           <UserPlus size={22} className="text-zinc-400" />
+         </button>
          <button onClick={onOpenSettings} className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 transition-colors">
            <Settings size={22} className="text-zinc-400" />
          </button>
