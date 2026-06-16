@@ -14,6 +14,7 @@ import homeBgBlackImage from './assets/images/home_bg_black_1781448504157.jpg';
 // @ts-ignore
 import clubLogoDefaultImage from './assets/images/club_logo_default_1781448519688.jpg';
 import { FriendSearchView } from './components/FriendSearchView';
+import { FriendRequestsView } from './components/FriendRequestsView';
 import { PublicProfileView } from './components/PublicProfileView';
 import { CharmLevelView } from './components/CharmLevelView';
 
@@ -460,6 +461,26 @@ export default function App() {
   const [currentClub, setCurrentClub] = useState<Club | null>(null);
   const [showProfileEditor, setShowProfileEditor] = useState(false);
   const [showFriendSearch, setShowFriendSearch] = useState(false);
+  const [showFriendRequests, setShowFriendRequests] = useState(false);
+  const [incomingRequests, setIncomingRequests] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (!profile?.friendRequests || profile.friendRequests.length === 0) {
+      setIncomingRequests([]);
+      return;
+    }
+    const fetchRequests = async () => {
+      try {
+        // Query users where UID is in profile.friendRequests
+        const q = query(collection(db, 'users'), where('__name__', 'in', profile.friendRequests.slice(0, 10)));
+        const snap = await getDocs(q);
+        setIncomingRequests(snap.docs.map(doc => ({ uid: doc.id, ...doc.data() })));
+      } catch (err) {
+        console.error("Error fetching friend requests:", err);
+      }
+    };
+    fetchRequests();
+  }, [profile?.friendRequests]);
   const [selectedPublicUid, setSelectedPublicUid] = useState<string | null>(null);
   const [showRadioHub, setShowRadioHub] = useState(false);
   const [isMusicOn, setIsMusicOn] = useState(false);
@@ -884,7 +905,7 @@ export default function App() {
     }, 3000);
   };
 
-  const createGame = async (roomName: string, password?: string, gameType: 'uno' | 'joker' | 'dama' | 'dobble' | 'tictactoe' = 'uno') => {
+  const createGame = async (roomName: string, password?: string, gameType: 'uno' | 'joker' | 'dama' | 'dobble' | 'tictactoe' | 'airhockey' = 'uno') => {
     if (!user || !profile) return;
     if (profile.chips <= 0) {
       alert("You need chips to play!");
@@ -1290,7 +1311,7 @@ export default function App() {
 
   return (
     <>
-      <LobbyView user={user} profile={profile} onStartSearch={startSearching} onJoin={joinGame} onLogout={signOut} onCreate={createGame} setActiveTab={setActiveTab} onClaimDaily={claimDailyReward} language={language} gameLogos={gameLogos} lobbyBg={lobbyBg} onOpenSearch={() => setShowFriendSearch(true)} />
+      <LobbyView user={user} profile={profile} onStartSearch={startSearching} onJoin={joinGame} onLogout={signOut} onCreate={createGame} setActiveTab={setActiveTab} onClaimDaily={claimDailyReward} language={language} gameLogos={gameLogos} lobbyBg={lobbyBg} onOpenSearch={() => setShowFriendSearch(true)} onOpenRequests={() => setShowFriendRequests(true)} />
       {showFriendSearch && (
         <FriendSearchView 
           user={user} 
@@ -1301,6 +1322,14 @@ export default function App() {
              setSelectedPublicUid(uid);
           }} 
         />
+      )}
+      {showFriendRequests && (
+         <FriendRequestsView
+            user={user}
+            profile={profile!}
+            onBack={() => setShowFriendRequests(false)}
+            incomingRequests={incomingRequests}
+         />
       )}
       {selectedPublicUid && (
         <PublicProfileView 
@@ -1826,7 +1855,7 @@ function AdminView({ onBack, lobbyBg }: { onBack: () => void, lobbyBg?: string }
   const [tableImage, setTableImage] = useState('');
   const [tableEmoji, setTableEmoji] = useState('🎴');
 
-  const [selectedLogoGame, setSelectedLogoGame] = useState<'uno' | 'joker' | 'dama' | 'tictactoe'>('uno');
+  const [selectedLogoGame, setSelectedLogoGame] = useState<'uno' | 'joker' | 'dama' | 'tictactoe' | 'airhockey'>('uno');
   const [gameLogoUrl, setGameLogoUrl] = useState('');
   const [logoScope, setLogoScope] = useState<'game' | 'club' | 'background'>('game');
   const [clubLogoUrl, setClubLogoUrl] = useState('');
@@ -2601,6 +2630,7 @@ function AdminView({ onBack, lobbyBg }: { onBack: () => void, lobbyBg?: string }
                     <option value="joker">JOKER</option>
                     <option value="dama">DAMA</option>
                     <option value="tictactoe">O and X</option>
+                    <option value="airhockey">Air Hockey</option>
                   </select>
                 </div>
                 <div onClick={() => fileInputRef.current?.click()} className="w-full aspect-[2/1] bg-black/40 border-2 border-dashed border-white/10 rounded-2xl flex flex-col items-center justify-center cursor-pointer hover:border-yellow-500/55 transition-colors overflow-hidden relative">
@@ -2721,8 +2751,7 @@ function ShopView({ user, profile, onBack, setActiveTab, language, lobbyBg }: { 
   const [showAdmin, setShowAdmin] = useState(false);
   const [adminPass, setAdminPass] = useState('');
   const [showPassInput, setShowPassInput] = useState(false);
-  const [previewSkin, setPreviewSkin] = useState<CardSkin | null>(null);
-  const [previewTable, setPreviewTable] = useState<TableSkin | null>(null);
+  const [confirmPurchase, setConfirmPurchase] = useState<{ type: 'skin' | 'emoji' | 'table', item: any } | null>(null);
   const [activeShopTab, setActiveShopTab] = useState<'skins' | 'chips' | 'emojis' | 'tables'>('skins');
 
   useEffect(() => {
@@ -2886,7 +2915,7 @@ function ShopView({ user, profile, onBack, setActiveTab, language, lobbyBg }: { 
                 <div key={skin.id} className="flex flex-col items-center">
                    <div 
                      className="w-full aspect-[9/10] bg-[#1a203f] rounded-2xl relative flex items-center justify-center overflow-hidden cursor-pointer"
-                     onClick={() => handleBuy(skin)}
+                     onClick={() => setConfirmPurchase({ type: 'skin', item: skin })}
                    >
                       <img src={skin.imageUrl} className="w-[85%] max-h-[85%] object-contain" />
                    </div>
@@ -2905,7 +2934,7 @@ function ShopView({ user, profile, onBack, setActiveTab, language, lobbyBg }: { 
                 <div key={emoji.id} className="flex flex-col items-center">
                    <div 
                      className="w-full aspect-[9/10] bg-[#1a203f] rounded-2xl relative flex items-center justify-center overflow-hidden cursor-pointer"
-                     onClick={() => handleBuyEmoji(emoji)}
+                     onClick={() => setConfirmPurchase({ type: 'emoji', item: emoji })}
                    >
                       <img src={emoji.url} className="w-[60%] max-h-[60%] object-contain drop-shadow" />
                    </div>
@@ -2924,7 +2953,7 @@ function ShopView({ user, profile, onBack, setActiveTab, language, lobbyBg }: { 
                 <div key={table.id} className="flex flex-col items-center">
                    <div 
                      className="w-full aspect-[9/10] bg-[#1a203f] rounded-2xl relative flex items-center justify-center overflow-hidden cursor-pointer"
-                     onClick={() => handleBuyTable(table)}
+                     onClick={() => setConfirmPurchase({ type: 'table', item: table })}
                    >
                       <img src={table.imageUrl} className="w-[90%] h-[90%] object-cover rounded-xl bg-zinc-900 shadow-md" />
                    </div>
@@ -2974,6 +3003,48 @@ function ShopView({ user, profile, onBack, setActiveTab, language, lobbyBg }: { 
             </div>
          </div>
       </div>
+
+      <AnimatePresence>
+        {confirmPurchase && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[160] bg-black/60 flex items-center justify-center p-6 backdrop-blur-sm"
+          >
+            <div className="bg-white rounded-3xl p-6 w-full max-w-[300px] flex flex-col items-center">
+              <div className="w-24 h-24 bg-[#1a203f] rounded-2xl flex items-center justify-center p-2 mb-4 shrink-0 shadow-inner">
+                {confirmPurchase.type === 'skin' && <img src={confirmPurchase.item.imageUrl} className="max-w-full max-h-full object-contain" alt="item" />}
+                {confirmPurchase.type === 'table' && <img src={confirmPurchase.item.imageUrl} className="max-w-full max-h-full object-contain rounded-lg" alt="item" />}
+                {confirmPurchase.type === 'emoji' && <img src={confirmPurchase.item.url} className="max-w-full max-h-full object-contain drop-shadow" alt="item" />}
+              </div>
+              <h2 className="text-xl font-black text-gray-900 text-center mb-1">{confirmPurchase.item.name}</h2>
+              <p className="text-gray-500 font-bold mb-4 flex items-center gap-1"><Star size={16} weight="fill" className="text-[#ffcc00]" /> {confirmPurchase.item.price}</p>
+              
+              <div className="flex w-full gap-3 mt-2">
+                 <button 
+                   onClick={() => setConfirmPurchase(null)}
+                   className="flex-1 py-3 bg-gray-100 text-gray-500 font-black rounded-xl uppercase tracking-wider text-sm transition-colors hover:bg-gray-200"
+                 >
+                   NO
+                 </button>
+                 <button 
+                   onClick={() => {
+                     if (confirmPurchase.type === 'skin') handleBuy(confirmPurchase.item);
+                     else if (confirmPurchase.type === 'table') handleBuyTable(confirmPurchase.item);
+                     else if (confirmPurchase.type === 'emoji') handleBuyEmoji(confirmPurchase.item);
+                     setConfirmPurchase(null);
+                   }}
+                   className="flex-1 py-3 bg-[#34c759] text-white font-black rounded-xl uppercase tracking-wider text-sm transition-colors hover:bg-[#2eaa4e]"
+                 >
+                   BUY
+                 </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
     </div>
   )
 }
@@ -3394,7 +3465,7 @@ function SearchingView({ user, gameType, onCancel }: { user: User, gameType: str
   );
 }
 
-function LobbyView({ user, profile, onStartSearch, onJoin, onLogout, onCreate, setActiveTab, onClaimDaily, language, gameLogos, lobbyBg, onOpenSearch }: any) {
+function LobbyView({ user, profile, onStartSearch, onJoin, onLogout, onCreate, setActiveTab, onClaimDaily, language, gameLogos, lobbyBg, onOpenSearch, onOpenRequests }: any) {
   const t = translations[language];
   const [games, setGames] = useState<Game[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -3403,7 +3474,7 @@ function LobbyView({ user, profile, onStartSearch, onJoin, onLogout, onCreate, s
   const [joinPassword, setJoinPassword] = useState('');
   const [roomName, setRoomName] = useState('');
   const [password, setPassword] = useState('');
-  const [selectedType, setSelectedType] = useState<'uno' | 'joker' | 'dama' | 'dobble' | 'tictactoe'>('uno');
+  const [selectedType, setSelectedType] = useState<'uno' | 'joker' | 'dama' | 'dobble' | 'tictactoe' | 'airhockey'>('uno');
   const [showRoomList, setShowRoomList] = useState(false);
 
   useEffect(() => {
@@ -3440,6 +3511,14 @@ function LobbyView({ user, profile, onStartSearch, onJoin, onLogout, onCreate, s
     >
       <header className="w-full max-w-lg mb-4 flex justify-between items-center px-4 pt-6 z-20 mx-auto gap-2">
          <h1 className="text-white text-2xl font-bold tracking-tight mr-auto">Casual Games</h1>
+         <button onClick={onOpenRequests} className="w-9 h-9 relative bg-white/10 hover:bg-white/20 transition-all rounded-full flex items-center justify-center text-white border border-white/5 shadow-md">
+            <Users size={18} strokeWidth={2} />
+            {profile?.friendRequests && profile.friendRequests.length > 0 && (
+              <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#ff1744] text-white text-[9px] font-black flex items-center justify-center border border-white/20">
+                {profile.friendRequests.length}
+              </div>
+            )}
+         </button>
          <button onClick={onOpenSearch} className="w-9 h-9 bg-white/10 hover:bg-white/20 transition-all rounded-full flex items-center justify-center text-white border border-white/5 shadow-md">
             <UserPlus size={18} strokeWidth={2} />
          </button>
@@ -3632,7 +3711,8 @@ function LobbyView({ user, profile, onStartSearch, onJoin, onLogout, onCreate, s
                         { id: 'dobble', name: 'Dobble', color: 'from-[#4caf50] to-[#2e7d32]' },
                         { id: 'uno', name: 'Still Standing', color: 'from-[#2196f3] to-[#1565c0]' },
                         { id: 'joker', name: 'Konkan', color: 'from-[#d32f2f] to-[#b71c1c]' },
-                        { id: 'tictactoe', name: 'O and X', color: 'from-[#00bcd4] to-[#00838f]' }
+                        { id: 'tictactoe', name: 'O and X', color: 'from-[#00bcd4] to-[#00838f]' },
+                        { id: 'airhockey', name: 'Air Hockey', color: 'from-[#e91e63] to-[#c2185b]' }
                       ].map(g => (
                          <div 
                             key={g.id} 
@@ -4196,7 +4276,9 @@ function GameView({ user, game, onLeave, profile, skinsMap, emojiItems, onOpenSe
       </AnimatePresence>
 
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-         {game.gameType === 'tictactoe' ? (
+         {game.gameType === 'airhockey' ? (
+           <AirHockeyBoard game={game} user={user} opponentProfile={opponentProfile} opponentId={opponentId!} />
+         ) : game.gameType === 'tictactoe' ? (
            <TicTacToeBoard game={game} user={user} opponentProfile={opponentProfile} opponentId={opponentId!} />
          ) : game.gameType === 'dobble' ? (
            <DobbleBoard game={game} user={user} opponentProfile={opponentProfile} opponentId={opponentId} />
@@ -4210,7 +4292,7 @@ function GameView({ user, game, onLeave, profile, skinsMap, emojiItems, onOpenSe
       </div>
 
       {/* Footer / Hand Area */}
-      {game.gameType !== 'dama' && game.gameType !== 'dobble' && game.gameType !== 'tictactoe' && (
+      {game.gameType !== 'dama' && game.gameType !== 'dobble' && game.gameType !== 'tictactoe' && game.gameType !== 'airhockey' && (
         <div className="absolute bottom-0 w-full h-44 bg-gradient-to-t from-[#0d0d0d] to-transparent z-[120]">
            <div className="flex h-full items-center px-6">
               <div className="flex flex-col items-center gap-1 -translate-y-4">
@@ -4367,8 +4449,9 @@ function GameView({ user, game, onLeave, profile, skinsMap, emojiItems, onOpenSe
             animate={{ opacity: 1 }}
             className="fixed inset-0 z-[150] bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center p-6"
           >
-            <div className="bg-[#1a1a1a] border border-white/10 rounded-[32px] p-8 max-w-sm w-full text-center shadow-2xl">
-              <h2 className="text-2xl font-black text-white uppercase tracking-tighter mb-2">Waiting for opponent</h2>
+            <div className="bg-[#1a1a1a] border border-white/10 rounded-[32px] p-8 max-w-sm w-full text-center shadow-2xl relative">
+              <button title="Leave" onClick={onLeave} className="absolute top-4 left-4 p-2 text-white/50 hover:text-white bg-white/5 hover:bg-white/10 rounded-full transition-colors"><ArrowLeft size={20}/></button>
+              <h2 className="text-2xl font-black text-white uppercase tracking-tighter mb-2 mt-4">Waiting for opponent</h2>
               {game.isPrivate && <p className="text-white/40 text-xs font-bold mb-6">Password: {game.password}</p>}
               
               <div className="w-16 h-16 border-4 border-[#8b0000] border-t-transparent rounded-full animate-spin mx-auto mb-8" />
@@ -4518,6 +4601,120 @@ function JokerField({ game, user, drawCard, topCard, opponentProfile, opponentId
                </div>
             </div>
         </div>
+    </div>
+  );
+}
+
+function AirHockeyBoard({ game, user, opponentProfile, opponentId }: any) {
+  const myScore = game.scores?.[user.uid] || 0;
+  const oppScore = game.scores?.[opponentId] || 0;
+
+  const handleScore = () => {
+    let updates: any = { lastMoveAt: Date.now() };
+    const newScores = { ...game.scores };
+    newScores[user.uid] = (newScores[user.uid] || 0) + 1;
+    updates.scores = newScores;
+    // We already have updateDoc and doc imported
+    updateDoc(doc(db, 'games', game.id), updates).catch(e => console.error("Error updating game", e));
+  }
+
+  return (
+    <div className="fixed inset-0 z-[200] bg-black flex flex-col font-sans">
+       {/* Top UI Bar */}
+       <div className="w-full h-[60px] flex items-center justify-between px-4 bg-[#141414] border-b border-zinc-800 shrink-0">
+          <div className="flex items-center gap-5">
+             <div className="relative">
+                <Menu className="w-7 h-7 text-zinc-300" />
+                <div className="absolute -top-1 -right-2 bg-[#ff1744] text-white text-[9px] w-4 h-4 rounded-full flex items-center justify-center font-black shadow-[0_0_10px_rgba(255,23,68,0.5)]">1</div>
+             </div>
+             <Radio className="w-6 h-6 text-zinc-300" />
+          </div>
+          
+          <div className="flex items-center gap-6 -translate-x-2">
+             <div className="flex flex-col items-center">
+                <div className="w-9 h-9 bg-zinc-300 rounded-full flex items-center justify-center mb-0.5 overflow-hidden">
+                   {user.photoURL ? <img src={user.photoURL} alt="" className="w-full h-full object-cover"/> : <UserIcon className="text-zinc-500 w-5 h-5"/>}
+                </div>
+                <span className="text-[10px] font-bold text-white tracking-wide">name me</span>
+             </div>
+
+             <div className="flex flex-col items-center justify-center">
+                <span className="text-[11px] font-black text-white lowercase tracking-[0.2em] mb-0.5">score</span>
+                <span className="text-xl font-black text-white leading-none tracking-widest">{myScore}-{oppScore}</span>
+             </div>
+
+             <div className="flex flex-col items-center">
+                <div className="w-9 h-9 bg-zinc-300 rounded-full flex items-center justify-center mb-0.5 overflow-hidden">
+                   {opponentProfile?.photoURL ? <img src={opponentProfile.photoURL} alt="" className="w-full h-full object-cover"/> : <UserIcon className="text-zinc-500 w-5 h-5"/>}
+                </div>
+                <span className="text-[10px] font-bold text-white tracking-wide">name user</span>
+             </div>
+          </div>
+
+          <div className="flex items-center gap-5">
+             <UserPlus className="w-6 h-6 text-zinc-300" />
+             <MessageSquare className="w-6 h-6 text-zinc-300" />
+          </div>
+       </div>
+
+       {/* Game Board */}
+       <div className="flex-1 w-full bg-black relative flex justify-center items-center overflow-hidden">
+          <div className="relative w-full max-w-[420px] h-full p-4 flex flex-col justify-center py-10">
+             <div className="w-full h-full relative" style={{ maxHeight: '800px' }}>
+                
+                {/* Board Boundary Lines */}
+                {/* Top Left Red */}
+                <div className="absolute top-0 left-0 w-[40%] h-[48%] border-t-[8px] border-l-[8px] border-[#ff2a2a] rounded-tl-[30px] rounded-bl-[10px] shadow-[0_0_20px_#ff2a2a,inset_0_0_20px_#ff2a2a] pointer-events-none mix-blend-screen" />
+                
+                {/* Top Right Blue */}
+                <div className="absolute top-0 right-0 w-[40%] h-[48%] border-t-[8px] border-r-[8px] border-[#2962ff] rounded-tr-[30px] rounded-br-[10px] shadow-[0_0_20px_#2962ff,inset_0_0_20px_#2962ff] pointer-events-none mix-blend-screen" />
+
+                {/* Bottom Left Green */}
+                <div className="absolute bottom-0 left-0 w-[40%] h-[48%] border-b-[8px] border-l-[8px] border-[#00e676] rounded-bl-[30px] rounded-tl-[10px] shadow-[0_0_20px_#00e676,inset_0_0_20px_#00e676] pointer-events-none mix-blend-screen" />
+                
+                {/* Bottom Right Purple */}
+                <div className="absolute bottom-0 right-0 w-[40%] h-[48%] border-b-[8px] border-r-[8px] border-[#d500f9] rounded-br-[30px] rounded-tr-[10px] shadow-[0_0_20px_#d500f9,inset_0_0_20px_#d500f9] pointer-events-none mix-blend-screen" />
+
+                {/* Top Goal Area Outline */}
+                <div className="absolute -top-[5%] left-1/2 w-[70%] aspect-square border-[2px] border-white/20 rounded-full -translate-x-1/2 pointer-events-none" />
+                
+                {/* Bottom Goal Area Outline */}
+                <div className="absolute -bottom-[5%] left-1/2 w-[70%] aspect-square border-[2px] border-white/20 rounded-full -translate-x-1/2 pointer-events-none" />
+
+                {/* Midline */}
+                <div className="absolute top-1/2 left-0 w-full h-[4px] border-y-[1px] border-white/40 bg-white/20 shadow-[0_0_15px_white] -translate-y-1/2 pointer-events-none" />
+                <div className="absolute top-1/2 left-1/2 w-[160px] h-[160px] border-[2px] border-white/30 rounded-full -translate-x-1/2 -translate-y-1/2 shadow-[0_0_30px_rgba(255,255,255,0.1),inset_0_0_30px_rgba(255,255,255,0.1)] pointer-events-none" />
+                <div className="absolute top-1/2 left-1/2 w-[110px] h-[110px] border-[1px] border-white/10 rounded-full -translate-x-1/2 -translate-y-1/2 pointer-events-none" />
+
+                <div 
+                  onClick={handleScore}
+                  className="absolute top-1/2 left-1/2 w-16 h-16 bg-white rounded-full shadow-[0_0_25px_white,0_0_40px_#ff1744] -translate-x-1/2 -translate-y-1/2 z-30 cursor-pointer active:scale-90 transition-transform" 
+                />
+
+                {/* Top Green Paddle */}
+                <div className="absolute top-[20%] left-1/2 w-28 h-28 rounded-full border-[20px] border-[#00e676] bg-black shadow-[0_0_30px_#00e676,inset_0_0_30px_#00e676] -translate-x-1/2 -translate-y-1/2 z-20 pointer-events-none flex items-center justify-center">
+                    <div className="w-1/2 h-1/2 rounded-full border-[5px] border-[#00e676] shadow-[0_0_15px_#00e676]" />
+                </div>
+
+                {/* Bottom Blue Paddle */}
+                <div className="absolute bottom-[20%] left-1/2 w-28 h-28 rounded-full border-[20px] border-[#2962ff] bg-black shadow-[0_0_30px_#2962ff,inset_0_0_30px_#2962ff] -translate-x-1/2 translate-y-1/2 z-20 pointer-events-none flex items-center justify-center">
+                    <div className="w-1/2 h-1/2 rounded-full border-[5px] border-[#2962ff] shadow-[0_0_15px_#2962ff]" />
+                </div>
+
+                {/* UI Side Buttons */}
+                <div className="absolute right-4 top-1/2 -translate-y-1/2 flex flex-col items-center gap-8 z-40">
+                   <div className="w-10 h-4 rounded-full border-[4px] border-[#00e5ff] shadow-[0_0_20px_#00e5ff] mix-blend-screen" />
+                   
+                   <div className="w-16 h-16 rounded-full border-[4px] border-[#00e5ff] shadow-[0_0_25px_#00e5ff,inset_0_0_20px_#00e5ff] flex items-center justify-center gap-2 cursor-pointer hover:scale-105 transition-transform bg-[#00e5ff]/10 backdrop-blur-sm mix-blend-screen">
+                      <div className="w-1.5 h-7 bg-[#00e5ff] shadow-[0_0_15px_#00e5ff] rounded-sm" />
+                      <div className="w-1.5 h-7 bg-[#00e5ff] shadow-[0_0_15px_#00e5ff] rounded-sm" />
+                   </div>
+                   
+                   <div className="w-10 h-4 rounded-full border-[4px] border-[#00e5ff] shadow-[0_0_20px_#00e5ff] mix-blend-screen" />
+                </div>
+             </div>
+          </div>
+       </div>
     </div>
   );
 }

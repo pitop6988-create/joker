@@ -3,7 +3,7 @@ import { motion } from 'motion/react';
 import { Search, Copy, UserPlus } from 'lucide-react';
 import { auth, db } from '../lib/firebase';
 import { User } from 'firebase/auth';
-import { collection, query, getDocs, limit } from 'firebase/firestore';
+import { collection, query, getDocs, limit, doc, updateDoc, arrayUnion } from 'firebase/firestore';
 import { UserProfile } from '../types';
 
 export function FriendSearchView({ user, profile, onBack, onUserClick }: { user: User, profile: UserProfile, onBack: () => void, onUserClick: (uid: string) => void }) {
@@ -127,10 +127,21 @@ export function FriendSearchView({ user, profile, onBack, onUserClick }: { user:
                      <div className="font-bold text-gray-900 text-[15px]">{u.displayName}</div>
                      <div className="text-gray-500 text-xs text-left">ID: {u.shortId}</div>
                    </div>
-                   <button 
-                     onClick={() => alert("Friend request sent!")}
-                     className="w-10 h-10 rounded-full flex items-center justify-center bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors"
-                   >
+                     <button 
+                       onClick={async () => {
+                         try {
+                           const reqRef = doc(db, 'users', u.uid);
+                           await updateDoc(reqRef, {
+                             friendRequests: arrayUnion(user.uid)
+                           });
+                           alert("Friend request sent!");
+                         } catch (e) {
+                           console.error(e);
+                           alert("Error sending request");
+                         }
+                       }}
+                       className="w-10 h-10 rounded-full flex items-center justify-center bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors"
+                     >
                      <UserPlus size={20} />
                    </button>
                  </div>
