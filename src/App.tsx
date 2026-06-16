@@ -4,7 +4,7 @@ import type { User } from 'firebase/auth';
 import { doc, getDoc, getDocs, setDoc, onSnapshot, collection, query, where, limit, addDoc, updateDoc, deleteDoc, orderBy } from 'firebase/firestore';
 import { auth, db, signIn, signOut, signInEmail, signUpEmail } from './lib/firebase';
 import { motion, AnimatePresence } from 'motion/react';
-import { LogIn, LogOut, Play, Trophy, Users, RefreshCcw, Hand, Plus, Lock, MoreVertical, Coins, ShoppingBag, X, Mail, Key, User as UserIcon, Menu, Settings, MessageSquare, Gift, MoreHorizontal, ChevronUp, ChevronRight, ChevronLeft, ChevronDown, Edit, Camera, Save, Check, Image as ImageIcon, Crown, ShieldCheck, Star, Eye, LayoutGrid, ArrowLeft, Radio, Music, Volume2, VolumeX, Smile, Send, Copy, Search, Trash, UserPlus } from 'lucide-react';
+import { LogIn, LogOut, Play, Trophy, Users, RefreshCcw, Hand, Plus, Lock, MoreVertical, Coins, ShoppingBag, X, Mail, Key, User as UserIcon, Menu, Settings, MessageSquare, Gift, MoreHorizontal, ChevronUp, ChevronRight, ChevronLeft, ChevronDown, Edit, Camera, Save, Check, Image as ImageIcon, Crown, ShieldCheck, Star, Eye, LayoutGrid, ArrowLeft, Radio, Music, Volume2, VolumeX, Smile, Send, Copy, Search, Trash, UserPlus, List } from 'lucide-react';
 import DobbleBoard from './DobbleBoard';
 import { Game, GameStatus, Card, UserProfile, CardSkin, Club, ClubMessage, RadioTrack, EmojiItem, TableSkin } from './types';
 import { createDeck, shuffle } from './gameLogic';
@@ -592,7 +592,7 @@ export default function App() {
           if (!data.shortId && !updatingShortIdRef.current) {
             updatingShortIdRef.current = true;
             const shortId = Math.floor(Math.random() * 9000000 + 1000000).toString();
-            updateDoc(doc(db, 'users', user.uid), { shortId }).catch(console.error);
+            updateDoc(doc(db, 'users', user.uid), { shortId }).catch(e => handleFirestoreError(e, OperationType.UPDATE, `users/${user.uid}`));
           }
           setProfile(data as UserProfile);
         }
@@ -884,7 +884,7 @@ export default function App() {
     }, 3000);
   };
 
-  const createGame = async (roomName: string, password?: string, gameType: 'uno' | 'joker' | 'dama' = 'uno') => {
+  const createGame = async (roomName: string, password?: string, gameType: 'uno' | 'joker' | 'dama' | 'dobble' | 'tictactoe' = 'uno') => {
     if (!user || !profile) return;
     if (profile.chips <= 0) {
       alert("You need chips to play!");
@@ -1826,7 +1826,7 @@ function AdminView({ onBack, lobbyBg }: { onBack: () => void, lobbyBg?: string }
   const [tableImage, setTableImage] = useState('');
   const [tableEmoji, setTableEmoji] = useState('🎴');
 
-  const [selectedLogoGame, setSelectedLogoGame] = useState<'uno' | 'joker' | 'dama'>('uno');
+  const [selectedLogoGame, setSelectedLogoGame] = useState<'uno' | 'joker' | 'dama' | 'tictactoe'>('uno');
   const [gameLogoUrl, setGameLogoUrl] = useState('');
   const [logoScope, setLogoScope] = useState<'game' | 'club' | 'background'>('game');
   const [clubLogoUrl, setClubLogoUrl] = useState('');
@@ -2600,6 +2600,7 @@ function AdminView({ onBack, lobbyBg }: { onBack: () => void, lobbyBg?: string }
                     <option value="uno">UNO</option>
                     <option value="joker">JOKER</option>
                     <option value="dama">DAMA</option>
+                    <option value="tictactoe">O and X</option>
                   </select>
                 </div>
                 <div onClick={() => fileInputRef.current?.click()} className="w-full aspect-[2/1] bg-black/40 border-2 border-dashed border-white/10 rounded-2xl flex flex-col items-center justify-center cursor-pointer hover:border-yellow-500/55 transition-colors overflow-hidden relative">
@@ -2996,11 +2997,7 @@ function CardBack({ skinUrl, className = "", style = {} }: { skinUrl?: string, c
 
 function ProfileView({ user, profile, onBack, onLogout, setActiveTab, language, onOpenSettings, onEditProfile, onOpenSearch }: { user: User, profile: UserProfile, onBack: () => void, onLogout: () => void, setActiveTab: (tab: any) => void, language: Language, onOpenSettings: () => void, onEditProfile: () => void, onOpenSearch: () => void }) {
   const t = translations[language];
-  const [showAvatars, setShowAvatars] = useState(false);
-  const [skins, setSkins] = useState<CardSkin[]>([]);
   const [copied, setCopied] = useState(false);
-  const [showCharmLevel, setShowCharmLevel] = useState(false);
-  const [showPublicProfile, setShowPublicProfile] = useState(false);
 
   const handleCopyId = () => {
     const idToCopy = profile.shortId || user.uid;
@@ -3018,184 +3015,98 @@ function ProfileView({ user, profile, onBack, onLogout, setActiveTab, language, 
     }
   };
 
-  useEffect(() => {
-    const fetchSkins = async () => {
-      const q = query(collection(db, 'cardSkins'));
-      const snap = await getDocs(q);
-      setSkins(snap.docs.map(d => ({ id: d.id, ...d.data() } as CardSkin)));
-    };
-    fetchSkins();
-  }, []);
-
-  const PRESET_AVATARS = [
-    'Felix', 'Aneka', 'Jasper', 'Tigger', 'Bella', 'Snuggles', 'Midnight', 'Shadow', 'Ace', 'Lucky'
-  ].map(seed => `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}`);
-
-  const ownedSkinsData = skins.filter(s => profile.ownedSkins?.includes(s.id));
+  const menuItems = [
+    { id: 'viewed', icon: <Eye size={20} className="text-[#3fc0e8]" />, label: 'Viewed me' },
+    { id: 'wallet', icon: <Coins size={20} className="text-[#ff9800]" />, label: 'My wallet' },
+    { id: 'offer', icon: <Gift size={20} className="text-[#ff5252]" />, label: 'Offer Center', value: 'To be activated: 0' },
+    { id: 'vip', icon: <Crown size={20} className="text-[#ffb300]" />, label: 'VIP', value: 'Not VIP yet' },
+    { id: 'mine', icon: <ShieldCheck size={20} className="text-[#ff8a65]" />, label: 'Mine Investment', value: 'Not Invested' },
+    { id: 'shop', icon: <ShoppingBag size={20} className="text-[#f48fb1]" />, label: 'Shop', onClick: () => setActiveTab('shop') },
+    { id: 'invite', icon: <UserPlus size={20} className="text-[#4dd0e1]" />, label: 'Invite Friends' },
+    { id: 'help', icon: <Star size={20} className="text-[#ffd54f]" />, label: 'Help' },
+    { id: 'settings', icon: <Settings size={20} className="text-[#90a4ae]" />, label: 'Settings', onClick: onOpenSettings },
+  ];
 
   return (
-    <>
-    <div className={`min-h-screen bg-[#1c1c1c] text-white p-6 font-sans flex flex-col items-center pb-32 overflow-y-auto ${language === 'ku' ? 'rtl text-right' : ''}`}>
-      <header className="w-full max-w-lg mb-8 flex justify-end gap-2 px-2 z-20">
-         <button onClick={onOpenSearch} className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 transition-colors">
-           <UserPlus size={22} className="text-zinc-400" />
-         </button>
-         <button onClick={onOpenSettings} className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 transition-colors">
-           <Settings size={22} className="text-zinc-400" />
-         </button>
-         <button onClick={onBack} className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 transition-colors">
-           <X size={22} className="text-zinc-400" />
-         </button>
-      </header>
+    <div className={`min-h-screen bg-[#0d0a0b] text-white font-sans flex flex-col items-center pb-32 overflow-y-auto ${language === 'ku' ? 'rtl text-right' : ''}`}>
+      <div className="w-full max-w-lg p-6 flex flex-col">
+          {/* Header Profile Section */}
+          <div className="flex items-center gap-4 mb-6 pt-4">
+             <div className="w-16 h-16 rounded-full border-2 border-zinc-800 overflow-hidden relative" onClick={onEditProfile}>
+                <img 
+                  src={profile.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${profile.displayName}`} 
+                  alt="Profile" 
+                  className="w-full h-full object-cover" 
+                />
+             </div>
+             <div className="flex flex-col justify-center">
+                <div className="flex items-center gap-2">
+                   <h2 className="text-xl font-bold uppercase">{profile.displayName}</h2>
+                   <div className="w-4 h-4 rounded-full bg-[#1da1f2] text-white flex items-center justify-center text-[10px]">♂</div>
+                   <button onClick={onEditProfile} className="ml-2 px-3 py-1 rounded-full border border-zinc-700 text-zinc-400 text-xs font-medium flex items-center gap-1 hover:bg-zinc-800">
+                     <Edit size={12} /> Edit
+                   </button>
+                </div>
+                <div className="flex items-center gap-3 mt-1 text-zinc-400 text-sm">
+                   <div className="flex items-center gap-1">
+                      <span>ID:{profile.shortId || '-------'}</span>
+                      <button onClick={handleCopyId} className="hover:text-white" title="Copy ID">
+                         {copied ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
+                      </button>
+                   </div>
+                </div>
+                <div className="flex gap-2 mt-1.5">
+                   <span className="text-yellow-500 text-xs">🌙</span>
+                   <span className="text-zinc-500 text-xs">❓</span>
+                </div>
+             </div>
+          </div>
 
-      <div className="flex flex-col items-center mb-10 w-full max-w-lg cursor-pointer" onClick={() => setShowPublicProfile(true)}>
-         <div className="relative mb-4 group">
-            <div className="w-40 h-40 rounded-full border-[6px] border-zinc-800 shadow-2xl p-1 bg-gradient-to-b from-zinc-700 to-zinc-900 group-hover:scale-105 transition-transform duration-500">
-               <img 
-                 src={profile.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${profile.displayName}`} 
-                 alt="Profile" 
-                 className="w-full h-full rounded-full object-cover" 
-               />
-            </div>
-       </div>
+          {/* Banner: Join a Tribe */}
+          <div 
+             className="w-full bg-gradient-to-r from-[#1a1f2e] to-[#262f45] rounded-2xl p-4 mb-6 flex items-center justify-between border border-white/5 relative overflow-hidden cursor-pointer"
+             onClick={() => setActiveTab('clubs')}
+          >
+             <div className="absolute right-0 top-0 bottom-0 w-32 bg-white/5 skew-x-12 translate-x-8" />
+             <div className="absolute right-10 top-0 bottom-0 w-8 bg-white/5 skew-x-12 translate-x-4" />
+             
+             <div className="flex items-center gap-4 relative z-10">
+                <div className="w-12 h-12 bg-[#42a5f5] rounded-xl flex items-center justify-center text-white shadow-[0_0_15px_rgba(66,165,245,0.4)]">
+                   <Crown size={24} />
+                </div>
+                <div>
+                   <h3 className="font-bold text-lg">Join a Tribe</h3>
+                   <p className="text-xs text-zinc-400">Meet friends and get bonus</p>
+                </div>
+             </div>
+             <button className="relative z-10 bg-[#42a5f5] text-white px-6 py-2 rounded-full font-bold shadow-md hover:bg-[#2196f3] transition-colors">
+                Go
+             </button>
+          </div>
 
-       <div className="text-center w-full">
-            <div className="flex items-center justify-center gap-2">
-               <h2 className="text-3xl font-black uppercase tracking-tight">{profile.displayName}</h2>
-               <button onClick={(e) => { e.stopPropagation(); onEditProfile(); }} className="text-zinc-500 hover:text-white"><Edit size={16} /></button>
-               {profile.country && COUNTRY_MAP[profile.country] ? (
-                  <span className="flex items-center gap-1.5 bg-zinc-850 px-2 rounded-full border border-white/5 text-[9px] font-black uppercase tracking-wider text-zinc-300">
-                    <span>{COUNTRY_MAP[profile.country].flag}</span>
-                    <span>{COUNTRY_MAP[profile.country].name}</span>
-                  </span>
-                ) : (
-                  <span className="text-lg">🌍</span>
-                )}
-            </div>
-            <div className="flex items-center justify-center gap-2 mt-1">
-               <p className="text-xs font-black text-white/40 uppercase tracking-[0.3em]">ID: {profile.shortId || '-------'}</p>
-               <button 
-                 onClick={(e) => { e.stopPropagation(); handleCopyId(); }}
-                 className="p-1 px-2.5 rounded-lg bg-zinc-900 border border-white/5 hover:bg-zinc-800 hover:border-white/10 active:scale-95 text-zinc-400 hover:text-white transition-all flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest"
-                 title="Copy ID"
-               >
-                 {copied ? (
-                   <>
-                     <Check size={11} className="text-emerald-500 animate-[bounce_0.2s_ease-out-in]" />
-                     <span className="text-emerald-400">Copied</span>
-                   </>
-                 ) : (
-                   <>
-                     <Copy size={11} />
-                     <span>Copy</span>
-                   </>
-                 )}
-               </button>
-            </div>
+          {/* Settings Menu List */}
+          <div className="w-full flex flex-col">
+             {menuItems.map((item, index) => (
+                <div 
+                  key={item.id} 
+                  className={`flex items-center justify-between py-4 cursor-pointer hover:bg-white/5 transition-colors px-2 rounded-lg ${index !== menuItems.length - 1 ? 'border-b border-white/5' : ''}`}
+                  onClick={item.onClick}
+                >
+                   <div className="flex items-center gap-4">
+                      <div className="w-6 flex justify-center">{item.icon}</div>
+                      <span className="font-medium text-[15px]">{item.label}</span>
+                   </div>
+                   <div className="flex items-center gap-2">
+                      {item.value && <span className="text-xs text-zinc-500">{item.value}</span>}
+                      <ChevronRight size={18} className="text-zinc-600" />
+                   </div>
+                </div>
+             ))}
+          </div>
 
-            <div className="mt-4 flex items-center justify-center gap-3">
-               <div className="bg-[#42a5f5]/20 text-[#42a5f5] p-1.5 rounded-full px-3 flex items-center gap-1 shadow-sm border border-[#42a5f5]/30">
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2a5 5 0 00-5 5c0 2.39 1.68 4.38 3.9 4.9V14H9v2h1.9v4h2.2v-4H15v-2h-1.9v-2.1A5.002 5.002 0 0012 2zm0 8a3 3 0 110-6 3 3 0 010 6z" /></svg>
-               </div>
-               <div className="bg-white/5 text-white/60 text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 border border-white/10">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                  13 Days
-               </div>
-            </div>
-
-            <div className="mt-4 flex flex-col items-center justify-center gap-1.5 cursor-pointer" onClick={(e) => { e.stopPropagation(); setShowCharmLevel(true); }}>
-               <LevelBadge level={profile.level || 1} />
-               <span className="text-[10px] font-black text-yellow-500/80 uppercase tracking-widest leading-none drop-shadow-sm">{t.level}</span>
-            </div>
-         </div>
-      </div>
-
-      {profile.isAdmin && (
-         <div className="w-full max-w-lg px-2 mb-6 z-10" onClick={(e) => e.stopPropagation()}>
-            <button className="w-full py-4 bg-[#8b0000] border border-white/10 shadow-[0_0_15px_rgba(139,0,0,0.4)] hover:bg-[#a00000] text-white text-xs font-black rounded-2xl transition-all uppercase tracking-widest flex items-center justify-center gap-2">
-               <ShieldCheck size={18} /> Admin Panel
-            </button>
-         </div>
-      )}
-
-      <div className="w-full max-w-lg grid grid-cols-2 gap-3 mb-8">
-         <button className="flex flex-col items-center justify-center p-6 bg-zinc-900/50 border border-white/5 rounded-2xl hover:bg-zinc-800/50 transition-colors group">
-            <div className="w-12 h-12 mb-3 flex items-center justify-center text-blue-400"><Gift size={24} /></div>
-            <span className="text-sm font-bold">{t.sendGift}</span>
-         </button>
-         <button className="flex flex-col items-center justify-center p-6 bg-zinc-900/50 border border-white/5 rounded-2xl hover:bg-zinc-800/50 transition-colors group" onClick={() => setActiveTab('my-items')}>
-            <div className="w-12 h-12 mb-3 flex items-center justify-center text-purple-400"><ShoppingBag size={24} /></div>
-            <span className="text-sm font-bold">{t.myItems}</span>
-         </button>
-      </div>
-
-      <div className="w-full max-w-lg mb-8">
-         <div className="flex items-center justify-between px-2 mb-4">
-            <h3 className="text-lg font-black">{t.badges}</h3>
-            <button className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest px-3 py-1 bg-white/5 rounded-lg">{t.allBadges}</button>
-         </div>
-         <div className="bg-zinc-900/50 border border-white/5 rounded-3xl p-6">
-            <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar opacity-30 grayscale cursor-not-allowed">
-               {Array.from({ length: 8 }).map((_, i) => (
-                 <div key={i} className="flex-shrink-0 w-12 h-12 rounded-full bg-zinc-800 flex items-center justify-center border-2 border-zinc-700">
-                    <Star size={20} />
-                 </div>
-               ))}
-            </div>
-            <div className="mt-4 p-4 bg-zinc-800/50 rounded-2xl flex items-center gap-3 border border-zinc-700/50">
-               <div className="flex-1 text-[10px] font-bold text-zinc-400 text-center uppercase tracking-wider">{t.verifyAccount}</div>
-            </div>
-         </div>
-      </div>
-
-      <div className="w-full max-w-lg mb-8">
-         <div className="flex items-center justify-between px-2 mb-4">
-            <h3 className="text-lg font-black">{t.gifts}</h3>
-         </div>
-         <div className="bg-zinc-900/50 border border-white/5 rounded-3xl p-6">
-            <div className="flex gap-3 mb-6">
-               <button className="flex-1 py-3 bg-white/5 rounded-xl font-bold text-sm text-zinc-300">{t.giftsWall}</button>
-               <button className="flex-1 py-3 bg-green-600 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-2"><Gift size={16} /> {t.sendGift}</button>
-            </div>
-            <div className="grid grid-cols-4 gap-2 mb-6">
-               {Array.from({ length: 4 }).map((_, i) => (
-                 <div key={i} className="aspect-square bg-white/5 rounded-xl border border-white/5" />
-               ))}
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-               <div className="bg-white/5 p-3 rounded-xl border border-white/5">
-                  <p className="text-[10px] font-bold text-zinc-500 uppercase">{t.pointsReceived}</p>
-                  <p className="text-lg font-black text-green-500">0</p>
-               </div>
-               <div className="bg-white/5 p-3 rounded-xl border border-white/5">
-                  <p className="text-[10px] font-bold text-zinc-500 uppercase">{t.pointsSent}</p>
-                  <p className="text-lg font-black text-blue-500">0</p>
-               </div>
-            </div>
-         </div>
-      </div>
-
-      <div id="player-num-marker" className="mt-4 mb-20 text-center">
-         <p className="text-xs font-bold text-zinc-600 uppercase tracking-[0.2em] mb-1">{t.playerNumber}: {user.uid.slice(0, 10).replace(/[^0-9]/g, '')}</p>
       </div>
       <TapBar activeTab="profile" setActiveTab={setActiveTab} language={language} />
     </div>
-    <AnimatePresence>
-      {showCharmLevel && (
-        <CharmLevelView profile={profile} onBack={() => setShowCharmLevel(false)} />
-      )}
-    </AnimatePresence>
-    <AnimatePresence>
-      {showPublicProfile && (
-        <PublicProfileView 
-          uid={user.uid} 
-          onBack={() => setShowPublicProfile(false)} 
-          onAddFriend={() => { alert('Cannot add yourself!'); }} 
-          onChat={() => { alert('Cannot chat with yourself!'); }} 
-        />
-      )}
-    </AnimatePresence>
-    </>
   );
 }
 
@@ -3487,11 +3398,13 @@ function LobbyView({ user, profile, onStartSearch, onJoin, onLogout, onCreate, s
   const t = translations[language];
   const [games, setGames] = useState<Game[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [createStep, setCreateStep] = useState<1 | 2>(1);
   const [selectedGameForJoin, setSelectedGameForJoin] = useState<Game | null>(null);
   const [joinPassword, setJoinPassword] = useState('');
   const [roomName, setRoomName] = useState('');
   const [password, setPassword] = useState('');
-  const [selectedType, setSelectedType] = useState<'uno' | 'joker' | 'dama'>('uno');
+  const [selectedType, setSelectedType] = useState<'uno' | 'joker' | 'dama' | 'dobble' | 'tictactoe'>('uno');
+  const [showRoomList, setShowRoomList] = useState(false);
 
   useEffect(() => {
     const q = query(collection(db, 'games'), where('status', '==', 'waiting'), limit(10));
@@ -3530,7 +3443,10 @@ function LobbyView({ user, profile, onStartSearch, onJoin, onLogout, onCreate, s
          <button onClick={onOpenSearch} className="w-9 h-9 bg-white/10 hover:bg-white/20 transition-all rounded-full flex items-center justify-center text-white border border-white/5 shadow-md">
             <UserPlus size={18} strokeWidth={2} />
          </button>
-         <button onClick={() => setShowCreateModal(true)} className="px-4 py-2 bg-white/10 hover:bg-white/20 transition-all rounded-full text-white text-sm font-medium flex items-center gap-1 border border-white/5 shadow-md">
+         <button onClick={() => setShowRoomList(true)} className="w-9 h-9 bg-white/10 hover:bg-white/20 transition-all rounded-full flex items-center justify-center text-white border border-white/5 shadow-md">
+            <List size={18} strokeWidth={2} />
+         </button>
+         <button onClick={() => { setCreateStep(1); setShowCreateModal(true); }} className="px-4 py-2 bg-white/10 hover:bg-white/20 transition-all rounded-full text-white text-sm font-medium flex items-center gap-1 border border-white/5 shadow-md">
             Private room <Plus size={16} />
          </button>
       </header>
@@ -3647,57 +3563,37 @@ function LobbyView({ user, profile, onStartSearch, onJoin, onLogout, onCreate, s
              <div className="absolute -bottom-1 -left-2 bg-[#ff1744] text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-md z-30 tracking-widest border border-white/20">NEW</div>
            </div>
 
-           {/* Card 5: 8 Ball */}
+           {/* Card 5: Tic Tac Toe (O and X) */}
            <div 
-             onClick={() => alert("Coming Soon!")}
+             onClick={() => onStartSearch('tictactoe')}
              className="relative group cursor-pointer"
            >
-             <div className="w-full aspect-[4/5] rounded-[18px] bg-gradient-to-b from-[#2196f3] to-[#0d47a1] p-[3px] shadow-lg relative overflow-hidden transition-transform duration-300 active:scale-95">
-                <div className="w-full h-full rounded-[15px] bg-[#42a5f5] flex flex-col items-center justify-end relative shadow-inner overflow-hidden top-glow">
+             <div className="w-full aspect-[4/5] rounded-[18px] bg-gradient-to-b from-[#1976d2] to-[#0d47a1] p-[3px] shadow-lg relative overflow-hidden transition-transform duration-300 active:scale-95">
+                <div className="w-full h-full rounded-[15px] bg-[#1e88e5] flex flex-col items-center justify-end relative shadow-inner overflow-hidden top-glow">
                    <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/30 to-transparent pointer-events-none z-10" />
                    
                    <div className="flex-1 flex items-center justify-center w-full px-2 pt-4 relative z-20 mb-8">
-                      <div className="w-16 h-16 bg-[#1a1a1a] rounded-full shadow-lg border-[3px] border-gray-800 flex items-center justify-center relative drop-shadow-[0_4px_10px_rgba(0,0,0,0.5)]">
-                         <div className="absolute top-1 left-2 w-5 h-2.5 bg-white/40 rounded-full rotate-45 blur-[1px]" />
-                         <div className="w-7 h-7 bg-white rounded-full flex items-center justify-center">
-                           <span className="text-black font-black text-xs">8</span>
-                         </div>
-                      </div>
+                       <div className="grid grid-cols-3 gap-1 grid-rows-3 rotate-6 drop-shadow-xl p-2 bg-[#0d47a1]/40 rounded-xl relative border border-white/10">
+                          <div className="w-5 h-5 flex items-center justify-center"><span className="text-[#00e676] font-black text-sm">O</span></div>
+                          <div className="w-5 h-5 flex items-center justify-center border-b border-white/20"><span className="text-[#ff1744] font-black text-sm">X</span></div>
+                          <div className="w-5 h-5 flex items-center justify-center border-l border-white/20"><span className="text-[#00e676] font-black text-sm">O</span></div>
+                          <div className="w-5 h-5 flex items-center justify-center border-t border-white/20"></div>
+                          <div className="w-5 h-5 flex items-center justify-center border border-white/20 bg-white/5"><span className="text-[#ff1744] font-black text-sm drop-shadow-[0_0_5px_rgba(255,23,68,0.8)]">X</span></div>
+                          <div className="w-5 h-5 flex items-center justify-center border-b border-l border-white/20"></div>
+                          <div className="w-5 h-5 flex items-center justify-center border-r border-white/20"></div>
+                          <div className="w-5 h-5 flex items-center justify-center"></div>
+                          <div className="w-5 h-5 flex items-center justify-center"><span className="text-[#00e676] font-black text-sm">O</span></div>
+                       </div>
                    </div>
                    <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/40 to-transparent pt-8 pb-3 z-20 flex items-center justify-center">
-                     <h2 className="text-white font-black text-lg drop-shadow-md tracking-tight">8 Ball</h2>
-                   </div>
-                </div>
-             </div>
-           </div>
-
-           {/* Card 6: Backgammon */}
-           <div 
-             onClick={() => alert("Coming Soon!")}
-             className="relative group cursor-pointer"
-           >
-             <div className="w-full aspect-[4/5] rounded-[18px] bg-gradient-to-b from-[#ff9800] to-[#e65100] p-[3px] shadow-lg relative overflow-hidden transition-transform duration-300 active:scale-95">
-                <div className="w-full h-full rounded-[15px] bg-[#ffb74d] flex flex-col items-center justify-end relative shadow-inner overflow-hidden top-glow">
-                   <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/30 to-transparent pointer-events-none z-10" />
-                   
-                   <div className="flex-1 flex items-center justify-center w-full px-2 pt-4 relative z-20 mb-8">
-                      <div className="w-16 h-10 bg-[#5d4037] rounded-md border border-[#3e2723] flex items-center justify-center gap-1 drop-shadow-lg rotate-[-10deg]">
-                         <div className="w-6 h-6 bg-white rounded border border-[#e0e0e0] flex items-center justify-center">
-                            <div className="w-1 h-1 bg-black rounded-full" />
-                         </div>
-                         <div className="w-6 h-6 bg-white rounded border border-[#e0e0e0] grid grid-cols-2 gap-[1px] p-[2px]">
-                            <div className="w-[3px] h-[3px] bg-black rounded-full" />
-                            <div className="w-[3px] h-[3px] bg-black rounded-full justify-self-end col-start-2 row-start-2" />
-                         </div>
-                      </div>
-                   </div>
-                   <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/40 to-transparent pt-8 pb-3 z-20 flex items-center justify-center">
-                     <h2 className="text-white font-black text-lg drop-shadow-md tracking-tight leading-none text-center">Backgammon</h2>
+                     <h2 className="text-white font-black text-[16px] drop-shadow-md tracking-tight whitespace-nowrap">O and X</h2>
                    </div>
                 </div>
              </div>
              <div className="absolute -bottom-1 -left-2 bg-[#ff1744] text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-md z-30 tracking-widest border border-white/20">NEW</div>
            </div>
+
+           {/* Removed 8 Ball and Backgammon */}
 
         </div>
       </div>
@@ -3708,51 +3604,158 @@ function LobbyView({ user, profile, onStartSearch, onJoin, onLogout, onCreate, s
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[400] bg-black/80 flex items-center justify-center p-6 backdrop-blur-sm"
+            onClick={() => setShowCreateModal(false)}
+            className="fixed inset-0 z-[400] bg-black/60 flex items-end sm:items-center justify-center sm:p-6 backdrop-blur-sm"
           >
-            <div className="bg-[#111] p-8 rounded-3xl w-full max-w-sm border border-white/10 relative">
-              <button onClick={() => setShowCreateModal(false)} className="absolute top-4 right-4 p-2 text-white/50 hover:text-white bg-white/5 hover:bg-white/10 rounded-full transition-colors"><X size={20}/></button>
-              
-              <h2 className="text-2xl font-black text-white uppercase tracking-tighter mb-6 relative z-10">Private Room</h2>
-              
-              <div className="space-y-4 mb-6 relative z-10">
-                <input 
-                  type="text" 
-                  placeholder="Room Name" 
-                  value={roomName} 
-                  onChange={(e) => setRoomName(e.target.value)}
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white font-bold outline-none focus:border-yellow-500/50 transition-colors"
-                />
-                <input 
-                  type="password" 
-                  placeholder="Password (Optional)" 
-                  value={password} 
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white font-bold outline-none focus:border-yellow-500/50 transition-colors"
-                />
-                <select 
-                  value={selectedType}
-                  onChange={(e) => setSelectedType(e.target.value as any)}
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white font-bold outline-none focus:border-yellow-500/50 transition-colors appearance-none"
-                >
-                  <option value="uno" className="text-black">Still Standing</option>
-                  <option value="joker" className="text-black">KonKan</option>
-                  <option value="dobble" className="text-black">Dobble</option>
-                  <option value="dama" className="text-black">Domino 50</option>
-                </select>
+            <motion.div 
+              initial={{ y: "100%", opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: "100%", opacity: 0 }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              onClick={e => e.stopPropagation()}
+              className="bg-white w-full max-w-sm sm:max-w-md rounded-t-[30px] sm:rounded-3xl p-6 relative flex flex-col shadow-2xl"
+            >
+              {createStep === 1 ? (
+                 <>
+                    <div className="flex items-center justify-center relative mb-6">
+                       <h2 className="text-[20px] font-black text-black tracking-tight">Choose a game</h2>
+                       <button onClick={() => setShowCreateModal(false)} className="absolute right-0 p-1.5 text-zinc-600 hover:text-black hover:bg-zinc-100 rounded-full transition-colors"><X size={24}/></button>
+                    </div>
+                    
+                    <div className="text-left mb-6">
+                       <h3 className="text-[17px] font-black text-black">Casual Games</h3>
+                    </div>
+                    
+                    <div className="grid grid-cols-4 gap-y-6 gap-x-2 mb-2 pb-6">
+                      {[
+                        { id: 'dama', name: 'Domino 50', color: 'from-[#1976d2] to-[#0288d1]' },
+                        { id: 'dobble', name: 'Dobble', color: 'from-[#4caf50] to-[#2e7d32]' },
+                        { id: 'uno', name: 'Still Standing', color: 'from-[#2196f3] to-[#1565c0]' },
+                        { id: 'joker', name: 'Konkan', color: 'from-[#d32f2f] to-[#b71c1c]' },
+                        { id: 'tictactoe', name: 'O and X', color: 'from-[#00bcd4] to-[#00838f]' }
+                      ].map(g => (
+                         <div 
+                            key={g.id} 
+                            onClick={() => {
+                                  setSelectedType(g.id as any);
+                                  setCreateStep(2);
+                            }} 
+                            className="flex flex-col items-center gap-1.5 cursor-pointer group"
+                         >
+                            <div className={`w-[72px] h-[72px] rounded-full bg-gradient-to-br ${g.color} flex items-center justify-center relative overflow-hidden group-hover:scale-105 transition-transform shadow-md p-1`}>
+                               <div className="w-full h-full rounded-full bg-white/20 flex flex-col items-center justify-center">
+                                 {gameLogos?.[g.id] ? (
+                                    <img src={gameLogos[g.id]} alt={g.name} className="w-full h-full object-cover scale-150 drop-shadow-md" />
+                                 ) : (
+                                    <span className="text-white font-black text-[10px] uppercase text-center leading-tight drop-shadow-md px-1">{g.name}</span>
+                                 )}
+                               </div>
+                            </div>
+                            <span className="text-[11px] font-bold text-zinc-500 text-center leading-tight">{g.name}</span>
+                         </div>
+                      ))}
+                    </div>
+                 </>
+              ) : (
+                 <>
+                    <div className="flex items-center relative mb-6">
+                       <button onClick={() => setCreateStep(1)} className="absolute left-0 p-1.5 text-zinc-600 hover:text-black hover:bg-zinc-100 rounded-full transition-colors"><ArrowLeft size={24}/></button>
+                       <h2 className="text-[20px] font-black text-black tracking-tight w-full text-center">Private Room</h2>
+                       <button onClick={() => setShowCreateModal(false)} className="absolute right-0 p-1.5 text-zinc-600 hover:text-black hover:bg-zinc-100 rounded-full transition-colors"><X size={24}/></button>
+                    </div>
+
+                    <div className="space-y-4 mb-6">
+                      <input 
+                        type="text" 
+                        placeholder="Room Name" 
+                        value={roomName} 
+                        onChange={(e) => setRoomName(e.target.value)}
+                        className="w-full bg-zinc-100 border border-zinc-200 rounded-xl px-4 py-3 text-black font-bold outline-none focus:border-[#2196f3] transition-colors placeholder:text-zinc-400"
+                      />
+                      <input 
+                        type="password" 
+                        placeholder="Password (Optional)" 
+                        value={password} 
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="w-full bg-zinc-100 border border-zinc-200 rounded-xl px-4 py-3 text-black font-bold outline-none focus:border-[#2196f3] transition-colors placeholder:text-zinc-400"
+                      />
+                    </div>
+
+                    <button 
+                      onClick={() => {
+                        onCreate(roomName, password, selectedType);
+                        setShowCreateModal(false);
+                      }}
+                      disabled={!roomName.trim()}
+                      className="w-full py-4 bg-[#2196f3] text-white rounded-xl font-black uppercase tracking-widest shadow-lg hover:bg-[#1e88e5] transition-colors disabled:opacity-50"
+                    >
+                      Host Match
+                    </button>
+                 </>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showRoomList && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setShowRoomList(false)}
+            className="fixed inset-0 z-[400] bg-black/60 flex items-end sm:items-center justify-center sm:p-6 backdrop-blur-sm"
+          >
+            <motion.div 
+              initial={{ y: "100%", opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: "100%", opacity: 0 }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              onClick={e => e.stopPropagation()}
+              className="bg-white w-full max-w-sm sm:max-w-md rounded-t-[30px] sm:rounded-3xl p-6 relative flex flex-col shadow-2xl max-h-[80vh]"
+            >
+              <div className="flex items-center justify-center relative mb-6 shrink-0">
+                 <h2 className="text-[20px] font-black text-black tracking-tight">Active Rooms</h2>
+                 <button onClick={() => setShowRoomList(false)} className="absolute right-0 p-1.5 text-zinc-600 hover:text-black hover:bg-zinc-100 rounded-full transition-colors"><X size={24}/></button>
               </div>
 
-              <button 
-                onClick={() => {
-                  onCreate(roomName, password, selectedType);
-                  setShowCreateModal(false);
-                }}
-                disabled={!roomName.trim()}
-                className="w-full py-4 bg-yellow-500 text-black rounded-xl font-black uppercase tracking-widest shadow-lg hover:scale-105 transition-transform disabled:opacity-50 disabled:hover:scale-100"
-              >
-                Host Match
-              </button>
-            </div>
+              <div className="overflow-y-auto pr-2 space-y-3 flex-1 pb-4">
+                 {games.length === 0 ? (
+                    <div className="text-center py-8 text-zinc-500 font-bold">No active rooms found.</div>
+                 ) : (
+                    games.map(game => (
+                      <div key={game.id} className="bg-zinc-100 border border-zinc-200 rounded-2xl p-4 flex items-center justify-between shadow-sm">
+                         <div className="flex items-center gap-3 overflow-hidden">
+                            <div className="w-12 h-12 bg-white rounded-xl shadow-sm border border-zinc-200 flex items-center justify-center shrink-0 p-1">
+                              {gameLogos?.[game.gameType] ? (
+                                <img src={gameLogos[game.gameType]} alt={game.gameType} className="max-w-[100%] max-h-[100%] object-contain" />
+                              ) : (
+                                <span className="text-[10px] font-black uppercase text-zinc-800 tracking-tighter">{game.gameType}</span>
+                              )}
+                            </div>
+                            <div className="flex flex-col min-w-0">
+                               <span className="font-bold text-black text-[15px] truncate">{game.roomName || 'Room'}</span>
+                               <span className="text-xs font-bold text-zinc-500 flex items-center gap-1">
+                                  {game.isPrivate && <Lock size={10} className="inline" />}
+                                  {game.isPrivate ? 'Private' : 'Public'} • By {game.playerNames?.[game.players[0]] || 'Unknown'}
+                               </span>
+                            </div>
+                         </div>
+                         <button 
+                           onClick={() => {
+                             setShowRoomList(false);
+                             handleJoinClick(game);
+                           }}
+                           className="px-4 py-2 bg-[#2196f3] hover:bg-[#1e88e5] text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-md shrink-0 ml-3 transition-colors"
+                         >
+                           Join
+                         </button>
+                      </div>
+                    ))
+                 )}
+              </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -4193,7 +4196,9 @@ function GameView({ user, game, onLeave, profile, skinsMap, emojiItems, onOpenSe
       </AnimatePresence>
 
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-         {game.gameType === 'dobble' ? (
+         {game.gameType === 'tictactoe' ? (
+           <TicTacToeBoard game={game} user={user} opponentProfile={opponentProfile} opponentId={opponentId!} />
+         ) : game.gameType === 'dobble' ? (
            <DobbleBoard game={game} user={user} opponentProfile={opponentProfile} opponentId={opponentId} />
          ) : game.gameType === 'dama' ? (
            <DamaBoard game={game} user={user} onMove={handleDamaMove} opponentProfile={opponentProfile} opponentId={opponentId!} />
@@ -4205,7 +4210,7 @@ function GameView({ user, game, onLeave, profile, skinsMap, emojiItems, onOpenSe
       </div>
 
       {/* Footer / Hand Area */}
-      {game.gameType !== 'dama' && game.gameType !== 'dobble' && (
+      {game.gameType !== 'dama' && game.gameType !== 'dobble' && game.gameType !== 'tictactoe' && (
         <div className="absolute bottom-0 w-full h-44 bg-gradient-to-t from-[#0d0d0d] to-transparent z-[120]">
            <div className="flex h-full items-center px-6">
               <div className="flex flex-col items-center gap-1 -translate-y-4">
@@ -4513,6 +4518,104 @@ function JokerField({ game, user, drawCard, topCard, opponentProfile, opponentId
                </div>
             </div>
         </div>
+    </div>
+  );
+}
+
+function TicTacToeBoard({ game, user, opponentProfile, opponentId }: any) {
+  const board = game.board || Array(9).fill(null);
+  
+  const handleCellClick = (index: number) => {
+    if (board[index] || game.turn !== user.uid) return;
+    
+    const newBoard = [...board];
+    newBoard[index] = user.uid;
+    
+    const winPatterns = [
+      [0, 1, 2], [3, 4, 5], [6, 7, 8],
+      [0, 3, 6], [1, 4, 7], [2, 5, 8],
+      [0, 4, 8], [2, 4, 6]
+    ];
+    let isWin = false;
+    for (let p of winPatterns) {
+      if (newBoard[p[0]] === user.uid && newBoard[p[1]] === user.uid && newBoard[p[2]] === user.uid) {
+        isWin = true; break;
+      }
+    }
+    
+    const isDraw = !isWin && !newBoard.includes(null);
+    let updates: any = { board: newBoard, turn: opponentId, lastMoveAt: Date.now() };
+
+    let newScores = { ...game.scores };
+    if (isWin) {
+      updates.status = 'finished';
+      updates.winner = user.uid;
+      newScores[user.uid] = (newScores[user.uid] || 0) + 1;
+      updates.scores = newScores;
+    } else if (isDraw) {
+      updates.status = 'finished';
+      updates.winner = 'draw';
+    }
+    
+    updateDoc(doc(db, 'games', game.id), updates).catch(e => console.error("Error updating game", e));
+  };
+
+  const isHost = game.hostId === user.uid;
+  const mySymbol = isHost ? 'O' : 'X';
+  const oppSymbol = isHost ? 'X' : 'O';
+
+  return (
+    <div className="w-full flex flex-col items-center">
+       {/* Top Status */}
+       <div className="w-full max-w-sm flex items-center justify-between px-8 mb-16 relative">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-4xl font-black text-white">{game.scores?.[user.uid] || 0}-{game.scores?.[opponentId] || 0}</div>
+          
+          <div className="flex flex-col items-center z-10 w-24">
+             <div className={`w-20 h-20 rounded-full bg-[#1e2a5e] mb-2 relative overflow-hidden ${game.turn === user.uid ? 'border-4 border-yellow-500 shadow-[0_0_20px_rgba(234,179,8,0.5)]' : 'border border-blue-800'}`}>
+                <img src={user.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.uid}`} className="w-full h-full object-cover" />
+             </div>
+             <div className="text-white font-bold text-sm truncate w-full flex flex-col items-center">
+                <span>{game.playerNames[user.uid] || 'Me'}</span>
+                <span className={`text-xl font-black ${mySymbol === 'O' ? 'text-[#00e676]' : 'text-[#ff1744]'}`}>{mySymbol === 'O' ? '⭕' : '❌'}</span>
+             </div>
+             {game.turn === user.uid && <div className="text-white text-xs mt-2 -mb-6 relative font-medium">Your Turn <span className="absolute -bottom-3 left-1/2 -translate-x-1/2 rotate-180">▲</span></div>}
+          </div>
+
+          <div className="flex flex-col items-center z-10 w-24">
+             <div className={`w-20 h-20 rounded-full bg-[#1e2a5e] mb-2 relative overflow-hidden ${game.turn === opponentId ? 'border-4 border-yellow-500 shadow-[0_0_20px_rgba(234,179,8,0.5)]' : 'border border-blue-800'}`}>
+                <img src={opponentProfile?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${opponentId}`} className="w-full h-full object-cover" />
+             </div>
+             <div className="text-white font-bold text-sm truncate w-full flex flex-col items-center">
+                <span>{game.playerNames[opponentId] || 'User'}</span>
+                <span className={`text-xl font-black ${oppSymbol === 'O' ? 'text-[#00e676]' : 'text-[#ff1744]'}`}>{oppSymbol === 'O' ? '⭕' : '❌'}</span>
+             </div>
+             {game.turn === opponentId && <div className="text-white text-xs mt-2 -mb-6 relative font-medium">Their Turn <span className="absolute -bottom-3 left-1/2 -translate-x-1/2 rotate-180">▲</span></div>}
+          </div>
+       </div>
+
+       {/* Grid */}
+       <div className="w-[340px] h-[340px] grid grid-cols-3 gap-3 bg-[#172154] p-3 rounded-2xl shadow-2xl border border-white/5">
+          {board.map((cell: any, i: number) => {
+             const cellSymbol = cell === user.uid ? mySymbol : (cell === opponentId ? oppSymbol : null);
+             return (
+               <div 
+                 key={i} 
+                 onClick={() => handleCellClick(i)} 
+                 className={`bg-[#0b102b] rounded-xl flex items-center justify-center cursor-pointer transition-all shadow-inner ${cellSymbol ? '' : 'hover:bg-[#111739]'}`}
+               >
+                  {cellSymbol && (
+                     <motion.div 
+                       initial={{ scale: 0.5, opacity: 0 }} 
+                       animate={{ scale: 1, opacity: 1 }}
+                       className={`text-6xl font-black ${cellSymbol === 'O' ? 'text-[#00e676]' : 'text-[#ff1744]'}`}
+                     >
+                        {cellSymbol === 'O' ? 'O' : 'X'}
+                     </motion.div>
+                  )}
+               </div>
+             );
+          })}
+       </div>
     </div>
   );
 }
@@ -5145,6 +5248,18 @@ function CardComponent({ card, index = 0, isPile = false, skinUrl }: { card: Car
     }
   };
 
+  const getUnoBgColor = (suit: string) => {
+    switch (suit) {
+      case 'red': return 'bg-[#d82a39] text-white';
+      case 'joker': return 'bg-[#ff4500] text-white';
+      case 'green': return 'bg-[#409c4d] text-white';
+      case 'blue': return 'bg-[#3b66c4] text-white';
+      case 'yellow': return 'bg-[#e4b31a] text-white';
+      case 'special': return 'bg-zinc-900 text-white';
+      default: return 'bg-white text-neutral-900';
+    }
+  };
+
   const getSuitIcon = (suit: string) => {
     switch (suit) {
       case 'hearts': return '♥';
@@ -5152,7 +5267,10 @@ function CardComponent({ card, index = 0, isPile = false, skinUrl }: { card: Car
       case 'clubs': return '♣';
       case 'spades': return '♠';
       case 'joker': return '★';
-      case 'red': case 'yellow': case 'green': case 'blue': return '●';
+      case 'red': return '♥';
+      case 'yellow': return '♦';
+      case 'green': return '♣';
+      case 'blue': return '♠';
       case 'special': return '✦';
       default: return '';
     }
@@ -5179,47 +5297,37 @@ function CardComponent({ card, index = 0, isPile = false, skinUrl }: { card: Car
         zIndex: index + 10,
         position: isPile ? 'absolute' : 'relative'
       }}
-      className={`relative w-20 h-28 sm:w-28 sm:h-40 rounded-lg sm:rounded-xl border-[0.5px] border-black/10 bg-white shadow-[0_4px_12px_rgba(0,0,0,0.15)] flex flex-col items-center justify-between p-1.5 sm:p-2 select-none overflow-hidden ${getSuitColor(card.suit)}`}
+      className={`relative w-20 h-28 sm:w-28 sm:h-40 rounded-lg sm:rounded-xl border-[0.5px] shadow-[0_4px_12px_rgba(0,0,0,0.15)] flex flex-col items-center justify-between p-1.5 sm:p-2 select-none overflow-hidden hover:-translate-y-2 transition-transform cursor-pointer
+      ${isUno ? getUnoBgColor(card.suit) + ' border-white/20' : getSuitColor(card.suit) + ' bg-white border-black/10'}`}
     >
-      {/* Texture/Skin Layer */}
-      <div className="absolute inset-0 bg-white" />
-      {skinUrl && (
+      {/* Texture Layer */}
+      {skinUrl && !isUno && (
         <div className="absolute inset-0 opacity-[0.05] pointer-events-none grayscale brightness-150 mix-blend-multiply">
            <img src={skinUrl} alt="" className="w-full h-full object-cover" />
         </div>
       )}
-      <div className={`absolute inset-[2px] sm:inset-[4px] border rounded-md sm:rounded-lg pointer-events-none z-0 ${skinUrl ? 'border-yellow-500/20' : 'border-black/5'}`} />
+      <div className={`absolute inset-[2px] sm:inset-[4px] border rounded-md sm:rounded-lg pointer-events-none z-0 ${skinUrl && !isUno ? 'border-yellow-500/20' : 'border-white/10'}`} />
 
       {/* Top Left Corner */}
-      <div className="absolute top-1 left-1.5 flex flex-col items-center leading-none z-10">
-        <span className="font-sans font-black text-sm sm:text-lg">{getRankDisplay(card.rank)}</span>
-        <span className="text-xs sm:text-sm -mt-0.5">{getSuitIcon(card.suit)}</span>
+      <div className="absolute top-1.5 left-2 flex flex-col items-center leading-none z-10 drop-shadow-md">
+        <span className="font-sans font-black text-sm sm:text-2xl">{getRankDisplay(card.rank)}</span>
+        <span className="text-sm sm:text-lg sm:mt-1">{getSuitIcon(card.suit)}</span>
       </div>
 
-      {/* Middle icon */}
-      <div className="flex-1 flex items-center justify-center z-10">
-        <div className={`
-          ${isUno ? 'w-16 h-16 sm:w-20 sm:h-20 rotate-12 rounded-full border-4 border-current flex items-center justify-center translate-y-1' : ''}
-          drop-shadow-sm
-        `}>
-          <span className={`${isUno ? 'text-4xl sm:text-5xl -rotate-12 italic font-black' : 'text-4xl sm:text-6xl'}`}>
-             {getSuitIcon(card.suit)}
+      {/* Middle Center icon */}
+      <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none opacity-50 sm:opacity-100">
+        <div className={`flex flex-col items-center ${isUno ? 'scale-150 -rotate-12 translate-x-4 translate-y-8 drop-shadow-xl' : 'drop-shadow-sm'}`}>
+          <span className={`${isUno ? 'text-[80px] sm:text-[120px] font-black leading-none italic opacity-20 outline-text z-0' : 'text-5xl sm:text-7xl'}`}>
+             {isUno ? getRankDisplay(card.rank) : getSuitIcon(card.suit)}
           </span>
         </div>
       </div>
 
       {/* Bottom Right Corner (inverted) */}
-      <div className="absolute bottom-1 right-1.5 flex flex-col items-center leading-none z-10 rotate-180">
-        <span className="font-sans font-black text-sm sm:text-lg">{getRankDisplay(card.rank)}</span>
-        <span className="text-xs sm:text-sm -mt-0.5">{getSuitIcon(card.suit)}</span>
+      <div className="absolute bottom-1.5 right-2 flex flex-col items-center leading-none z-20 rotate-180 drop-shadow-md">
+        <span className="font-sans font-black text-sm sm:text-2xl">{getRankDisplay(card.rank)}</span>
+        <span className="text-sm sm:text-lg sm:mt-1">{getSuitIcon(card.suit)}</span>
       </div>
-      
-      {/* Center watermark or Skin name */}
-      {!isUno && !skinUrl && (
-        <div className="absolute inset-0 flex items-center justify-center opacity-[0.03] pointer-events-none rotate-45 select-none">
-          <div className="text-6xl font-black italic">PRO</div>
-        </div>
-      )}
     </motion.div>
   );
 }

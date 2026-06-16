@@ -104,7 +104,7 @@ export interface Game {
   scores: Record<string, number>;
   winner: string | null;
   hostId: string;
-  gameType: 'uno' | 'joker' | 'dama' | 'dobble';
+  gameType: 'uno' | 'joker' | 'dama' | 'dobble' | 'tictactoe';
   board?: (string | null)[]; // Added for Dama (flattened for Firestore)
   createdAt: number;
   lastMoveAt: number;
