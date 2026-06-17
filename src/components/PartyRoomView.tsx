@@ -1,27 +1,124 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ChevronLeft, MoreHorizontal, Maximize2, Mic, MicOff, Menu, Gift, MessageSquare, User, Volume2, Plus, Smile } from 'lucide-react';
+import { db } from '../lib/firebase';
+import { doc, collection, onSnapshot, updateDoc, setDoc, deleteDoc, serverTimestamp, runTransaction, query, orderBy, limit } from 'firebase/firestore';
 
-export function PartyRoomView({ user, profile, onBack }: any) {
+export function PartyRoomView({ user, profile, roomId, onBack }: any) {
   const [showGift, setShowGift] = useState(false);
   const [mySeat, setMySeat] = useState<number | null>(null);
-  const [banners, setBanners] = useState<{id: number, gift: any, timestamp: number}[]>([]);
+  const [roomData, setRoomData] = useState<any>(null);
+  const [seats, setSeats] = useState<Record<string, any>>({});
+  const [banners, setBanners] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (!roomId || !user) return;
+    
+    if (roomId === 'local-room-1') {
+      setRoomData({ title: profile?.displayName ? `${profile.displayName}'s Room` : 'My Party Room', ownerId: user.uid, type: 'audio' });
+      return;
+    }
+    
+    // Room
+    const unRoom = onSnapshot(doc(db, 'partyRooms', roomId), (doc) => {
+      setRoomData(doc.data());
+    }, (error) => console.error(error));
+
+    // Seats
+    const unSeats = onSnapshot(collection(db, `partyRooms/${roomId}/seats`), (snapshot) => {
+      const s: any = {};
+      snapshot.forEach(d => { s[d.id] = d.data(); });
+      setSeats(s);
+      
+      // Auto detect user seat
+      let mySet = null;
+      for (const [id, sd] of Object.entries(s)) {
+        if ((sd as any).userId === user?.uid) mySet = parseInt(id);
+      }
+      setMySeat(mySet);
+    }, (error) => console.error(error));
+
+    // Banners
+    const unBanners = onSnapshot(query(collection(db, `partyRooms/${roomId}/banners`), orderBy('createdAt', 'desc'), limit(5)), (snapshot) => {
+      const serverBanners = snapshot.docs.map(d => ({id: d.id, ...d.data()})).reverse();
+      
+      // We only want banners that were created in the last 10 seconds to show up initially,
+      // and then we will cull them on the client side using a timer
+      const recent = serverBanners.filter(b => Date.now() - (b as any).createdAt < 10000);
+      setBanners(recent);
+    }, (error) => console.error(error));
+
+    return () => { unRoom(); unSeats(); unBanners(); };
+  }, [roomId, user?.uid]);
+
+  // Cull old banners locally 
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setBanners(prev => prev.filter(b => Date.now() - b.createdAt < 7000));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   const formatId = profile?.shortId || user?.uid?.substring(0, 8);
-  const seats = Array.from({ length: 16 }).map((_, i) => ({ id: i + 1, occupied: false }));
+  const displaySeats = Array.from({ length: 16 }).map((_, i) => ({ id: i + 1, occupied: !!seats[i + 1], data: seats[i + 1] }));
 
   const chatMessages = [
     { type: 'announcement', text: 'بەخێربێیت! با بەیەکەوە گفتوگۆ بکەین!' },
     { type: 'system', text: 'Welcome to Yari Konkan. Please respect each other and chat politely.' },
-    { type: 'event', text: `The owner @${profile?.displayName || 'ONLY ONE'} entered the room` }
+    { type: 'event', text: `The owner @${roomData?.title || 'ONLY ONE'} entered the room` }
   ];
 
-  const handleSendGift = (gift: any) => {
-    const newBanner = { id: Date.now(), gift, timestamp: Date.now() };
-    setBanners(prev => [...prev, newBanner]);
-    setTimeout(() => {
-      setBanners(prev => prev.filter(b => b.id !== newBanner.id));
-    }, 3500);
+  const handleSendGift = async (gift: any) => {
+    if (!user || !profile || !roomId) return;
+    try {
+      await runTransaction(db, async (trans) => {
+        const userRef = doc(db, 'users', user.uid);
+        const uSnap = await trans.get(userRef);
+        if (!uSnap.exists()) return;
+        const currentChips = uSnap.data().chips || 0;
+        if (currentChips < gift.price) throw new Error("Not enough chips");
+        trans.update(userRef, { chips: currentChips - gift.price });
+
+        const newBannerRef = doc(collection(db, `partyRooms/${roomId}/banners`));
+        trans.set(newBannerRef, {
+          senderId: user.uid,
+          senderName: profile.displayName || 'Guest',
+          giftId: gift.id || 1,
+          giftName: gift.name,
+          giftPrice: gift.price,
+          giftImage: gift.image,
+          createdAt: Date.now() // Transaction requires integer here instead of serverTimestamp sometimes to easily sort if fallback
+        });
+      });
+      setShowGift(false);
+    } catch (err) {
+      console.error("Gifting failed", err);
+      alert("Requires more coins!");
+    }
+  };
+
+  const handleTakeSeat = async (seatId: number) => {
+    if (!user || !roomId) return;
+    try {
+      await setDoc(doc(db, `partyRooms/${roomId}/seats`, seatId.toString()), {
+        userId: user.uid,
+        userName: profile?.displayName || 'Guest',
+        userPhoto: profile?.photoURL || '',
+        createdAt: Date.now()
+      });
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleLeaveSeat = async (seatId: number) => {
+    if (!user || !roomId) return;
+    if (seats[seatId]?.userId !== user.uid) return;
+    try {
+      await deleteDoc(doc(db, `partyRooms/${roomId}/seats`, seatId.toString()));
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   return (
@@ -80,12 +177,12 @@ export function PartyRoomView({ user, profile, onBack }: any) {
 
       {/* Grid */}
       <div className="relative z-10 grid grid-cols-4 gap-x-2 gap-y-3 sm:gap-y-6 px-6 mt-4 sm:mt-8 max-w-sm mx-auto w-full shrink-0">
-         {seats.map(seat => (
+         {displaySeats.map(seat => (
             <div key={seat.id} className="flex flex-col items-center gap-2 relative">
                {seat.id === 1 ? (
                  <div className="relative">
-                   <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full overflow-hidden border-2 border-[#ffcc00] shadow-[0_0_15px_rgba(255,204,0,0.4)] relative p-0.5">
-                     <img src={profile?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.uid}`} className="w-full h-full object-cover rounded-full" alt="Host" />
+                   <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full overflow-hidden border-2 border-[#ffcc00] shadow-[0_0_15px_rgba(255,204,0,0.4)] relative p-0.5 bg-black">
+                     <img src={roomData?.image || "https://images.unsplash.com/photo-1574267432553-4b4628081524?w=150&h=150&fit=crop"} className="w-full h-full object-cover rounded-full" alt="Host" />
                    </div>
                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-8 h-8 flex items-center justify-center">
                      <span className="text-2xl drop-shadow-md">👑</span>
@@ -94,22 +191,22 @@ export function PartyRoomView({ user, profile, onBack }: any) {
                      <MicOff size={12} className="text-white/80" strokeWidth={2.5} />
                    </div>
                  </div>
-               ) : mySeat === seat.id ? (
-                 <div className="relative cursor-pointer active:scale-95 transition-transform" onClick={() => setMySeat(null)}>
-                   <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full overflow-hidden border-2 border-green-500 shadow-[0_0_15px_rgba(34,197,94,0.3)] relative">
-                     <img src={profile?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.uid}`} className="w-full h-full object-cover" alt="Me" />
+               ) : seat.data ? (
+                 <div className="relative cursor-pointer active:scale-95 transition-transform" onClick={() => mySeat === seat.id && handleLeaveSeat(seat.id)}>
+                   <div className={`w-12 h-12 sm:w-16 sm:h-16 rounded-full overflow-hidden border-2 ${mySeat === seat.id ? 'border-green-500 shadow-[0_0_15px_rgba(34,197,94,0.3)]' : 'border-white/20'} relative bg-black`}>
+                     <img src={seat.data.userPhoto || "https://api.dicebear.com/7.x/avataaars/svg?seed=U"} className="w-full h-full object-cover" alt="User" />
                    </div>
                    <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-black/60 backdrop-blur-sm rounded-full flex items-center justify-center border border-white/20 shadow-md">
-                     <Mic size={10} className="text-green-400" />
+                     {mySeat === seat.id ? <Mic size={10} className="text-green-400" /> : <MicOff size={10} className="text-white/50" />}
                    </div>
                  </div>
                ) : (
-                 <button onClick={() => setMySeat(seat.id)} className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-red-900/30 backdrop-blur-sm border border-red-500/20 shadow-inner flex items-center justify-center active:bg-red-800/40 transition-colors">
+                 <button onClick={() => handleTakeSeat(seat.id)} className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-red-900/30 backdrop-blur-sm border border-red-500/20 shadow-inner flex items-center justify-center active:bg-red-800/40 transition-colors">
                     <Plus size={20} className="text-white/40 font-light" strokeWidth={1.5} />
                  </button>
                )}
-               <span className={`text-[11px] font-bold drop-shadow-md tracking-wider max-w-[50px] truncate ${seat.id === 1 || mySeat === seat.id ? 'text-white' : 'text-white/50'}`}>
-                 {seat.id === 1 ? (profile?.displayName || 'ONLY ONE') : mySeat === seat.id ? (profile?.displayName || 'Me') : seat.id}
+               <span className={`text-[11px] font-bold drop-shadow-md tracking-wider max-w-[50px] truncate ${seat.id === 1 || seat.data ? 'text-white' : 'text-white/50'}`}>
+                 {seat.id === 1 ? 'Host' : seat.data ? (seat.data.userName || 'Guest') : seat.id}
                </span>
             </div>
          ))}
@@ -125,7 +222,7 @@ export function PartyRoomView({ user, profile, onBack }: any) {
                    key={banner.id}
                    initial={{ x: '100%', opacity: 0 }}
                    animate={{ x: 0, opacity: 1 }}
-                   exit={{ y: -50, opacity: 0 }}
+                   exit={{ opacity: 0 }}
                    transition={{ type: "spring", stiffness: 200, damping: 25 }}
                    className="bg-gradient-to-r from-blue-900/40 via-blue-700/80 to-indigo-600/90 rounded-full flex items-center pr-2 pl-6 py-1 drop-shadow-2xl backdrop-blur-md max-w-full float-right border border-white/10"
                    style={{ minWidth: '280px' }}
@@ -134,16 +231,16 @@ export function PartyRoomView({ user, profile, onBack }: any) {
                        1 x
                     </span>
                     <div className="absolute left-10 w-24 h-24 pointer-events-none z-20 flex items-center justify-center -translate-y-1">
-                       <img src={banner.gift.image} className="w-full h-full object-contain filter drop-shadow-[0_0_15px_rgba(255,255,255,0.4)] mix-blend-screen scale-[1.3]" />
+                       <img src={banner.giftImage || ''} className="w-full h-full object-contain filter drop-shadow-[0_0_15px_rgba(255,255,255,0.4)] mix-blend-screen scale-[1.3]" alt="" />
                     </div>
                     
                     <div className="flex flex-col items-center justify-center pl-[52px] pr-2 h-full flex-1">
-                       <span className="text-white font-bold text-[15px] drop-shadow-md tracking-wide leading-tight line-clamp-1">{profile?.displayName || 'ONLY ONE'}</span>
-                       <span className="text-yellow-300 font-bold text-[13px] drop-shadow-md whitespace-nowrap">اهداء مميز</span>
+                       <span className="text-white font-bold text-[15px] drop-shadow-md tracking-wide leading-tight line-clamp-1">{banner.senderName || 'Somebody'}</span>
+                       <span className="text-yellow-300 font-bold text-[13px] drop-shadow-md whitespace-nowrap">{banner.giftName || 'Gift'}</span>
                     </div>
                     
                     <div className="w-[46px] h-[46px] rounded-full overflow-hidden border-2 border-indigo-300 shrink-0 shadow-md">
-                       <img src={profile?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.uid}`} className="w-full h-full object-cover bg-white" />
+                       <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${banner.senderId}`} className="w-full h-full object-cover bg-white" alt="" />
                     </div>
                  </motion.div>
                ))}

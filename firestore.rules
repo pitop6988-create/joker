@@ -36,6 +36,26 @@ service cloud.firestore {
         && data.createdAt is int;
     }
 
+    function isValidPartyRoom(data) {
+      return data.ownerId is string && data.ownerId.size() <= 128
+        && data.title is string && data.title.size() <= 100
+        && (!('image' in data) || (data.image is string && data.image.size() <= 1000))
+        && (!('viewers' in data) || data.viewers is number)
+        && data.type in ['audio', 'pk']
+        && data.createdAt is int;
+    }
+
+    function isValidPartyRoomSeat(data) {
+      return data.userId is string && data.userId.size() <= 128
+        && data.createdAt is int;
+    }
+
+    function isValidPartyRoomBanner(data) {
+      return data.senderId is string && data.senderId.size() <= 128
+        && data.giftId is number
+        && data.giftPrice is number
+        && data.createdAt is int;
+    }
     function isValidGame(data) {
       return data.status in ['waiting', 'active', 'finished']
         && data.players is list && data.players.size() <= 2
@@ -155,6 +175,28 @@ service cloud.firestore {
         allow read: if isSignedIn();
         allow create: if isSignedIn() && request.auth.uid in get(/databases/$(database)/documents/games/$(gameId)).data.players
           && incoming().userId == request.auth.uid && incoming().text is string && incoming().text.size() <= 1000;
+      }
+    }
+
+    // Party Rooms
+    match /partyRooms/{roomId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(roomId) && isValidPartyRoom(incoming()) && incoming().ownerId == request.auth.uid;
+      allow update: if isSignedIn() && isValidPartyRoom(incoming()) && (
+        (incoming().ownerId == existing().ownerId)
+      );
+      allow delete: if isSignedIn() && existing().ownerId == request.auth.uid;
+
+      match /seats/{seatId} {
+        allow read: if isSignedIn();
+        allow create: if isSignedIn() && isValidId(seatId) && isValidPartyRoomSeat(incoming()) && incoming().userId == request.auth.uid;
+        allow update: if isSignedIn() && existing().userId == request.auth.uid && isValidPartyRoomSeat(incoming());
+        allow delete: if isSignedIn() && (existing().userId == request.auth.uid || get(/databases/$(database)/documents/partyRooms/$(roomId)).data.ownerId == request.auth.uid);
+      }
+
+      match /banners/{bannerId} {
+        allow read: if isSignedIn();
+        allow create: if isSignedIn() && isValidId(bannerId) && isValidPartyRoomBanner(incoming()) && incoming().senderId == request.auth.uid;
       }
     }
   }

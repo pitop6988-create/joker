@@ -1,85 +1,55 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, Plus } from 'lucide-react';
+import { collection, onSnapshot, addDoc, getDocs, where, query, orderBy } from 'firebase/firestore';
+import { db } from '../lib/firebase';
 
-export function ExploreView({ onBack, setActiveTab, language }: any) {
-  const [activeView, setActiveView] = useState<'Mine' | 'Explore'>('Mine');
+export function ExploreView({ onBack, setActiveTab, language, onJoinRoom, user, profile }: any) {
+  const [activeView, setActiveView] = useState<'Mine' | 'Explore'>('Explore');
   const [activeCategory, setActiveCategory] = useState('Recommend');
   const [mineCategory, setMineCategory] = useState('Following');
   const categories = ['Recommend', 'Game', 'PK', 'Video'];
 
-  const rooms = [
-    {
-      id: 0,
-      image: "https://images.unsplash.com/photo-1574267432553-4b4628081524?w=150&h=150&fit=crop",
-      title: "My Party Room",
-      badge1: "Host",
-      level: 1,
-      viewers: 1,
-      type: "audio"
-    },
-    {
-      id: 1,
-      image: "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&h=150&fit=crop",
-      title: "🍒 🍓 مائى من",
-      badge1: "6 🍒...",
-      level: 26,
-      viewers: 49,
-      type: "audio"
-    },
-    {
-      id: 2,
-      image: "https://images.unsplash.com/photo-1542204165-65bf26472b9b?w=150&h=150&fit=crop",
-      title: "مائە گەورەی کوردان",
-      badge1: "4 🇮🇶",
-      level: 22,
-      viewers: 39,
-      type: "pk"
-    },
-    {
-      id: 3,
-      image: "https://api.dicebear.com/7.x/avataaars/svg?seed=Eagle",
-      title: "Badinan ♛.",
-      level: 14,
-      viewers: 20,
-      type: "pk",
-      topBadge: "Hourly Top 1"
-    },
-    {
-      id: 4,
-      image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop",
-      title: "DUHOK ⁞",
-      subtitle: "بەخێربێیت! با بەيەکەوه گفتوگۆ...",
-      level: null,
-      viewers: 33,
-      type: "pk"
-    },
-    {
-      id: 5,
-      image: "https://images.unsplash.com/photo-1508804052814-cd3ba865a116?w=150&h=150&fit=crop",
-      title: "ATLAS ⁞ 🔱",
-      level: null,
-      viewers: 22,
-      type: "audio"
-    },
-    {
-      id: 6,
-      image: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=150&h=150&fit=crop",
-      title: "کورد 🦅 داڵـ",
-      subtitle: "بەخێربێیت بۆ ڕۆمی داڵ_کورد",
-      level: 13,
-      viewers: 21,
-      type: "audio"
-    },
-    {
-      id: 7,
-      image: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&h=150&fit=crop",
-      title: "Nil ژووری کۆمەڵایه‌تی",
-      subtitle: "بەخێربێیت! با بەيەکەوه گفتوگۆ...",
-      level: null,
-      viewers: 18,
-      type: "pk"
+  const [rooms, setRooms] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (!user) return;
+    const q = query(collection(db, 'partyRooms'), orderBy('createdAt', 'desc'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const fetchedRooms = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setRooms(fetchedRooms);
+    }, (error) => console.error(error));
+    return () => unsubscribe();
+  }, [user?.uid]);
+
+  const handleCreateRoom = async () => {
+    if (!user) return;
+    try {
+      // Find existing room by this user
+      const q = query(collection(db, 'partyRooms'), where('ownerId', '==', user.uid));
+      const snapshot = await getDocs(q);
+      
+      if (!snapshot.empty) {
+        onJoinRoom(snapshot.docs[0].id);
+        return;
+      }
+      
+      const roomRef = await addDoc(collection(db, 'partyRooms'), {
+        title: profile?.displayName ? `${profile.displayName}'s Room` : 'My Party Room',
+        ownerId: user.uid,
+        image: profile?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.uid}`,
+        type: 'audio',
+        viewers: 1,
+        createdAt: Date.now()
+      });
+      onJoinRoom(roomRef.id);
+    } catch (err) {
+      console.error("Failed to create/join room (quota limit?)", err);
+      onJoinRoom('local-room-1');
     }
-  ];
+  };
 
   return (
     <div className="min-h-screen bg-[#140b08] font-sans flex flex-col pb-24 text-white" style={{ backgroundImage: 'radial-gradient(circle at top right, #381a10, #140b08 50%)' }}>
@@ -127,7 +97,7 @@ export function ExploreView({ onBack, setActiveTab, language }: any) {
           {/* List */}
           <div className="px-4 space-y-3">
             {rooms.map((room) => (
-              <div key={room.id} onClick={() => setActiveTab('partyRoom')} className="bg-[#241f1c] rounded-[24px] p-3 flex gap-4 w-full relative active:scale-[0.98] transition-transform cursor-pointer shadow-sm">
+              <div key={room.id} onClick={() => onJoinRoom(room.id)} className="bg-[#241f1c] rounded-[24px] p-3 flex gap-4 w-full relative active:scale-[0.98] transition-transform cursor-pointer shadow-sm">
                 
                 {/* Image Box */}
                 <div className="relative w-[104px] h-[104px] shrink-0 rounded-2xl overflow-hidden bg-black/20">
@@ -168,7 +138,7 @@ export function ExploreView({ onBack, setActiveTab, language }: any) {
                         <span className="text-[#ff6b9e] mr-[1px]">P</span>K
                      </div>
                    )}
-                   {room.type !== 'pk' && room.id === 1 && (
+                   {room.type !== 'pk' && (
                      <div className="w-8 h-8 bg-gradient-to-br from-[#9c27b0] to-[#673ab7] rounded-full flex items-center justify-center border-2 border-[#ffcc00] shadow-sm relative">
                         <div className="w-3 h-3 bg-[#ffcc00] rounded-full shadow-inner" />
                      </div>
@@ -192,7 +162,7 @@ export function ExploreView({ onBack, setActiveTab, language }: any) {
         <>
           {/* Mine View */}
           <div className="px-5 mt-2 mb-6">
-            <div onClick={() => setActiveTab('partyRoom')} className="w-full bg-[#3a2820] bg-opacity-80 backdrop-blur-md rounded-[28px] p-5 flex items-center relative overflow-hidden border border-white/5 shadow-xl cursor-pointer active:scale-[0.98] transition-transform">
+            <div onClick={handleCreateRoom} className="w-full bg-[#3a2820] bg-opacity-80 backdrop-blur-md rounded-[28px] p-5 flex items-center relative overflow-hidden border border-white/5 shadow-xl cursor-pointer active:scale-[0.98] transition-transform">
               {/* Background Glow */}
               <div className="absolute top-0 right-0 w-32 h-32 bg-[#ff7242] opacity-10 blur-3xl rounded-full" />
               
@@ -233,6 +203,13 @@ export function ExploreView({ onBack, setActiveTab, language }: any) {
         </>
       )}
       
+      {/* Create Room FAB */}
+      <button 
+        onClick={handleCreateRoom}
+        className="fixed bottom-24 right-4 bg-gradient-to-r from-orange-500 to-pink-500 text-white p-4 rounded-full shadow-xl hover:scale-105 active:scale-95 transition-transform z-50">
+        <Plus size={28} strokeWidth={3} />
+      </button>
+
     </div>
   );
 }

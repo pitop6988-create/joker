@@ -116,6 +116,49 @@
       },
       "required": ["name", "ownerId", "members", "createdAt", "maxMembers"]
     },
+    "PartyRoom": {
+      "title": "Party Room",
+      "description": "A live audio or PK party room",
+      "type": "object",
+      "properties": {
+        "ownerId": { "type": "string" },
+        "title": { "type": "string" },
+        "image": { "type": "string" },
+        "type": { "type": "string", "enum": ["audio", "pk"] },
+        "viewers": { "type": "integer" },
+        "createdAt": { "type": "integer" }
+      },
+      "required": ["ownerId", "title", "type", "createdAt"]
+    },
+    "PartyRoomSeat": {
+      "title": "Party Room Seat",
+      "description": "Represents one of the 16 mic seats in a party room",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "userPhoto": { "type": "string" },
+        "isMuted": { "type": "boolean" },
+        "createdAt": { "type": "integer" }
+      },
+      "required": ["userId", "createdAt"]
+    },
+    "PartyRoomBanner": {
+      "title": "Party Room Gift Banner",
+      "description": "Announcement of a sent gift in the room",
+      "type": "object",
+      "properties": {
+        "senderId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "senderPhoto": { "type": "string" },
+        "giftId": { "type": "integer" },
+        "giftName": { "type": "string" },
+        "giftImage": { "type": "string" },
+        "giftPrice": { "type": "integer" },
+        "createdAt": { "type": "integer" }
+      },
+      "required": ["senderId", "senderName", "giftId", "giftName", "giftPrice", "createdAt"]
+    },
     "ClubMessage": {
       "title": "Club Message",
       "description": "Chat message within a club",
@@ -156,6 +199,18 @@
     "games/{gameId}": {
       "schema": "Game",
       "description": "Game sessions"
+    },
+    "partyRooms/{roomId}": {
+      "schema": "PartyRoom",
+      "description": "Active party rooms"
+    },
+    "partyRooms/{roomId}/seats/{seatId}": {
+      "schema": "PartyRoomSeat",
+      "description": "Mic seats (ids 1-16) within a party room"
+    },
+    "partyRooms/{roomId}/banners/{bannerId}": {
+      "schema": "PartyRoomBanner",
+      "description": "Gift announcements within a party room"
     },
     "clubs/{clubId}": {
       "schema": "Club",
