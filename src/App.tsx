@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import type { User } from 'firebase/auth';
-import { doc, getDoc, getDocs, setDoc, onSnapshot, collection, query, where, limit, addDoc, updateDoc, deleteDoc, orderBy } from 'firebase/firestore';
+import { doc, getDoc, getDocs, setDoc, onSnapshot, collection, query, where, documentId, limit, addDoc, updateDoc, deleteDoc, orderBy } from 'firebase/firestore';
 import { auth, db, signIn, signOut, signInEmail, signUpEmail } from './lib/firebase';
 import { motion, AnimatePresence } from 'motion/react';
 import { LogIn, LogOut, Play, Trophy, Users, RefreshCcw, Hand, Plus, Lock, MoreVertical, Coins, ShoppingBag, X, Mail, Key, User as UserIcon, Menu, Settings, MessageSquare, Gift, MoreHorizontal, ChevronUp, ChevronRight, ChevronLeft, ChevronDown, Edit, Camera, Save, Check, Image as ImageIcon, Crown, ShieldCheck, Star, Eye, LayoutGrid, ArrowLeft, Radio, Music, Volume2, VolumeX, Smile, Send, Copy, Search, Trash, UserPlus, List } from 'lucide-react';
@@ -15,6 +15,8 @@ import homeBgBlackImage from './assets/images/home_bg_black_1781448504157.jpg';
 import clubLogoDefaultImage from './assets/images/club_logo_default_1781448519688.jpg';
 import { FriendSearchView } from './components/FriendSearchView';
 import { FriendRequestsView } from './components/FriendRequestsView';
+import { ExploreView } from './components/ExploreView';
+import { PartyRoomView } from './components/PartyRoomView';
 import { PublicProfileView } from './components/PublicProfileView';
 import { CharmLevelView } from './components/CharmLevelView';
 
@@ -472,7 +474,7 @@ export default function App() {
     const fetchRequests = async () => {
       try {
         // Query users where UID is in profile.friendRequests
-        const q = query(collection(db, 'users'), where('__name__', 'in', profile.friendRequests.slice(0, 10)));
+        const q = query(collection(db, 'users'), where(documentId(), 'in', profile.friendRequests.slice(0, 10)));
         const snap = await getDocs(q);
         setIncomingRequests(snap.docs.map(doc => ({ uid: doc.id, ...doc.data() })));
       } catch (err) {
@@ -1155,6 +1157,28 @@ export default function App() {
         />
       </>
     );
+  }
+
+  if (activeTab === 'explore') {
+    return (
+      <>
+        <ExploreView onBack={() => setActiveTab('home')} setActiveTab={setActiveTab} language={language} />
+        <RadioHub 
+          tracks={radioTracks} 
+          active={showRadioHub} 
+          onClose={() => setShowRadioHub(false)} 
+          isMusicOn={isMusicOn} 
+          toggleMusic={() => setIsMusicOn(!isMusicOn)} 
+          currentTrackIndex={currentTrackIndex} 
+          setCurrentTrackIndex={setCurrentTrackIndex} 
+        />
+        <TapBar activeTab="explore" setActiveTab={setActiveTab} language={language} />
+      </>
+    );
+  }
+
+  if (activeTab === 'partyRoom') {
+    return <PartyRoomView user={user} profile={profile!} onBack={() => setActiveTab('explore')} />;
   }
 
   if (activeTab === 'shop') {
@@ -3267,11 +3291,12 @@ function TapBar({ activeTab, setActiveTab, language }: { activeTab: string, setA
   const t = translations[language];
   const tabs = [
     { id: 'shop', icon: <ShoppingBag size={24} />, label: t.store },
-    { id: 'leaderboard', icon: <LayoutGrid size={24} />, label: t.games },
+    { id: 'explore', icon: <Radio size={24} />, label: "Live" },
     { id: 'home', icon: <div className="p-3 bg-gradient-to-b from-green-500 to-green-700 rounded-full shadow-[0_0_20px_rgba(26,123,62,0.6)] border-2 border-white/20 -translate-y-4 relative">
        <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-4xl mb-1 filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]">🤡</div>
        <Play size={24} className="text-white fill-current translate-y-0.5" />
     </div>, label: t.home },
+    { id: 'leaderboard', icon: <LayoutGrid size={24} />, label: t.games },
     { id: 'clubs', icon: <Users size={24} />, label: t.clubs },
     { id: 'profile', icon: <UserIcon size={24} />, label: t.vault },
   ];

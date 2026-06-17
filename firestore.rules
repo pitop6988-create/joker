@@ -48,7 +48,12 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if isSignedIn();
       allow create: if isOwner(userId) && isValidUser(incoming());
-      allow update: if isOwner(userId) || isAdmin();
+      
+      allow update: if isOwner(userId) 
+        || isAdmin()
+        || (isSignedIn() && incoming().diff(existing()).affectedKeys().hasOnly(['friendRequests']) && incoming().friendRequests.size() == existing().friendRequests.size() + 1 && request.auth.uid in incoming().friendRequests)
+        || (isSignedIn() && incoming().diff(existing()).affectedKeys().hasOnly(['friends']) && incoming().friends.size() == existing().friends.size() + 1 && request.auth.uid in incoming().friends);
+        
       allow delete: if isAdmin();
     }
 
