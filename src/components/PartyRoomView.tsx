@@ -153,7 +153,11 @@ export function PartyRoomView({ user, profile, roomId, onBack }: any) {
             </div>
          </div>
          <div className="flex flex-col items-end gap-2">
-             <div className="flex items-center gap-1">
+             <div className="flex items-center gap-2">
+                 <div className="flex items-center gap-1.5 bg-black/40 px-2.5 py-1 rounded-full backdrop-blur-md border border-white/10 shadow-sm mr-1">
+                    <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                    <span className="text-white text-xs font-bold font-mono tracking-wider">{roomData?.viewers || Math.floor(Object.keys(seats).length * 84 + 172)}</span>
+                 </div>
                  {[1, 2, 3].map((v) => (
                     <div key={v} className="w-8 h-8 rounded-full bg-white/20 border border-white/30 backdrop-blur-sm flex items-center justify-center relative shadow-sm">
                        <User size={16} className="text-white/60" />

@@ -6,6 +6,7 @@ import { auth, db, signIn, signOut, signInEmail, signUpEmail } from './lib/fireb
 import { motion, AnimatePresence } from 'motion/react';
 import { LogIn, LogOut, Play, Trophy, Users, RefreshCcw, Hand, Plus, Lock, MoreVertical, Coins, ShoppingBag, X, Mail, Key, User as UserIcon, Menu, Settings, MessageSquare, Gift, MoreHorizontal, ChevronUp, ChevronRight, ChevronLeft, ChevronDown, Edit, Camera, Save, Check, Image as ImageIcon, Crown, ShieldCheck, Star, Eye, EyeOff, LayoutGrid, ArrowLeft, Radio, Music, Volume2, VolumeX, Smile, Send, Copy, Search, Trash, UserPlus, List } from 'lucide-react';
 import DobbleBoard from './DobbleBoard';
+import LudoBoard from './LudoBoard';
 import { Game, GameStatus, Card, UserProfile, CardSkin, Club, ClubMessage, RadioTrack, EmojiItem, TableSkin } from './types';
 import { createDeck, shuffle } from './gameLogic';
 import confetti from 'canvas-confetti';
@@ -453,7 +454,7 @@ export default function App() {
   const [isSearching, setIsSearching] = useState(false);
   const [activeTab, setActiveTab] = useState<string>('home');
   const [activePartyRoomId, setActivePartyRoomId] = useState<string | null>(null);
-  const [searchGameType, setSearchGameType] = useState<'uno' | 'joker' | 'dama'>('uno');
+  const [searchGameType, setSearchGameType] = useState<'uno' | 'joker' | 'dama' | 'dobble' | 'tictactoe' | 'airhockey' | 'ludo'>('uno');
   const [skinsMap, setSkinsMap] = useState<Record<string, CardSkin>>({});
   const [skins, setSkins] = useState<CardSkin[]>([]);
   const [tableSkinsMap, setTableSkinsMap] = useState<Record<string, TableSkin>>({});
@@ -876,7 +877,7 @@ export default function App() {
     }
   };
 
-  const startSearching = async (gameType: 'uno' | 'joker' | 'dama' = 'uno') => {
+  const startSearching = async (gameType: 'uno' | 'joker' | 'dama' | 'dobble' | 'tictactoe' | 'airhockey' | 'ludo' = 'uno') => {
     if (!user || !profile) return;
     if (profile.chips <= 0) {
       alert("You need chips to play!");
@@ -908,7 +909,7 @@ export default function App() {
     }, 3000);
   };
 
-  const createGame = async (roomName: string, password?: string, gameType: 'uno' | 'joker' | 'dama' | 'dobble' | 'tictactoe' | 'airhockey' = 'uno') => {
+  const createGame = async (roomName: string, password?: string, gameType: 'uno' | 'joker' | 'dama' | 'dobble' | 'tictactoe' | 'airhockey' | 'ludo' = 'uno') => {
     if (!user || !profile) return;
     if (profile.chips <= 0) {
       alert("You need chips to play!");
@@ -3334,7 +3335,6 @@ function TapBar({ activeTab, setActiveTab, language }: { activeTab: string, setA
        <Play size={24} className="text-white fill-current translate-y-0.5" />
     </div>, label: t.home },
     { id: 'leaderboard', icon: <LayoutGrid size={24} />, label: t.games },
-    { id: 'clubs', icon: <Users size={24} />, label: t.clubs },
     { id: 'profile', icon: <UserIcon size={24} />, label: t.vault },
   ];
 
@@ -3536,7 +3536,7 @@ function LobbyView({ user, profile, onStartSearch, onJoin, onLogout, onCreate, s
   const [joinPassword, setJoinPassword] = useState('');
   const [roomName, setRoomName] = useState('');
   const [password, setPassword] = useState('');
-  const [selectedType, setSelectedType] = useState<'uno' | 'joker' | 'dama' | 'dobble' | 'tictactoe' | 'airhockey'>('uno');
+  const [selectedType, setSelectedType] = useState<'uno' | 'joker' | 'dama' | 'dobble' | 'tictactoe' | 'airhockey' | 'ludo'>('uno');
   const [showRoomList, setShowRoomList] = useState(false);
 
   useEffect(() => {
@@ -3734,6 +3734,31 @@ function LobbyView({ user, profile, onStartSearch, onJoin, onLogout, onCreate, s
              <div className="absolute -bottom-1 -left-2 bg-[#ff1744] text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-md z-30 tracking-widest border border-white/20">NEW</div>
            </div>
 
+           {/* Card 6: Ludo */}
+           <div 
+             onClick={() => onStartSearch('ludo')}
+             className="relative group cursor-pointer"
+           >
+             <div className="w-full aspect-[4/5] rounded-[18px] bg-gradient-to-b from-[#7e57c2] to-[#4527a0] p-[3px] shadow-lg relative overflow-hidden transition-transform duration-300 active:scale-95">
+                <div className="w-full h-full rounded-[15px] bg-[#9575cd] flex flex-col items-center justify-end relative shadow-inner overflow-hidden top-glow">
+                   <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/30 to-transparent pointer-events-none z-10" />
+                   
+                   <div className="flex-1 flex items-center justify-center w-full px-2 pt-4 relative z-20 mb-8">
+                       <div className="grid grid-cols-2 gap-1 rotate-[-5deg] drop-shadow-xl p-2 bg-white/20 rounded-xl relative border border-white/10">
+                          <div className="w-6 h-6 bg-[#ff1744] rounded-tl-lg shadow-inner"></div>
+                          <div className="w-6 h-6 bg-[#00e676] rounded-tr-lg shadow-inner"></div>
+                          <div className="w-6 h-6 bg-[#29b6f6] rounded-bl-lg shadow-inner"></div>
+                          <div className="w-6 h-6 bg-[#ffee58] rounded-br-lg shadow-inner"></div>
+                       </div>
+                   </div>
+                   <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/40 to-transparent pt-8 pb-3 z-20 flex items-center justify-center">
+                     <h2 className="text-white font-black text-[16px] drop-shadow-md tracking-tight whitespace-nowrap">Ludo</h2>
+                   </div>
+                </div>
+             </div>
+             <div className="absolute -bottom-1 -left-2 bg-[#ff1744] text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-md z-30 tracking-widest border border-white/20">NEW</div>
+           </div>
+
            {/* Removed 8 Ball and Backgammon */}
 
         </div>
@@ -3774,7 +3799,8 @@ function LobbyView({ user, profile, onStartSearch, onJoin, onLogout, onCreate, s
                         { id: 'uno', name: 'Still Standing', color: 'from-[#2196f3] to-[#1565c0]' },
                         { id: 'joker', name: 'Konkan', color: 'from-[#d32f2f] to-[#b71c1c]' },
                         { id: 'tictactoe', name: 'O and X', color: 'from-[#00bcd4] to-[#00838f]' },
-                        { id: 'airhockey', name: 'Air Hockey', color: 'from-[#e91e63] to-[#c2185b]' }
+                        { id: 'airhockey', name: 'Air Hockey', color: 'from-[#e91e63] to-[#c2185b]' },
+                        { id: 'ludo', name: 'Ludo', color: 'from-[#7e57c2] to-[#4527a0]' }
                       ].map(g => (
                          <div 
                             key={g.id} 
@@ -4342,6 +4368,8 @@ function GameView({ user, game, onLeave, profile, skinsMap, emojiItems, onOpenSe
            <AirHockeyBoard game={game} user={user} opponentProfile={opponentProfile} opponentId={opponentId!} />
          ) : game.gameType === 'tictactoe' ? (
            <TicTacToeBoard game={game} user={user} opponentProfile={opponentProfile} opponentId={opponentId!} />
+         ) : game.gameType === 'ludo' ? (
+           <LudoBoard game={game} user={user} opponentProfile={opponentProfile} opponentId={opponentId!} />
          ) : game.gameType === 'dobble' ? (
            <DobbleBoard game={game} user={user} opponentProfile={opponentProfile} opponentId={opponentId} />
          ) : game.gameType === 'dama' ? (
