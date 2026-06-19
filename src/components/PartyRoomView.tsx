@@ -121,6 +121,13 @@ export function PartyRoomView({ user, profile, roomId, onBack }: any) {
     }
   };
 
+  const [isMicOn, setIsMicOn] = useState(true);
+
+  const handleToggleMic = (e: React.MouseEvent) => {
+     e.stopPropagation();
+     setIsMicOn(!isMicOn);
+  };
+
   const handleTakeSeat = async (seatId: number) => {
     if (!user || !roomId) return;
     if (mySeat !== null) return;
@@ -252,12 +259,18 @@ export function PartyRoomView({ user, profile, roomId, onBack }: any) {
                  </div>
                ) : seat.data ? (
                  <div className="relative cursor-pointer active:scale-95 transition-transform" onClick={() => mySeat === seat.id && handleLeaveSeat(seat.id)}>
-                   <div className={`w-12 h-12 sm:w-16 sm:h-16 rounded-full overflow-hidden border-2 ${mySeat === seat.id ? 'border-green-500 shadow-[0_0_15px_rgba(34,197,94,0.3)]' : 'border-white/20'} relative bg-black`}>
+                   <div className={`w-12 h-12 sm:w-16 sm:h-16 rounded-full overflow-hidden border-2 flex items-center justify-center ${mySeat === seat.id ? 'border-green-500 shadow-[0_0_15px_rgba(34,197,94,0.3)]' : 'border-white/20'} relative bg-black`}>
                      <img src={seat.data.userPhoto || "https://api.dicebear.com/7.x/avataaars/svg?seed=U"} className="w-full h-full object-cover" alt="User" />
                    </div>
-                   <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-black/60 backdrop-blur-sm rounded-full flex items-center justify-center border border-white/20 shadow-md">
-                     {mySeat === seat.id ? <Mic size={10} className="text-green-400" /> : <MicOff size={10} className="text-white/50" />}
-                   </div>
+                   {mySeat === seat.id ? (
+                      <button onClick={handleToggleMic} className="absolute -bottom-1 -right-1 w-6 h-6 bg-black/80 backdrop-blur-sm rounded-full flex items-center justify-center border border-white/20 shadow-md active:scale-90 transition-transform">
+                        {isMicOn ? <Mic size={12} className="text-green-400" /> : <MicOff size={12} className="text-red-400" />}
+                      </button>
+                   ) : (
+                      <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-black/60 backdrop-blur-sm rounded-full flex items-center justify-center border border-white/20 shadow-md">
+                        <MicOff size={10} className="text-white/50" />
+                      </div>
+                   )}
                  </div>
                ) : (
                  <button onClick={() => handleTakeSeat(seat.id)} className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-red-900/30 backdrop-blur-sm border border-red-500/20 shadow-inner flex items-center justify-center active:bg-red-800/40 transition-colors">
@@ -352,8 +365,8 @@ export function PartyRoomView({ user, profile, roomId, onBack }: any) {
              <Smile size={20} className="text-white" />
           </button>
           
-          <div className="flex-1 h-10 bg-black/40 backdrop-blur-md border border-white/10 rounded-full px-4 flex items-center text-white/50 text-sm font-bold min-w-0 truncate">
-             Say somet...
+          <div className="flex-1 h-10 bg-black/40 backdrop-blur-md border border-white/10 rounded-full px-4 flex items-center min-w-0">
+             <input type="text" placeholder="Say something..." className="bg-transparent border-none outline-none text-white text-sm w-full placeholder-white/50" />
           </div>
           
           <div className="relative">
@@ -509,19 +522,20 @@ function GiftUI({ onClose, onSendGift }: { onClose: () => void; onSendGift: (gif
                       <div 
                         key={gift.id} 
                         onClick={() => setSelectedGiftId(gift.id)}
-                        className={`flex flex-col items-center justify-between p-2 rounded-2xl relative cursor-pointer transition-all ${isSelected ? 'bg-white/10 shadow-inner' : ''}`}
+                        className={`flex flex-col items-center justify-between px-1 py-2 rounded-2xl relative cursor-pointer transition-all ${isSelected ? 'bg-white/5 shadow-inner border border-white/5' : ''}`}
                       >
-                          <div className="w-16 h-16 rounded-xl overflow-hidden drop-shadow-md bg-white/5 relative">
-                             <img src={gift.image} className="w-full h-full object-cover mix-blend-screen" alt={gift.name} />
+                          {activeTab === 'HOT' && <div className="absolute top-1 left-1 bg-[#8e44ad] rounded flex items-center justify-center text-white px-[2px] py-[2px] shadow-sm"><span className="text-[8px] leading-none">🎵</span></div>}
+                          <div className="w-[72px] h-[72px] rounded-xl overflow-hidden drop-shadow-md relative bg-transparent">
+                             <img src={gift.image} className="w-full h-full object-cover mix-blend-lighten pointer-events-none" alt={gift.name} />
                           </div>
-                          <span className="text-white text-xs font-bold mt-2 whitespace-nowrap truncate max-w-full">{gift.name}</span>
-                          <span className="text-yellow-500 text-[10px] font-black tracking-wide flex items-center gap-1"><Coins size={10} className="text-yellow-400" /> {gift.price}</span>
+                          <span className="text-white text-xs font-bold mt-1 whitespace-nowrap truncate max-w-full drop-shadow-md">{gift.name}</span>
+                          <span className="text-yellow-500 text-[10px] font-black tracking-wide flex items-center gap-1 drop-shadow-md"><Coins size={10} className="text-yellow-400" /> {gift.price}</span>
                           
                           {isSelected && (
-                             <div className="absolute inset-0 bg-transparent border-[1.5px] border-[#ff7242] rounded-2xl pointer-events-none flex items-end justify-center">
+                             <div className="absolute inset-x-0 bottom-0 pointer-events-none flex flex-col justify-end translate-y-3">
                                  <button 
                                    onClick={(e) => { e.stopPropagation(); onSendGift(gift); }}
-                                   className="w-[calc(100%+2px)] bg-[#ff7242] text-white text-[12px] font-black py-1.5 rounded-b-2xl shadow-lg pointer-events-auto hover:bg-[#e46433] active:bg-[#cc5522] transition-colors -mb-[1px]"
+                                   className="w-full bg-[#ff7242] text-white text-[14px] font-black py-1.5 rounded-full shadow-lg pointer-events-auto active:bg-[#e46433] transition-colors"
                                  >
                                     Send
                                  </button>
