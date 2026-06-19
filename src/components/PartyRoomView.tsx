@@ -14,6 +14,8 @@ export function PartyRoomView({ user, profile, roomId, onBack }: any) {
   const [roomData, setRoomData] = useState<any>(null);
   const [seats, setSeats] = useState<Record<string, any>>({});
   const [banners, setBanners] = useState<any[]>([]);
+  const [messages, setMessages] = useState<any[]>([]);
+  const [chatInput, setChatInput] = useState("");
 
   useEffect(() => {
     if (!roomId || !user) return;
@@ -52,7 +54,17 @@ export function PartyRoomView({ user, profile, roomId, onBack }: any) {
       setBanners(recent);
     }, (error) => console.error(error));
 
-    return () => { unRoom(); unSeats(); unBanners(); };
+    // Messages
+    const unMessages = onSnapshot(query(collection(db, `partyRooms/${roomId}/messages`), orderBy('createdAt', 'desc'), limit(30)), (snapshot) => {
+      const serverMessages = snapshot.docs.map(d => ({id: d.id, ...d.data()})).reverse();
+      setMessages([
+        { type: 'announcement', text: 'بەخێربێیت! با بەیەکەوە گفتوگۆ بکەین!' },
+        { type: 'system', text: 'Welcome to Yari Konkan. Please respect each other and chat politely.' },
+        ...serverMessages
+      ]);
+    }, (error) => console.error(error));
+
+    return () => { unRoom(); unSeats(); unBanners(); unMessages(); };
   }, [roomId, user?.uid]);
 
   // Auto join as host if room owner
@@ -86,11 +98,23 @@ export function PartyRoomView({ user, profile, roomId, onBack }: any) {
   const formatId = profile?.shortId || user?.uid?.substring(0, 8);
   const displaySeats = Array.from({ length: 16 }).map((_, i) => ({ id: i + 1, occupied: !!seats[i + 1], data: seats[i + 1] }));
 
-  const chatMessages = [
-    { type: 'announcement', text: 'بەخێربێیت! با بەیەکەوە گفتوگۆ بکەین!' },
-    { type: 'system', text: 'Welcome to Yari Konkan. Please respect each other and chat politely.' },
-    { type: 'event', text: `The owner @${roomData?.title || 'ONLY ONE'} entered the room` }
-  ];
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!chatInput.trim() || !user || !roomId) return;
+    try {
+      await setDoc(doc(collection(db, `partyRooms/${roomId}/messages`)), {
+         type: 'user',
+         text: chatInput,
+         userId: user.uid,
+         userName: profile?.displayName || 'Guest',
+         userPhoto: profile?.photoURL || '',
+         createdAt: Date.now()
+      });
+      setChatInput('');
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const handleSendGift = async (gift: any) => {
     if (!user || !profile || !roomId) return;
@@ -177,7 +201,10 @@ export function PartyRoomView({ user, profile, roomId, onBack }: any) {
       {/* Header */}
       <div className="relative z-10 px-4 pt-12 pb-2 flex items-start justify-between min-h-fit shrink-0">
          <div className="flex items-center gap-2">
-            <button onClick={onBack} className="text-white p-1 -ml-2 drop-shadow-md active:scale-95 transition-transform"><ChevronLeft size={28} /></button>
+            <button onClick={() => {
+               if (mySeat !== null) handleLeaveSeat(mySeat);
+               onBack();
+            }} className="text-white p-1 -ml-2 drop-shadow-md active:scale-95 transition-transform"><ChevronLeft size={28} /></button>
             <div className="flex items-center gap-2 bg-black/20 rounded-full pr-4 pl-1 py-1 backdrop-blur-sm border border-white/5">
                 <div className="w-9 h-9 rounded-full overflow-hidden bg-white/20 shrink-0 border border-white/30">
                    <img src={profile?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.uid}`} className="w-full h-full object-cover" alt="Avatar" />
@@ -222,20 +249,26 @@ export function PartyRoomView({ user, profile, roomId, onBack }: any) {
          )}
          
          {isPKMode && (
-         <div className="flex items-center w-full justify-between mt-2 max-w-md mx-auto">
-            <div className="flex-1 bg-gradient-to-r from-red-600 to-red-500 h-8 rounded-l-full flex items-center px-4 border border-red-400/50 shadow-[0_0_15px_rgba(220,38,38,0.5)]">
-               <span className="text-white font-black text-sm drop-shadow-md">LV4</span>
-               <span className="text-yellow-400 font-bold ml-2 flex items-center gap-1 text-xs shadow-sm"><Coins size={12} className="fill-current"/> 140K</span>
+         <div className="flex flex-col items-center w-full justify-between mt-2 max-w-md mx-auto">
+            <div className="flex items-center gap-1.5 bg-black/50 px-3 py-1 rounded-full backdrop-blur-md border border-white/10 shadow-sm mb-2">
+               <User size={12} className="text-white/80" />
+               <span className="text-white text-xs font-bold font-mono tracking-wider">{roomData?.viewers || Math.floor(Object.keys(seats).length * 84 + 172)}</span>
             </div>
-            
-            <div className="px-3 md:px-6 relative z-10 font-black italic text-xl text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] shrink-0 flex flex-col items-center">
-               <span className="text-[#ff1744] text-[10px] font-bold not-italic drop-shadow-none mb-[-4px]">PK</span>
-               {Math.floor(pkTime / 60)}:{(pkTime % 60).toString().padStart(2, '0')}
-            </div>
-            
-            <div className="flex-1 bg-gradient-to-l from-blue-600 to-blue-500 h-8 rounded-r-full flex items-center justify-end px-4 border border-blue-400/50 shadow-[0_0_15px_rgba(37,99,235,0.5)]">
-               <span className="text-yellow-400 font-bold mr-2 flex items-center gap-1 text-xs shadow-sm"><Coins size={12} className="fill-current"/> 3.6K</span>
-               <span className="text-white font-black text-sm drop-shadow-md">LV2</span>
+            <div className="flex items-center w-full justify-between">
+              <div className="flex-1 bg-gradient-to-r from-red-600 to-red-500 h-8 rounded-l-full flex items-center px-4 border border-red-400/50 shadow-[0_0_15px_rgba(220,38,38,0.5)]">
+                 <span className="text-white font-black text-sm drop-shadow-md">LV4</span>
+                 <span className="text-yellow-400 font-bold ml-2 flex items-center gap-1 text-xs shadow-sm"><Coins size={12} className="fill-current"/> 140K</span>
+              </div>
+              
+              <div className="px-3 md:px-6 relative z-10 font-black italic text-xl text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] shrink-0 flex flex-col items-center">
+                 <span className="text-[#ff1744] text-[10px] font-bold not-italic drop-shadow-none mb-[-4px]">PK</span>
+                 {Math.floor(pkTime / 60)}:{(pkTime % 60).toString().padStart(2, '0')}
+              </div>
+              
+              <div className="flex-1 bg-gradient-to-l from-blue-600 to-blue-500 h-8 rounded-r-full flex items-center justify-end px-4 border border-blue-400/50 shadow-[0_0_15px_rgba(37,99,235,0.5)]">
+                 <span className="text-yellow-400 font-bold mr-2 flex items-center gap-1 text-xs shadow-sm"><Coins size={12} className="fill-current"/> 3.6K</span>
+                 <span className="text-white font-black text-sm drop-shadow-md">LV2</span>
+              </div>
             </div>
          </div>
          )}
@@ -296,23 +329,25 @@ export function PartyRoomView({ user, profile, roomId, onBack }: any) {
                    animate={{ x: 0, opacity: 1 }}
                    exit={{ opacity: 0 }}
                    transition={{ type: "spring", stiffness: 200, damping: 25 }}
-                   className="bg-gradient-to-r from-blue-900/40 via-blue-700/80 to-indigo-600/90 rounded-full flex items-center pr-2 pl-6 py-1 drop-shadow-2xl backdrop-blur-md max-w-full float-right border border-white/10"
-                   style={{ minWidth: '280px' }}
+                   className="bg-gradient-to-r from-[#4A3AFF] via-[#3525D3] to-[#201594] rounded-full flex items-center pr-1 pl-4 py-1 pb-[5px] pt-[5px] drop-shadow-2xl shadow-lg backdrop-blur-md max-w-full float-right border border-blue-400/30 overflow-hidden relative"
+                   style={{ minWidth: '320px' }}
                  >
-                    <span className="text-[#facc15] font-black italic mr-8 whitespace-nowrap text-3xl font-serif" style={{ textShadow: '2px 2px 0px rgba(0,0,0,0.6)' }}>
+                    {/* Inner glowing edge */}
+                    <div className="absolute inset-0 bg-gradient-to-r from-red-400/20 to-purple-500/20" />
+                    <span className="text-[#facc15] font-black italic mr-4 ml-1 whitespace-nowrap text-[32px] font-sans relative z-10" style={{ textShadow: '2px 2px 0px rgba(0,0,0,0.4)' }}>
                        1 x
                     </span>
-                    <div className="absolute left-10 w-24 h-24 pointer-events-none z-20 flex items-center justify-center -translate-y-1">
-                       <img src={banner.giftImage || ''} className="w-full h-full object-contain filter drop-shadow-[0_0_15px_rgba(255,255,255,0.4)] mix-blend-screen scale-[1.3]" alt="" />
+                    <div className="relative w-14 h-14 pointer-events-none z-20 flex items-center justify-center mx-1 flex-shrink-0">
+                       <img src={banner.giftImage || 'https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/gift.svg'} className="w-[120%] h-[120%] max-w-none object-contain filter drop-shadow-md scale-110 relative -top-1" alt="" />
                     </div>
                     
-                    <div className="flex flex-col items-center justify-center pl-[52px] pr-2 h-full flex-1">
-                       <span className="text-white font-bold text-[15px] drop-shadow-md tracking-wide leading-tight line-clamp-1">{banner.senderName || 'Somebody'}</span>
-                       <span className="text-yellow-300 font-bold text-[13px] drop-shadow-md whitespace-nowrap">{banner.giftName || 'Gift'}</span>
+                    <div className="flex flex-col items-center justify-center pl-2 pr-1 h-full flex-1 relative z-10 w-full min-w-0">
+                       <span className="text-white font-bold text-[18px] tracking-wide leading-tight truncate w-full text-center">{banner.senderName || 'ONLY ONE'}</span>
+                       <span className="text-yellow-100 font-bold text-[14px] whitespace-nowrap opacity-90">{banner.giftName || 'اهداء مميز'}</span>
                     </div>
                     
-                    <div className="w-[46px] h-[46px] rounded-full overflow-hidden border-2 border-indigo-300 shrink-0 shadow-md">
-                       <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${banner.senderId}`} className="w-full h-full object-cover bg-white" alt="" />
+                    <div className="w-[50px] h-[50px] rounded-full overflow-hidden border-2 border-indigo-300 shrink-0 shadow-md relative z-10 ml-2">
+                       <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${banner.senderId}`} className="w-full h-full object-cover bg-black" alt="" />
                     </div>
                  </motion.div>
                ))}
@@ -330,7 +365,8 @@ export function PartyRoomView({ user, profile, roomId, onBack }: any) {
              </button>
          </div>
 
-         {chatMessages.map((msg, i) => (
+         <div className="overflow-y-auto max-h-[160px] flex flex-col-reverse gap-2 mask-image-b pb-2 pointer-events-auto">
+         {messages.map((msg, i) => (
              <div key={i} className="flex flex-col items-start drop-shadow-md pointer-events-auto">
                 {msg.type === 'announcement' && (
                     <div className="bg-black/40 backdrop-blur-md border border-white/10 text-white rounded-xl px-4 py-2 font-bold text-sm tracking-wide text-right w-fit max-w-[85%] rounded-tl-none relative isolate">
@@ -347,8 +383,22 @@ export function PartyRoomView({ user, profile, roomId, onBack }: any) {
                        {msg.text}
                     </div>
                 )}
+                {msg.type === 'user' && (
+                    <div className="flex items-start gap-2 max-w-[85%] mt-1">
+                       <div className="w-8 h-8 rounded-full overflow-hidden bg-white/10 shrink-0 border border-white/20 mt-1">
+                          <img src={msg.userPhoto || `https://api.dicebear.com/7.x/avataaars/svg?seed=${msg.userId}`} alt="" className="w-full h-full object-cover" />
+                       </div>
+                       <div className="flex flex-col">
+                          <span className="text-white/60 text-[10px] font-bold ml-1 mb-0.5">{msg.userName}</span>
+                          <div className="bg-black/40 backdrop-blur-md border border-white/10 text-white rounded-2xl rounded-tl-sm px-4 py-2 text-[13px] font-medium leading-relaxed">
+                             {msg.text}
+                          </div>
+                       </div>
+                    </div>
+                )}
              </div>
          ))}
+         </div>
       </div>
 
        {/* Bottom Bar */}
@@ -365,9 +415,9 @@ export function PartyRoomView({ user, profile, roomId, onBack }: any) {
              <Smile size={20} className="text-white" />
           </button>
           
-          <div className="flex-1 h-10 bg-black/40 backdrop-blur-md border border-white/10 rounded-full px-4 flex items-center min-w-0">
-             <input type="text" placeholder="Say something..." className="bg-transparent border-none outline-none text-white text-sm w-full placeholder-white/50" />
-          </div>
+          <form onSubmit={handleSendMessage} className="flex-1 h-10 bg-black/40 backdrop-blur-md border border-white/10 rounded-full px-4 flex items-center min-w-0">
+             <input value={chatInput} onChange={e => setChatInput(e.target.value)} type="text" placeholder="Say something..." className="bg-transparent border-none outline-none text-white text-sm w-full placeholder-white/50" />
+          </form>
           
           <div className="relative">
              <button 
@@ -443,8 +493,39 @@ export function PartyRoomView({ user, profile, roomId, onBack }: any) {
 function GiftUI({ onClose, onSendGift }: { onClose: () => void; onSendGift: (gift: any) => void }) {
    const [activeTab, setActiveTab] = useState<'HOT' | 'Privileges'>('HOT');
    const [selectedGiftId, setSelectedGiftId] = useState<number>(1);
+   const [showAdminPanel, setShowAdminPanel] = useState(false);
+   const [password, setPassword] = useState("");
+   const [isAuthenticated, setIsAuthenticated] = useState(false);
    
-   const gifts = [
+   const [customGifts, setCustomGifts] = useState<any[]>([]);
+   
+   const [newGift, setNewGift] = useState({ name: '', price: '', image: '', videoUrl: '' });
+   
+   useEffect(() => {
+     const un = onSnapshot(collection(db, 'gifts'), snapshot => {
+       setCustomGifts(snapshot.docs.map(d => ({id: d.id, ...d.data()})));
+     });
+     return un;
+   }, []);
+
+   const handleAddGift = async (e: React.FormEvent) => {
+      e.preventDefault();
+      try {
+         await setDoc(doc(collection(db, 'gifts')), {
+           name: newGift.name,
+           price: Number(newGift.price) || 0,
+           image: newGift.image,
+           videoUrl: newGift.videoUrl || '',
+           createdAt: Date.now()
+         });
+         setNewGift({ name: '', price: '', image: '', videoUrl: '' });
+         setShowAdminPanel(false);
+      } catch (err) {
+         console.error(err);
+      }
+   };
+   
+   const defaultGifts = [
        { name: 'Tea Set', price: 3, image: 'https://images.unsplash.com/photo-1576092762791-dd9e2220c4c7?w=100&h=100&fit=crop', id: 1 },
        { name: 'love box', price: 29, image: 'https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=100&h=100&fit=crop', id: 2 },
        { name: 'Rosaline', price: 199, image: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=100&h=100&fit=crop', id: 3 },
@@ -454,6 +535,34 @@ function GiftUI({ onClose, onSendGift }: { onClose: () => void; onSendGift: (gif
        { name: 'Snack bucket', price: 499, image: 'https://images.unsplash.com/photo-1582234032138-000c2834b6e5?w=100&h=100&fit=crop', id: 7 },
        { name: 'hands in a heart', price: 599, image: 'https://images.unsplash.com/photo-1518047053526-bf318eb7ac6e?w=100&h=100&fit=crop', id: 8 }
    ];
+   
+   const gifts = [...customGifts, ...defaultGifts];
+
+   if (showAdminPanel) {
+      return (
+         <div className="absolute inset-x-0 bottom-0 z-[60] bg-[#1c1815] p-6 rounded-t-[32px] min-h-[50vh] flex flex-col pt-8">
+            <button onClick={() => setShowAdminPanel(false)} className="absolute top-4 right-4 text-white p-2">
+               <X size={24} />
+            </button>
+            <h2 className="text-white text-xl font-black mb-4">Add Custom Gift</h2>
+            
+            {!isAuthenticated ? (
+               <div className="flex flex-col gap-4">
+                 <input type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} className="bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white" />
+                 <button onClick={() => { if(password === "EMAD8912") setIsAuthenticated(true); else alert("Wrong Password") }} className="bg-blue-600 text-white font-bold py-3 rounded-xl">Verify</button>
+               </div>
+            ) : (
+               <form onSubmit={handleAddGift} className="flex flex-col gap-3">
+                 <input type="text" placeholder="Gift Name" value={newGift.name} onChange={e => setNewGift({...newGift, name: e.target.value})} className="bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white text-sm" required />
+                 <input type="number" placeholder="Coin Price" value={newGift.price} onChange={e => setNewGift({...newGift, price: e.target.value})} className="bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white text-sm" required />
+                 <input type="url" placeholder="Image URL" value={newGift.image} onChange={e => setNewGift({...newGift, image: e.target.value})} className="bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white text-sm" required />
+                 <input type="url" placeholder="Video URL (optional)" value={newGift.videoUrl} onChange={e => setNewGift({...newGift, videoUrl: e.target.value})} className="bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white text-sm" />
+                 <button type="submit" className="bg-green-600 text-white font-bold py-3 rounded-xl mt-2 text-sm shadow-md">Add Gift</button>
+               </form>
+            )}
+         </div>
+      )
+   }
 
    return (
        <AnimatePresence>
@@ -499,6 +608,9 @@ function GiftUI({ onClose, onSendGift }: { onClose: () => void; onSendGift: (gif
                           {activeTab === tab && <motion.div layoutId="giftTab" className="absolute bottom-0 inset-x-0 h-[2px] bg-white rounded-full" />}
                        </button>
                    ))}
+                   <button onClick={() => setShowAdminPanel(true)} className="w-6 h-6 flex items-center justify-center bg-white/10 rounded-full border border-white/20 ml-2">
+                       <Plus size={14} className="text-white/60" />
+                   </button>
                    <div className="ml-auto p-1.5 bg-white/10 rounded-md">
                        <div className="w-4 h-4 border border-white/50 rounded-sm" />
                    </div>
