@@ -1,9 +1,9 @@
 import { Card, Suit, Rank } from './types';
 
-export const createDeck = (gameType: 'uno' | 'joker' | 'dama' | 'dobble' | 'tictactoe' | 'airhockey' = 'uno'): Card[] => {
+export const createDeck = (gameType: 'uno' | 'joker' | 'dama' | 'dobble' | 'tictactoe' | 'airhockey' | 'ludo' = 'uno'): Card[] => {
   const deck: Card[] = [];
 
-  if (gameType === 'dama' || gameType === 'dobble' || gameType === 'tictactoe' || gameType === 'airhockey') return []; // No cards
+  if (gameType === 'dama' || gameType === 'dobble' || gameType === 'tictactoe' || gameType === 'airhockey' || gameType === 'ludo') return []; // No cards
 
   if (gameType === 'uno') {
     const colors: Suit[] = ['red', 'yellow', 'green', 'blue'];

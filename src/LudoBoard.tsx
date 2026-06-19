@@ -3,7 +3,7 @@ import { Game, UserProfile } from './types';
 import { User, Menu, RefreshCcw, Radio, Eye, Users, MessageSquare, Gift, ArrowLeft, Star } from 'lucide-react';
 import { motion } from 'motion/react';
 
-export default function LudoBoard({ game, user, opponentProfile, opponentId }: { game: Game, user: User, opponentProfile: UserProfile | null, opponentId: string }) {
+export default function LudoBoard({ game, user, opponentProfile, opponentId }: { game: Game, user: any, opponentProfile: UserProfile | null, opponentId: string }) {
   const isMyTurn = game.turn === user.uid;
 
   return (

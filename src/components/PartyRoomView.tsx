@@ -1,11 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ChevronLeft, MoreHorizontal, Maximize2, Mic, MicOff, Menu, Gift, MessageSquare, User, Volume2, Plus, Smile } from 'lucide-react';
+import { ChevronLeft, MoreHorizontal, Maximize2, Mic, MicOff, Menu, Gift, MessageSquare, User, Volume2, Plus, Smile, Coins, Swords, Clock, X } from 'lucide-react';
 import { db } from '../lib/firebase';
 import { doc, collection, onSnapshot, updateDoc, setDoc, deleteDoc, serverTimestamp, runTransaction, query, orderBy, limit } from 'firebase/firestore';
 
 export function PartyRoomView({ user, profile, roomId, onBack }: any) {
   const [showGift, setShowGift] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
+  const [showPKTimes, setShowPKTimes] = useState(false);
+  const [isPKMode, setIsPKMode] = useState(false);
+  const [pkTime, setPkTime] = useState(0);
   const [mySeat, setMySeat] = useState<number | null>(null);
   const [roomData, setRoomData] = useState<any>(null);
   const [seats, setSeats] = useState<Record<string, any>>({});
@@ -51,6 +55,14 @@ export function PartyRoomView({ user, profile, roomId, onBack }: any) {
     return () => { unRoom(); unSeats(); unBanners(); };
   }, [roomId, user?.uid]);
 
+  // Auto join as host if room owner
+  useEffect(() => {
+    if (!roomData || !user || !roomId) return;
+    if (roomData.ownerId === user.uid && mySeat === null && !seats[1]) {
+      handleTakeSeat(1);
+    }
+  }, [roomData, user, roomId, mySeat, seats]);
+
   // Cull old banners locally 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -58,6 +70,18 @@ export function PartyRoomView({ user, profile, roomId, onBack }: any) {
     }, 1000);
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (isPKMode && pkTime > 0) {
+      timer = setInterval(() => {
+        setPkTime(prev => prev - 1);
+      }, 1000);
+    } else if (pkTime === 0 && isPKMode) {
+      setIsPKMode(false);
+    }
+    return () => { if (timer) clearInterval(timer); };
+  }, [isPKMode, pkTime]);
 
   const formatId = profile?.shortId || user?.uid?.substring(0, 8);
   const displaySeats = Array.from({ length: 16 }).map((_, i) => ({ id: i + 1, occupied: !!seats[i + 1], data: seats[i + 1] }));
@@ -99,6 +123,7 @@ export function PartyRoomView({ user, profile, roomId, onBack }: any) {
 
   const handleTakeSeat = async (seatId: number) => {
     if (!user || !roomId) return;
+    if (mySeat !== null) return;
     try {
       await setDoc(doc(db, `partyRooms/${roomId}/seats`, seatId.toString()), {
         userId: user.uid,
@@ -132,8 +157,15 @@ export function PartyRoomView({ user, profile, roomId, onBack }: any) {
         }}
       >
          <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-black" />
-         <div className="absolute inset-0 bg-red-900/40 mix-blend-multiply" />
+         <div className={`absolute inset-0 ${isPKMode ? 'opacity-0' : 'bg-red-900/40 mix-blend-multiply'} transition-opacity`} />
       </div>
+
+      {isPKMode && (
+         <div className="absolute top-0 inset-x-0 h-full z-0 flex pointer-events-none opacity-40">
+            <div className="w-1/2 bg-gradient-to-r from-red-600 to-red-900" />
+            <div className="w-1/2 bg-gradient-to-l from-blue-600 to-blue-900" />
+         </div>
+      )}
 
       {/* Header */}
       <div className="relative z-10 px-4 pt-12 pb-2 flex items-start justify-between min-h-fit shrink-0">
@@ -173,10 +205,33 @@ export function PartyRoomView({ user, profile, roomId, onBack }: any) {
          </div>
       </div>
 
-      <div className="relative z-10 px-4 mt-2">
-         <div className="bg-[#00c853] text-white px-3 py-0.5 rounded-full inline-flex font-bold text-xs shadow-md border border-[#00e676]">
-            Lv.1
+      <div className="relative z-10 px-4 mt-2 flex flex-col gap-2">
+         {!isPKMode && (
+            <div>
+               <div className="bg-[#00c853] text-white px-3 py-0.5 rounded-full inline-flex font-bold text-xs shadow-md border border-[#00e676]">
+                  Lv.1
+               </div>
+            </div>
+         )}
+         
+         {isPKMode && (
+         <div className="flex items-center w-full justify-between mt-2 max-w-md mx-auto">
+            <div className="flex-1 bg-gradient-to-r from-red-600 to-red-500 h-8 rounded-l-full flex items-center px-4 border border-red-400/50 shadow-[0_0_15px_rgba(220,38,38,0.5)]">
+               <span className="text-white font-black text-sm drop-shadow-md">LV4</span>
+               <span className="text-yellow-400 font-bold ml-2 flex items-center gap-1 text-xs shadow-sm"><Coins size={12} className="fill-current"/> 140K</span>
+            </div>
+            
+            <div className="px-3 md:px-6 relative z-10 font-black italic text-xl text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] shrink-0 flex flex-col items-center">
+               <span className="text-[#ff1744] text-[10px] font-bold not-italic drop-shadow-none mb-[-4px]">PK</span>
+               {Math.floor(pkTime / 60)}:{(pkTime % 60).toString().padStart(2, '0')}
+            </div>
+            
+            <div className="flex-1 bg-gradient-to-l from-blue-600 to-blue-500 h-8 rounded-r-full flex items-center justify-end px-4 border border-blue-400/50 shadow-[0_0_15px_rgba(37,99,235,0.5)]">
+               <span className="text-yellow-400 font-bold mr-2 flex items-center gap-1 text-xs shadow-sm"><Coins size={12} className="fill-current"/> 3.6K</span>
+               <span className="text-white font-black text-sm drop-shadow-md">LV2</span>
+            </div>
          </div>
+         )}
       </div>
 
       {/* Grid */}
@@ -301,9 +356,58 @@ export function PartyRoomView({ user, profile, roomId, onBack }: any) {
              Say somet...
           </div>
           
-          <button className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center shrink-0">
-             <Menu size={20} className="text-white" />
-          </button>
+          <div className="relative">
+             <button 
+                onClick={() => setShowMenu(!showMenu)}
+                className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center shrink-0"
+             >
+                <Menu size={20} className="text-white" />
+             </button>
+
+             <AnimatePresence>
+                {showMenu && (
+                   <motion.div 
+                     initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                     animate={{ opacity: 1, y: 0, scale: 1 }}
+                     exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                     className="absolute bottom-14 right-0 bg-[#1c1815] border border-white/10 rounded-2xl shadow-2xl p-2 w-48 flex flex-col gap-1 z-50 backdrop-blur-xl"
+                   >
+                     {showPKTimes ? (
+                        <>
+                           <div className="flex items-center justify-between px-3 py-2 border-b border-white/10 mb-1">
+                              <span className="text-white font-bold text-sm">PK Duration</span>
+                              <button onClick={() => setShowPKTimes(false)} className="text-white/50 hover:text-white"><X size={16}/></button>
+                           </div>
+                           <button onClick={() => { setIsPKMode(true); setPkTime(5 * 60); setShowMenu(false); setShowPKTimes(false); }} className="px-4 py-2 hover:bg-white/10 rounded-xl text-left text-white text-sm flex items-center gap-2">
+                             <Clock size={16} className="text-yellow-400" /> 5:00
+                           </button>
+                           <button onClick={() => { setIsPKMode(true); setPkTime(10 * 60); setShowMenu(false); setShowPKTimes(false); }} className="px-4 py-2 hover:bg-white/10 rounded-xl text-left text-white text-sm flex items-center gap-2">
+                             <Clock size={16} className="text-yellow-400" /> 10:00
+                           </button>
+                           <button onClick={() => { setIsPKMode(true); setPkTime(15 * 60); setShowMenu(false); setShowPKTimes(false); }} className="px-4 py-2 hover:bg-white/10 rounded-xl text-left text-white text-sm flex items-center gap-2">
+                             <Clock size={16} className="text-yellow-400" /> 15:00
+                           </button>
+                        </>
+                     ) : (
+                        <>
+                           <button onClick={() => setShowPKTimes(true)} className="px-4 py-2 hover:bg-white/10 rounded-xl text-left text-white text-sm transition-colors flex items-center gap-3">
+                              <Swords size={18} className="text-[#ff5252]" />
+                              Start PK Target
+                           </button>
+                           <button className="px-4 py-2 hover:bg-white/10 rounded-xl text-left text-white/50 text-sm transition-colors flex items-center gap-3">
+                              <Smile size={18} />
+                              Effects
+                           </button>
+                           <button className="px-4 py-2 hover:bg-white/10 rounded-xl text-left text-white/50 text-sm transition-colors flex items-center gap-3">
+                              <Volume2 size={18} />
+                              Sound Settings
+                           </button>
+                        </>
+                     )}
+                   </motion.div>
+                )}
+             </AnimatePresence>
+          </div>
           
           <button 
              onClick={() => setShowGift(true)}
@@ -354,7 +458,7 @@ function GiftUI({ onClose, onSendGift }: { onClose: () => void; onSendGift: (gif
                  }
                }}
                className="absolute inset-x-0 bottom-0 z-50 bg-[#1c1815] bg-opacity-95 backdrop-blur-xl rounded-t-[32px] flex flex-col pt-2 overflow-hidden"
-               style={{ height: '55vh' }}
+               style={{ height: '40vh' }}
            >
                {/* Drag Handle */}
                <div className="w-12 h-1.5 bg-white/20 rounded-full mx-auto mb-2 shrink-0" />
@@ -392,7 +496,7 @@ function GiftUI({ onClose, onSendGift }: { onClose: () => void; onSendGift: (gif
                    <div className="flex items-center gap-2 text-white/50">
                        The recipient: 
                        <span className="text-white flex items-center gap-1 ml-1">🌻 +3</span>
-                       <span className="text-white flex items-center gap-1">🥇 +1</span>
+                       <span className="text-white flex items-center gap-1"><Coins size={12} className="text-yellow-400" /> +1</span>
                    </div>
                    <div className="w-4 h-4 rounded-full border border-white/30 flex items-center justify-center text-white/50 text-[10px]">?</div>
                </div>
@@ -411,7 +515,7 @@ function GiftUI({ onClose, onSendGift }: { onClose: () => void; onSendGift: (gif
                              <img src={gift.image} className="w-full h-full object-cover mix-blend-screen" alt={gift.name} />
                           </div>
                           <span className="text-white text-xs font-bold mt-2 whitespace-nowrap truncate max-w-full">{gift.name}</span>
-                          <span className="text-yellow-500 text-[10px] font-black tracking-wide flex items-center gap-1">🥇 {gift.price}</span>
+                          <span className="text-yellow-500 text-[10px] font-black tracking-wide flex items-center gap-1"><Coins size={10} className="text-yellow-400" /> {gift.price}</span>
                           
                           {isSelected && (
                              <div className="absolute inset-0 bg-transparent border-[1.5px] border-[#ff7242] rounded-2xl pointer-events-none flex items-end justify-center">
@@ -431,7 +535,7 @@ function GiftUI({ onClose, onSendGift }: { onClose: () => void; onSendGift: (gif
                {/* Bottom Quick Select */}
                <div className="px-4 pb-8 pt-2 flex items-center justify-between border-t border-white/5 absolute bottom-0 inset-x-0 bg-[#1c1815]">
                    <div className="flex items-center gap-1 bg-white/10 rounded-full px-3 py-1.5 shadow-inner">
-                       <span className="text-yellow-500 text-sm font-black flex items-center gap-1 mr-1">🥇 160 <ChevronLeft className="rotate-180" size={14} /></span>
+                       <span className="text-yellow-500 text-sm font-black flex items-center gap-1 mr-1"><Coins size={14} className="text-yellow-400" /> 160 <ChevronLeft className="rotate-180" size={14} /></span>
                        <Gift size={16} className="text-[#ff6b9e]" />
                    </div>
                    
