@@ -72,7 +72,7 @@ export function RoomLevelView({ onBack, profile, roomData }: any) {
               <div>
                  <h4 className="text-[16px] font-extrabold text-gray-900 px-1">Send gifts in room</h4>
                  <div className="mt-2 text-[14px] font-bold text-gray-400 border-t-4 border-gray-100 pt-3 pb-1 flex justify-between items-start px-1">
-                    <p className="leading-tight">+1 Room Exp / 1 coin (During PK: +2 Room<br/>Exp / 1 coin)</p>
+                    <p className="leading-tight">+1 Room Exp / 1 Chips (During PK: +2 Room<br/>Exp / 1 Chips)</p>
                     <span className="shrink-0">0/9.0m</span>
                  </div>
               </div>

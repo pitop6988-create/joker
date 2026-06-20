@@ -5357,7 +5357,7 @@ function ClubsView({ user, profile, onJoinClub, onCreateClub, onBack }: { user: 
                <div className="flex justify-between items-center mb-10 relative z-10">
                   <div>
                     <h2 className="text-2xl font-black text-black tracking-tight">Create Tribe</h2>
-                    <p className="text-blue-500 font-bold text-xs mt-1">Creation Fee: 30,000 Coins</p>
+                    <p className="text-blue-500 font-bold text-xs mt-1">Creation Fee: 30,000 Chips</p>
                   </div>
                   <button onClick={() => setShowCreate(false)} className="p-2 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors">
                      <X size={20} className="text-gray-500" />

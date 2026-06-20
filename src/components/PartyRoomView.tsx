@@ -615,7 +615,6 @@ function GiftUI({ onClose, onSendGift, seats, user, profile }: { onClose: () => 
            createdAt: Date.now()
          });
          setNewGift({ name: '', price: '', image: '', videoUrl: '' });
-         setShowAdminPanel(false);
       } catch (err) {
          console.error(err);
       }
@@ -636,7 +635,7 @@ function GiftUI({ onClose, onSendGift, seats, user, profile }: { onClose: () => 
 
    if (showAdminPanel) {
       return (
-         <div className="absolute inset-x-0 bottom-0 z-[60] bg-[#1c1815] p-6 rounded-t-[32px] min-h-[50vh] flex flex-col pt-8">
+         <div className="absolute inset-0 z-[60] bg-[#1c1815] p-6 flex flex-col pt-8 overflow-y-auto w-full h-full">
             <button onClick={() => setShowAdminPanel(false)} className="absolute top-4 right-4 text-white p-2">
                <X size={24} />
             </button>
@@ -648,13 +647,70 @@ function GiftUI({ onClose, onSendGift, seats, user, profile }: { onClose: () => 
                  <button onClick={() => { if(password === "EMAD8912") setIsAuthenticated(true); else alert("Wrong Password") }} className="bg-blue-600 text-white font-bold py-3 rounded-xl">Verify</button>
                </div>
             ) : (
-               <form onSubmit={handleAddGift} className="flex flex-col gap-3">
-                 <input type="text" placeholder="Gift Name" value={newGift.name} onChange={e => setNewGift({...newGift, name: e.target.value})} className="bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white text-sm" required />
-                 <input type="number" placeholder="Coin Price" value={newGift.price} onChange={e => setNewGift({...newGift, price: e.target.value})} className="bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white text-sm" required />
-                 <input type="url" placeholder="Image URL" value={newGift.image} onChange={e => setNewGift({...newGift, image: e.target.value})} className="bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white text-sm" required />
-                 <input type="url" placeholder="Video URL (optional)" value={newGift.videoUrl} onChange={e => setNewGift({...newGift, videoUrl: e.target.value})} className="bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white text-sm" />
-                 <button type="submit" className="bg-green-600 text-white font-bold py-3 rounded-xl mt-2 text-sm shadow-md">Add Gift</button>
-               </form>
+               <div className="flex flex-col gap-6 pb-20">
+                  <form onSubmit={handleAddGift} className="flex flex-col gap-3">
+                    <input type="text" placeholder="Gift Name" value={newGift.name} onChange={e => setNewGift({...newGift, name: e.target.value})} className="bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white text-sm" required />
+                    <input type="number" placeholder="Chips Price" value={newGift.price} onChange={e => setNewGift({...newGift, price: e.target.value})} className="bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white text-sm" required />
+                    
+                    <div className="flex flex-col gap-2 p-3 border border-white/10 rounded-xl bg-white/5">
+                        <label className="text-white/60 text-xs font-bold uppercase tracking-widest">Image</label>
+                        <input type="url" placeholder="Image URL (Or choose file below)" value={newGift.image} onChange={e => setNewGift({...newGift, image: e.target.value})} className="bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-white text-sm" />
+                        <input type="file" accept="image/*" onChange={e => {
+                           const file = e.target.files?.[0];
+                           if (file) {
+                              const reader = new FileReader();
+                              reader.onload = ev => setNewGift({...newGift, image: ev.target?.result as string});
+                              reader.readAsDataURL(file);
+                           }
+                        }} className="text-white text-xs mt-1" />
+                        {newGift.image && <img src={newGift.image} alt="Preview" className="w-16 h-16 object-cover rounded-lg border border-white/20 mt-2" />}
+                    </div>
+
+                    <div className="flex flex-col gap-2 p-3 border border-white/10 rounded-xl bg-white/5">
+                        <label className="text-white/60 text-xs font-bold uppercase tracking-widest">Video (Optional)</label>
+                        <input type="url" placeholder="Video URL (Or choose file below)" value={newGift.videoUrl} onChange={e => setNewGift({...newGift, videoUrl: e.target.value})} className="bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-white text-sm" />
+                        <input type="file" accept="video/*" onChange={e => {
+                           const file = e.target.files?.[0];
+                           if (file) {
+                              const reader = new FileReader();
+                              reader.onload = ev => setNewGift({...newGift, videoUrl: ev.target?.result as string});
+                              reader.readAsDataURL(file);
+                           }
+                        }} className="text-white text-xs mt-1" />
+                        {newGift.videoUrl && <video src={newGift.videoUrl} className="w-24 rounded-lg border border-white/20 mt-2" controls muted />}
+                    </div>
+                    
+                    <button type="submit" className="bg-green-600 hover:bg-green-500 text-white font-bold py-3 rounded-xl mt-2 text-md shadow-lg transition-colors uppercase tracking-widest">Save Gift</button>
+                  </form>
+                  
+                  <div className="mt-4">
+                     <h3 className="text-white font-black mb-3 text-lg">Custom Gifts List</h3>
+                     {customGifts.length === 0 ? (
+                        <p className="text-white/50 text-sm">No custom gifts added yet.</p>
+                     ) : (
+                        <div className="flex flex-col gap-3">
+                           {customGifts.map(gift => (
+                              <div key={gift.id} className="bg-white/5 border border-white/10 p-3 rounded-xl flex items-center justify-between gap-3">
+                                 <img src={gift.image} alt={gift.name} className="w-12 h-12 rounded-lg object-cover bg-black/40" />
+                                 <div className="flex-1 min-w-0">
+                                    <h4 className="text-white font-bold truncate">{gift.name}</h4>
+                                    <p className="text-yellow-500 text-xs font-black flex items-center gap-1"><Coins size={10} /> {gift.price}</p>
+                                 </div>
+                                 <div className="flex items-center gap-2">
+                                    {gift.videoUrl && <div className="px-2 py-1 bg-blue-500/20 text-blue-400 text-[10px] font-black uppercase rounded-lg">Video</div>}
+                                    <button 
+                                       onClick={() => deleteDoc(doc(db, 'gifts', gift.id)).catch(console.error)} 
+                                       className="w-8 h-8 rounded-full bg-red-600/20 text-red-500 flex items-center justify-center hover:bg-red-600/40"
+                                    >
+                                       <X size={16} />
+                                    </button>
+                                 </div>
+                              </div>
+                           ))}
+                        </div>
+                     )}
+                  </div>
+               </div>
             )}
          </div>
       )
