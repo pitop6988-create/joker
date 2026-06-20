@@ -26,14 +26,14 @@ service cloud.firestore {
       return data.name is string && data.name.size() <= 64
         && data.ownerId is string && data.ownerId.size() <= 128
         && data.members is list && data.members.size() <= 30
-        && data.createdAt is int;
+        && (data.createdAt is int || data.createdAt is timestamp);
     }
 
     function isValidClubMessage(data) {
       return data.userId is string && data.userId.size() <= 128
         && data.userName is string && data.userName.size() <= 64
         && data.text is string && data.text.size() <= 1000
-        && data.createdAt is int;
+        && (data.createdAt is int || data.createdAt is timestamp);
     }
 
     function isValidPartyRoom(data) {
@@ -42,24 +42,23 @@ service cloud.firestore {
         && (!('image' in data) || (data.image is string && data.image.size() <= 1000))
         && (!('viewers' in data) || data.viewers is number)
         && data.type in ['audio', 'pk']
-        && data.createdAt is int;
+        && (data.createdAt is int || data.createdAt is timestamp);
     }
 
     function isValidPartyRoomSeat(data) {
       return data.userId is string && data.userId.size() <= 128
-        && data.createdAt is int;
+        && (data.createdAt is int || data.createdAt is timestamp);
     }
 
     function isValidPartyRoomBanner(data) {
       return data.senderId is string && data.senderId.size() <= 128
-        && data.giftId is number
         && data.giftPrice is number
-        && data.createdAt is int;
+        && (data.createdAt is int || data.createdAt is timestamp);
     }
     function isValidGame(data) {
       return data.status in ['waiting', 'active', 'finished']
         && data.players is list && data.players.size() <= 2
-        && data.createdAt is int;
+        && (data.createdAt is int || data.createdAt is timestamp);
     }
 
     // --- Rules ---
@@ -178,6 +177,12 @@ service cloud.firestore {
       }
     }
 
+    // Gifts
+    match /gifts/{giftId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+
     // Party Rooms
     match /partyRooms/{roomId} {
       allow read: if isSignedIn();
@@ -197,6 +202,11 @@ service cloud.firestore {
       match /banners/{bannerId} {
         allow read: if isSignedIn();
         allow create: if isSignedIn() && isValidId(bannerId) && isValidPartyRoomBanner(incoming()) && incoming().senderId == request.auth.uid;
+      }
+
+      match /messages/{messageId} {
+        allow read: if isSignedIn();
+        allow create: if isSignedIn() && incoming().userId == request.auth.uid && incoming().text is string;
       }
     }
   }

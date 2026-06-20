@@ -3175,6 +3175,12 @@ function ProfileView({ user, profile, onBack, onLogout, setActiveTab, language, 
              <div className="flex flex-col justify-center">
                 <div className="flex items-center gap-2">
                    <h2 className="text-xl font-bold uppercase">{profile.displayName}</h2>
+                   <div className="w-auto inline-flex h-5 items-center bg-gradient-to-r from-[#7b3df1] to-[#b357f8] rounded-xl pr-2 pl-0.5 shadow-sm">
+                      <div className="bg-blue-300 w-4 h-4 rounded-full flex items-center justify-center mr-1 shadow-sm">
+                        <svg className="w-2.5 h-2.5 text-blue-700" fill="currentColor" viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/></svg>
+                      </div>
+                      <span className="text-white font-bold text-[10px]">Lv.54</span>
+                   </div>
                    <div className="w-4 h-4 rounded-full bg-[#1da1f2] text-white flex items-center justify-center text-[10px]">♂</div>
                    <button onClick={onEditProfile} className="ml-2 px-3 py-1 rounded-full border border-zinc-700 text-zinc-400 text-xs font-medium flex items-center gap-1 hover:bg-zinc-800">
                      <Edit size={12} /> Edit
@@ -5900,179 +5906,106 @@ function MyItemsView({
   const ownedTables = tableSkins.filter(t => profile.ownedTableSkins?.includes(t.id));
 
   return (
-    <div className="min-h-screen bg-[#1c1c1c] text-white p-6 font-sans pb-32 overflow-y-auto w-full flex flex-col items-center">
-      <header className="w-full max-w-lg mb-8 flex justify-between items-center px-2 z-20">
-         <div className="flex items-center gap-4">
-           <button onClick={onBack} className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 transition-colors">
-              <ArrowLeft size={22} className="text-zinc-400" />
-           </button>
-           <h1 className="text-2xl font-black uppercase tracking-tight">My Items</h1>
+    <div className="min-h-screen bg-white text-gray-900 font-sans pb-32 overflow-y-auto w-full flex flex-col items-center">
+      <header className="w-full max-w-lg flex justify-between items-center px-4 py-3 bg-white z-20">
+         <div className="flex items-center gap-3">
+           <button onClick={onBack} className="p-1 -ml-1 text-gray-900 border-none outline-none"><ChevronLeft size={28} weight="bold" /></button>
+           <h1 className="text-2xl font-extrabold tracking-tight">Mine</h1>
+         </div>
+         <div className="flex items-center gap-2">
+            <button className="flex items-center gap-1.5 bg-[#00a8ff] hover:bg-[#0096e6] text-white px-3.5 py-1.5 rounded-full text-[13px] font-bold shadow-sm relative">
+               <Gift size={16} /> Records <span className="w-1.5 h-1.5 bg-red-500 border border-white rounded-full absolute -top-0 -right-0" />
+            </button>
+            <button onClick={() => setActiveTab && setActiveTab('shop')} className="flex items-center gap-1.5 bg-[#ff5a6a] hover:bg-[#ff4556] text-white px-3.5 py-1.5 rounded-full text-[13px] font-bold shadow-sm">
+               <ShoppingBag size={16} /> Shop
+            </button>
          </div>
       </header>
 
-      <div className="w-full max-w-lg mb-8 flex bg-zinc-900/60 p-1 border border-white/5 rounded-2xl gap-1">
-         <button 
-           onClick={() => setActiveTabTab('skins')} 
-           className={`flex-1 py-3 text-xs font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'skins' ? 'bg-zinc-800 text-white shadow' : 'text-zinc-500 hover:text-zinc-400'}`}
-         >
-           Skins ({ownedSkins.length})
-         </button>
-         <button 
-           onClick={() => setActiveTabTab('tables')} 
-           className={`flex-1 py-3 text-xs font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'tables' ? 'bg-zinc-800 text-white shadow' : 'text-zinc-500 hover:text-zinc-400'}`}
-         >
-           Tables ({ownedTables.length})
-         </button>
-         <button 
-           onClick={() => setActiveTabTab('emojis')} 
-           className={`flex-1 py-3 text-xs font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'emojis' ? 'bg-zinc-800 text-white shadow' : 'text-zinc-500 hover:text-zinc-400'}`}
-         >
-           Emojis ({ownedEmojis.length})
-         </button>
+      <div className="w-full max-w-lg px-4 gap-6 text-[16px] font-bold text-gray-400 flex items-center relative mb-4 mt-2">
+        <button onClick={() => setActiveTabTab('skins')} className={`py-3 relative whitespace-nowrap transition-colors ${activeTab === 'skins' ? 'text-black' : ''}`}>
+          Headframe
+          {activeTab === 'skins' && <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-4 h-1 bg-[#00a8ff] rounded-t-full rounded-b-full shadow-[0_1px_3px_rgba(0,168,255,0.4)]" />}
+        </button>
+        <button onClick={() => setActiveTabTab('tables')} className={`py-3 relative whitespace-nowrap transition-colors ${activeTab === 'tables' ? 'text-black' : ''}`}>
+          Nameplate
+          {activeTab === 'tables' && <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-4 h-1 bg-[#00a8ff] rounded-t-full rounded-b-full shadow-[0_1px_3px_rgba(0,168,255,0.4)]" />}
+        </button>
+        <button onClick={() => setActiveTabTab('emojis')} className={`py-3 relative whitespace-nowrap transition-colors flex items-center gap-1 ${activeTab === 'emojis' ? 'text-black' : ''}`}>
+          Fantasy pro <ChevronDown size={16} className="ml-0.5" />
+          {activeTab === 'emojis' && <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-4 h-1 bg-[#00a8ff] rounded-t-full rounded-b-full shadow-[0_1px_3px_rgba(0,168,255,0.4)]" />}
+        </button>
       </div>
 
-      <div className="w-full max-w-lg">
+      <div className="w-full max-w-lg px-4">
         {loading ? (
           <div className="py-20 flex justify-center">
-            <RefreshCcw className="animate-spin text-zinc-500" size={32} />
+            <RefreshCcw className="animate-spin text-zinc-400" size={32} />
           </div>
         ) : activeTab === 'skins' ? (
-          <div className="grid grid-cols-2 gap-4">
-             {/* Default card skin option */}
-             <div className="bg-zinc-900/40 border border-white/5 rounded-3xl p-4 flex flex-col gap-4 relative">
-                <div className="aspect-[2/3] bg-zinc-950/80 border border-white/10 rounded-2xl flex items-center justify-center font-mono text-xs text-zinc-500 font-bold overflow-hidden relative">
-                   <div className="absolute inset-0 bg-gradient-to-br from-zinc-900 to-black opacity-40" />
-                    🃏 Default Red
+          <div className="grid grid-cols-3 gap-3">
+             <div className="flex flex-col items-center">
+                <div onClick={() => handleEquipSkin(null)} className="w-full aspect-[9/10] bg-[#1c213c] rounded-t-xl mb-0 flex items-center justify-center border-b border-white/5 relative cursor-pointer overflow-hidden pb-2">
+                   <div className="w-[80%] aspect-square rounded-full border-[1.5px] border-dashed border-white/40" />
                 </div>
-                <div className="flex-1 flex flex-col justify-end">
-                   <p className="font-bold text-sm">Classic Joker Red</p>
-                   <p className="text-[10px] text-zinc-500 font-black uppercase mt-1">Default</p>
-                   {profile.activeSkinId ? (
-                      <button 
-                        onClick={() => handleEquipSkin(null)}
-                        className="w-full mt-3 py-2 bg-white/5 border border-white/5 hover:bg-white/10 rounded-xl text-xs font-bold transition-all"
-                      >
-                        Equip
-                      </button>
-                   ) : (
-                      <div className="w-full mt-3 py-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 rounded-xl text-xs font-black uppercase tracking-widest text-center flex items-center justify-center gap-1">
-                         <Check size={12} /> Equipped
-                      </div>
-                   )}
+                <div className="w-full bg-[#f8f9fa] rounded-b-xl py-2 text-center text-[12px] font-semibold text-gray-500 shrink-0 shadow-sm border border-gray-50">
+                   Default
                 </div>
              </div>
-
-             {ownedSkins.length === 0 ? (
-                <div className="col-span-2 py-16 text-center border border-dashed border-white/5 rounded-3xl">
-                   <p className="text-zinc-500 font-bold text-sm">You do not own any custom card skins.</p>
+            {ownedSkins.map(skin => {
+              const isCurrent = profile.activeSkinId === skin.id;
+              return (
+              <div key={skin.id} className="flex flex-col items-center">
+                <div onClick={() => handleEquipSkin(skin.id)} className="w-full aspect-[9/10] bg-[#1c213c] rounded-t-xl mb-0 relative flex flex-col items-center justify-center overflow-hidden border-b border-white/5 cursor-pointer pb-2">
+                   {isCurrent && (
+                     <div className="absolute top-0 left-0 bg-blue-500 text-white text-[10px] font-black px-2 py-0.5 rounded-br-lg z-10">wearing</div>
+                   )}
+                   <img src={skin.imageUrl} className="w-[90%] aspect-square object-contain filter drop-shadow-md z-0" alt="" />
                 </div>
-             ) : (
-                ownedSkins.map(skin => {
-                  const isCurrent = profile.activeSkinId === skin.id;
-                  return (
-                     <div key={skin.id} className="bg-zinc-900/40 border border-white/5 rounded-3xl p-4 flex flex-col gap-4 relative">
-                        <div className="aspect-[2/3] bg-zinc-950 border border-white/10 rounded-2xl overflow-hidden relative shadow-md">
-                           <img src={skin.imageUrl} alt="" className="w-full h-full object-cover" />
-                        </div>
-                        <div className="flex-1 flex flex-col justify-end">
-                           <p className="font-bold text-sm truncate">{skin.name}</p>
-                           <p className="text-[9px] font-black uppercase text-yellow-500 mt-1">{skin.rarity}</p>
-                           {isCurrent ? (
-                              <div className="w-full mt-3 py-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 rounded-xl text-xs font-black uppercase tracking-widest text-center flex items-center justify-center gap-1">
-                                 <Check size={12} /> Equipped
-                              </div>
-                           ) : (
-                              <button 
-                                onClick={() => handleEquipSkin(skin.id)}
-                                className="w-full mt-3 py-2 bg-yellow-500 text-black hover:bg-yellow-400 rounded-xl text-xs font-bold transition-all"
-                              >
-                                Equip
-                              </button>
-                           )}
-                        </div>
-                     </div>
-                  );
-                })
-             )}
+                <div className={`w-full ${isCurrent ? 'bg-white border-[#00a8ff]' : 'bg-[#f8f9fa] border-gray-50'} border shadow-sm rounded-b-xl py-2 text-center text-[12px] font-semibold ${isCurrent ? 'text-[#00a8ff]' : 'text-gray-500'} truncate px-1`}>
+                   {isCurrent ? 'Valid in 23 hours' : 'Permanent'}
+                </div>
+              </div>
+            )})}
           </div>
         ) : activeTab === 'tables' ? (
-          <div className="grid grid-cols-2 gap-4">
-             {/* Default table mat option */}
-             <div className="bg-zinc-900/40 border border-white/5 rounded-3xl p-4 flex flex-col gap-4 relative">
-                <div className="aspect-[3/2] bg-zinc-950/80 border border-white/10 rounded-2xl flex items-center justify-center font-mono text-[10px] text-zinc-500 font-bold overflow-hidden relative">
-                   <div className="absolute inset-0 bg-gradient-to-br from-zinc-850 to-emerald-950 opacity-40 animate-pulse" />
-                    🃏 Velvet Greenfield
+          <div className="grid grid-cols-3 gap-3">
+             <div className="flex flex-col items-center">
+                <div onClick={() => handleEquipTable(null)} className="w-full aspect-[9/10] bg-[#1c213c] rounded-t-xl mb-0 flex items-center justify-center cursor-pointer pb-2">
+                   <div className="w-[70%] h-[40%] border-[2px] border-dashed border-white/30 rounded-md" />
                 </div>
-                <div className="flex-1 flex flex-col justify-end">
-                   <p className="font-bold text-sm">Classic Table Felt</p>
-                   <p className="text-[10px] text-zinc-500 font-black uppercase mt-1">Default</p>
-                   {profile.activeTableSkinId ? (
-                      <button 
-                        onClick={() => handleEquipTable(null)}
-                        className="w-full mt-3 py-2 bg-white/5 border border-white/5 hover:bg-white/10 rounded-xl text-xs font-bold transition-all"
-                      >
-                        Equip
-                      </button>
-                   ) : (
-                      <div className="w-full mt-3 py-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 rounded-xl text-xs font-black uppercase tracking-widest text-center flex items-center justify-center gap-1">
-                         <Check size={12} /> Equipped
-                      </div>
-                   )}
-                </div>
+                <div className="w-full bg-[#f8f9fa] rounded-b-xl shadow-sm border border-gray-50 py-2 text-center text-[12px] font-semibold text-gray-500">Default</div>
              </div>
-
-              {ownedTables.map(table => {
-                const isCurrent = profile.activeTableSkinId === table.id;
-                return (
-                   <div key={table.id} className="bg-zinc-900/40 border border-white/5 rounded-3xl p-4 flex flex-col gap-4 relative">
-                      <div className="aspect-[3/2] bg-zinc-950 border border-white/10 rounded-2xl overflow-hidden relative shadow-md">
-                         <img src={table.imageUrl} alt="" className="w-full h-full object-cover" />
-                      </div>
-                      <div className="flex-1 flex flex-col justify-end">
-                         <p className="font-bold text-sm truncate">{table.name}</p>
-                         <p className="text-[9px] font-black uppercase text-yellow-500 mt-1">{table.rarity}</p>
-                         {isCurrent ? (
-                            <div className="w-full mt-3 py-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 rounded-xl text-xs font-black uppercase tracking-widest text-center flex items-center justify-center gap-1">
-                               <Check size={12} /> Equipped
-                            </div>
-                         ) : (
-                            <button 
-                              onClick={() => handleEquipTable(table.id)}
-                              className="w-full mt-3 py-2 bg-yellow-500 text-black hover:bg-yellow-400 rounded-xl text-xs font-bold transition-all"
-                            >
-                              Equip
-                            </button>
-                         )}
-                      </div>
-                   </div>
-                );
-              })}
-              {ownedTables.length === 0 && (
-                 <div className="col-span-2 py-16 text-center border border-dashed border-white/5 rounded-3xl">
-                    <p className="text-zinc-500 font-bold text-sm">You do not own any custom tables.</p>
-                 </div>
-              )}
+            {ownedTables.map(table => {
+              const isCurrent = profile.activeTableSkinId === table.id;
+              return (
+              <div key={table.id} className="flex flex-col items-center">
+                <div onClick={() => handleEquipTable(table.id)} className="w-full aspect-[9/10] bg-[#1c213c] rounded-t-xl mb-0 flex items-center justify-center p-2 relative cursor-pointer pb-2">
+                   {isCurrent && (
+                     <div className="absolute top-0 left-0 bg-blue-500 text-white text-[10px] font-black px-2 py-0.5 rounded-br-lg z-10">wearing</div>
+                   )}
+                   <img src={table.imageUrl} className="w-[90%] h-[90%] object-contain" alt="" />
+                </div>
+                <div className={`w-full ${isCurrent ? 'bg-white border-[#00a8ff]' : 'bg-[#f8f9fa] border-gray-50'} border shadow-sm rounded-b-xl py-2 text-center text-[12px] font-semibold ${isCurrent ? 'text-[#00a8ff]' : 'text-gray-500'} truncate px-1`}>Permanent</div>
+              </div>
+            )})}
           </div>
         ) : (
-          <div>
-             {ownedEmojis.length === 0 ? (
-                <div className="py-16 text-center border border-dashed border-white/5 rounded-3xl">
-                   <p className="text-zinc-500 font-bold text-sm">You do not own any premium emojis/GIFs yet.</p>
-                   <p className="text-xs text-zinc-600 mt-1">Acquire them from the store using chips!</p>
+          <div className="grid grid-cols-3 gap-3">
+             <div className="flex flex-col items-center">
+                <div className="w-full aspect-[9/10] bg-[#1c213c] rounded-t-xl mb-0 flex items-center justify-center cursor-pointer pb-2">
+                   <div className="w-[50%] aspect-square border-[2px] border-dashed border-white/30 rounded-md" />
                 </div>
-             ) : (
-                <div className="grid grid-cols-3 gap-4">
-                   {ownedEmojis.map(emoji => (
-                     <div key={emoji.id} className="bg-zinc-900/40 border border-white/5 rounded-2xl p-4 flex flex-col items-center gap-2">
-                        <div className="w-full aspect-square bg-black/40 border border-white/5 rounded-xl flex items-center justify-center overflow-hidden">
-                           <img src={emoji.url} alt="" className="max-w-full max-h-full object-contain" />
-                        </div>
-                        <p className="text-xs font-bold text-zinc-300 truncate w-full text-center">{emoji.name}</p>
-                        <span className="text-[8px] font-black text-white/30 uppercase tracking-widest">{emoji.type}</span>
-                     </div>
-                   ))}
+                <div className="w-full bg-[#f8f9fa] shadow-sm border border-gray-50 rounded-b-xl py-2 text-center text-[12px] font-semibold text-gray-500">Default</div>
+             </div>
+            {ownedEmojis.map(emoji => (
+               <div key={emoji.id} className="flex flex-col items-center">
+                <div className="w-full aspect-[9/10] bg-[#1c213c] rounded-t-xl mb-0 flex items-center justify-center p-4 cursor-pointer pb-2">
+                   <img src={emoji.url} className="max-w-[70%] max-h-[70%] object-contain filter drop-shadow-md" alt="" />
                 </div>
-             )}
+                <div className="w-full bg-[#f8f9fa] rounded-b-xl shadow-sm border border-gray-50 py-2 text-center text-[12px] font-semibold text-gray-500 truncate px-1">Permanent</div>
+              </div>
+            ))}
           </div>
         )}
       </div>

@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ChevronLeft, MoreHorizontal, Maximize2, Mic, MicOff, Menu, Gift, MessageSquare, User, Volume2, Plus, Smile, Coins, Swords, Clock, X } from 'lucide-react';
+import { ChevronLeft, MoreHorizontal, Maximize2, Mic, MicOff, Menu, Gift, MessageSquare, User, Volume2, Plus, Smile, Coins, Swords, Clock, X, Send, Music, Play, Pause, SkipForward, SkipBack } from 'lucide-react';
 import { db } from '../lib/firebase';
 import { doc, collection, onSnapshot, updateDoc, setDoc, deleteDoc, serverTimestamp, runTransaction, query, orderBy, limit } from 'firebase/firestore';
+import { RoomLevelView } from './RoomLevelView';
 
 export function PartyRoomView({ user, profile, roomId, onBack }: any) {
   const [showGift, setShowGift] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+  const [showRoomLevel, setShowRoomLevel] = useState(false);
   const [showPKTimes, setShowPKTimes] = useState(false);
   const [isPKMode, setIsPKMode] = useState(false);
   const [pkTime, setPkTime] = useState(0);
@@ -146,6 +148,7 @@ export function PartyRoomView({ user, profile, roomId, onBack }: any) {
   };
 
   const [isMicOn, setIsMicOn] = useState(true);
+  const [showMusicModal, setShowMusicModal] = useState(false);
 
   const handleToggleMic = (e: React.MouseEvent) => {
      e.stopPropagation();
@@ -242,7 +245,7 @@ export function PartyRoomView({ user, profile, roomId, onBack }: any) {
       <div className="relative z-10 px-4 mt-2 flex flex-col gap-2">
          {!isPKMode && (
             <div>
-               <div className="bg-[#00c853] text-white px-3 py-0.5 rounded-full inline-flex font-bold text-xs shadow-md border border-[#00e676]">
+               <div onClick={() => setShowRoomLevel(true)} className="bg-[#00c853] text-white px-3 py-0.5 rounded-full inline-flex font-bold text-xs shadow-md border border-[#00e676] cursor-pointer active:scale-95 transition-transform">
                   Lv.1
                </div>
             </div>
@@ -411,12 +414,17 @@ export function PartyRoomView({ user, profile, roomId, onBack }: any) {
              <MicOff size={20} className="text-white" />
           </button>
 
-          <button className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center shrink-0">
-             <Smile size={20} className="text-white" />
+          <button onClick={() => setShowMusicModal(true)} className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center shrink-0 active:scale-95 transition-transform">
+             <Music size={20} className="text-[#a855f7]" />
           </button>
           
-          <form onSubmit={handleSendMessage} className="flex-1 h-10 bg-black/40 backdrop-blur-md border border-white/10 rounded-full px-4 flex items-center min-w-0">
-             <input value={chatInput} onChange={e => setChatInput(e.target.value)} type="text" placeholder="Say something..." className="bg-transparent border-none outline-none text-white text-sm w-full placeholder-white/50" />
+          <form onSubmit={handleSendMessage} className="flex-1 h-10 bg-black/40 backdrop-blur-md border border-white/10 rounded-full pl-4 pr-1 flex items-center min-w-0">
+             <input value={chatInput} onChange={e => setChatInput(e.target.value)} type="text" placeholder="Say something..." className="bg-transparent border-none outline-none text-white text-[13px] font-medium w-full placeholder-white/50" />
+             {chatInput.trim() && (
+               <button type="submit" className="w-8 h-8 rounded-full bg-[#ff7242] flex items-center justify-center shrink-0 ml-1 active:scale-95 transition-transform shadow-md">
+                 <Send size={14} className="text-white -ml-0.5 mt-0.5" />
+               </button>
+             )}
           </form>
           
           <div className="relative">
@@ -485,17 +493,105 @@ export function PartyRoomView({ user, profile, roomId, onBack }: any) {
           </button>
        </div>
 
-       {showGift && <GiftUI onClose={() => setShowGift(false)} onSendGift={handleSendGift} />}
+       {showGift && <GiftUI onClose={() => setShowGift(false)} onSendGift={handleSendGift} seats={seats} user={user} profile={profile} />}
+       {showMusicModal && <MusicModal onClose={() => setShowMusicModal(false)} />}
+       {showRoomLevel && (
+          <RoomLevelView 
+             onBack={() => setShowRoomLevel(false)}
+             profile={profile}
+             roomData={roomData}
+          />
+       )}
     </div>
   );
 }
 
-function GiftUI({ onClose, onSendGift }: { onClose: () => void; onSendGift: (gift: any) => void }) {
+function MusicModal({ onClose }: { onClose: () => void }) {
+   const [isPlaying, setIsPlaying] = useState(false);
+   const [currentTrackIdx, setCurrentTrackIdx] = useState(0);
+
+   const defaultTracks = [
+     { id: 1, name: 'Ambient Chill', url: 'https://cdn.pixabay.com/download/audio/2022/05/16/audio_946b5a363f.mp3?filename=ambient-chill-114400.mp3' },
+     { id: 2, name: 'LoFi Beats', url: 'https://cdn.pixabay.com/download/audio/2022/02/07/audio_d0a13f69d2.mp3?filename=lofi-study-112191.mp3' },
+     { id: 3, name: 'Acoustic Vibe', url: 'https://cdn.pixabay.com/download/audio/2021/08/04/audio_0625c1539c.mp3?filename=acoustic-vibe-124586.mp3' },
+   ];
+   
+   const currentTrack = defaultTracks[currentTrackIdx];
+
+   useEffect(() => {
+      const audio = document.getElementById('bg-music-player') as HTMLAudioElement;
+      if (audio) {
+         if (isPlaying) {
+            audio.play().catch(e => console.log('Audio play failed', e));
+         } else {
+            audio.pause();
+         }
+      }
+   }, [isPlaying, currentTrackIdx]);
+
+   const togglePlay = () => setIsPlaying(!isPlaying);
+   const playNext = () => setCurrentTrackIdx((prev) => (prev + 1) % defaultTracks.length);
+   const playPrev = () => setCurrentTrackIdx((prev) => (prev - 1 + defaultTracks.length) % defaultTracks.length);
+
+   return (
+       <AnimatePresence>
+           <motion.div
+               initial={{ y: '100%' }}
+               animate={{ y: 0 }}
+               exit={{ y: '100%' }}
+               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+               className="absolute inset-x-0 bottom-0 z-50 bg-[#1c1815] bg-opacity-95 backdrop-blur-xl rounded-t-[32px] flex flex-col pt-2 overflow-hidden border-t border-white/10"
+               style={{ height: '35vh' }}
+           >
+               <audio id="bg-music-player" src={currentTrack.url} onEnded={playNext} loop={false} />
+               {/* Drag Handle */}
+               <div className="w-12 h-1.5 bg-white/20 rounded-full mx-auto mb-4 shrink-0" />
+
+               <div className="px-6 pb-2 flex items-center justify-between border-b border-white/5">
+                   <h2 className="text-white text-lg font-black tracking-tight">Music Player</h2>
+                   <button onClick={onClose} className="p-2 -mr-2"><ChevronLeft className="text-white/40 rotate-[270deg]" /></button>
+               </div>
+
+               <div className="flex flex-col items-center justify-center p-6 flex-1 gap-6">
+                  {/* Track Info */}
+                  <div className="flex flex-col items-center gap-2">
+                     <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-500 flex items-center justify-center shadow-lg relative overflow-hidden">
+                        <motion.div 
+                           animate={{ rotate: isPlaying ? 360 : 0 }} 
+                           transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
+                           className="w-full h-full border-4 border-dashed border-white/20 rounded-full absolute inset-0" 
+                        />
+                        <Music className="text-white" size={28} />
+                     </div>
+                     <span className="text-white font-bold text-lg mt-2 tracking-wide">{currentTrack.name}</span>
+                     <span className="text-white/50 text-xs font-semibold">Royalty Free Music</span>
+                  </div>
+
+                  {/* Controls */}
+                  <div className="flex items-center gap-6 mt-2">
+                     <button onClick={playPrev} className="w-12 h-12 flex items-center justify-center bg-white/10 rounded-full active:scale-95 transition-transform hover:bg-white/20">
+                        <SkipBack className="text-white" fill="white" size={20} />
+                     </button>
+                     <button onClick={togglePlay} className="w-16 h-16 flex items-center justify-center bg-white rounded-full shadow-xl shadow-white/10 active:scale-95 transition-transform">
+                        {isPlaying ? <Pause className="text-black" fill="black" size={28} /> : <Play className="text-black ml-1" fill="black" size={28} />}
+                     </button>
+                     <button onClick={playNext} className="w-12 h-12 flex items-center justify-center bg-white/10 rounded-full active:scale-95 transition-transform hover:bg-white/20">
+                        <SkipForward className="text-white" fill="white" size={20} />
+                     </button>
+                  </div>
+               </div>
+           </motion.div>
+       </AnimatePresence>
+   );
+}
+
+function GiftUI({ onClose, onSendGift, seats, user, profile }: { onClose: () => void; onSendGift: (gift: any) => void; seats: Record<string, any>; user: any; profile?: any; }) {
    const [activeTab, setActiveTab] = useState<'HOT' | 'Privileges'>('HOT');
    const [selectedGiftId, setSelectedGiftId] = useState<number>(1);
    const [showAdminPanel, setShowAdminPanel] = useState(false);
    const [password, setPassword] = useState("");
    const [isAuthenticated, setIsAuthenticated] = useState(false);
+   const [selectedSeats, setSelectedSeats] = useState<number[]>([]);
    
    const [customGifts, setCustomGifts] = useState<any[]>([]);
    
@@ -526,14 +622,14 @@ function GiftUI({ onClose, onSendGift }: { onClose: () => void; onSendGift: (gif
    };
    
    const defaultGifts = [
-       { name: 'Tea Set', price: 3, image: 'https://images.unsplash.com/photo-1576092762791-dd9e2220c4c7?w=100&h=100&fit=crop', id: 1 },
-       { name: 'love box', price: 29, image: 'https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=100&h=100&fit=crop', id: 2 },
-       { name: 'Rosaline', price: 199, image: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=100&h=100&fit=crop', id: 3 },
-       { name: '99 roses', price: 99, image: 'https://images.unsplash.com/photo-1562690868-60bbe7293e94?w=100&h=100&fit=crop', id: 4 },
-       { name: 'Magical Jewel', price: 199, image: 'https://images.unsplash.com/photo-1615690466487-172151f1f7ed?w=100&h=100&fit=crop', id: 5 },
-       { name: 'love balloons', price: 299, image: 'https://images.unsplash.com/photo-1530103862676-de8892b00511?w=100&h=100&fit=crop', id: 6 },
-       { name: 'Snack bucket', price: 499, image: 'https://images.unsplash.com/photo-1582234032138-000c2834b6e5?w=100&h=100&fit=crop', id: 7 },
-       { name: 'hands in a heart', price: 599, image: 'https://images.unsplash.com/photo-1518047053526-bf318eb7ac6e?w=100&h=100&fit=crop', id: 8 }
+       { name: 'Rose', price: 50, image: 'https://images.unsplash.com/photo-1559563158-827b500bc7bb?w=200&h=200&fit=crop', id: 1 },
+       { name: 'Flowers', price: 70, image: 'https://images.unsplash.com/photo-1562690868-60bbe7293e94?w=200&h=200&fit=crop', id: 2 },
+       { name: 'For you', price: 100, image: 'https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=200&h=200&fit=crop', id: 3 },
+       { name: 'Heart', price: 500, image: 'https://images.unsplash.com/photo-1518047053526-bf318eb7ac6e?w=200&h=200&fit=crop', id: 4 },
+       { name: 'Singing Mic', price: 999, image: 'https://images.unsplash.com/photo-1516280440502-c944111394a5?w=200&h=200&fit=crop', id: 5 },
+       { name: 'Mony Loop', price: 1000, image: 'https://images.unsplash.com/photo-1580519542036-ed47424438a2?w=200&h=200&fit=crop', id: 6 },
+       { name: 'Baby deer', price: 1000, image: 'https://images.unsplash.com/photo-1582234032138-000c2834b6e5?w=200&h=200&fit=crop', id: 7 },
+       { name: 'Rocket', price: 2000, image: 'https://images.unsplash.com/photo-1517976487492-5750f3195933?w=200&h=200&fit=crop', id: 8 }
    ];
    
    const gifts = [...customGifts, ...defaultGifts];
@@ -586,17 +682,59 @@ function GiftUI({ onClose, onSendGift }: { onClose: () => void; onSendGift: (gif
                <div className="w-12 h-1.5 bg-white/20 rounded-full mx-auto mb-2 shrink-0" />
 
                {/* Mic strip */}
-               <div className="px-6 py-3 flex items-center justify-between border-b border-white/5">
-                   <div className="flex items-center gap-3">
-                       <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center shrink-0">
-                           <Volume2 size={16} className="text-white/50" />
-                       </div>
-                       <span className="text-white/40 text-sm font-bold">No other one on mic</span>
+               <div className="px-6 py-3 flex flex-col gap-2 border-b border-white/5">
+                   <div className="flex items-center justify-between w-full">
+                      <span className="text-white/50 text-sm font-bold">Select Receiver</span>
+                      <button onClick={onClose} className="p-2 -mr-2 mb-[-8px]"><ChevronLeft className="text-white/40 rotate-[270deg]" /></button>
                    </div>
-                   <button onClick={onClose} className="p-2 -mr-2"><ChevronLeft className="text-white/40 rotate-[270deg]" /></button>
+                   <div className="flex-1 flex overflow-x-auto no-scrollbar gap-3 pr-4 relative w-full pt-1 pb-1">
+                       {Object.keys(seats).length === 0 ? (
+                          <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center shrink-0">
+                                  <Volume2 size={16} className="text-white/50" />
+                              </div>
+                              <span className="text-white/40 text-sm font-bold">No other one on mic</span>
+                          </div>
+                       ) : (
+                          <>
+                            <button 
+                               onClick={() => setSelectedSeats(Object.keys(seats).map(Number))}
+                               className={`flex flex-col items-center gap-1 shrink-0 ${selectedSeats.length === Object.keys(seats).length && selectedSeats.length > 0 ? 'opacity-100' : 'opacity-50'}`}
+                            >
+                                <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center border-2 border-transparent relative pointer-events-none">
+                                   <span className="text-white text-sm font-bold font-serif">All</span>
+                                   {selectedSeats.length === Object.keys(seats).length && selectedSeats.length > 0 && (
+                                     <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-[#ff7242] rounded-full border-2 border-[#1c1815]" />
+                                   )}
+                                </div>
+                                <span className="text-white text-[10px] w-12 truncate text-center">All</span>
+                            </button>
+                            
+                            {Object.entries(seats).map(([seatId, s]) => {
+                               const id = Number(seatId);
+                               const isSelected = selectedSeats.includes(id);
+                               return (
+                                 <button
+                                    key={id}
+                                    onClick={() => setSelectedSeats(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])}
+                                    className={`flex flex-col items-center gap-1 shrink-0 transition-opacity ${isSelected ? 'opacity-100' : 'opacity-50'}`}
+                                 >
+                                    <div className={`w-10 h-10 rounded-full overflow-hidden border-2 flex items-center justify-center bg-black relative pointer-events-none ${isSelected ? 'border-[#ff7242]' : 'border-transparent'}`}>
+                                       <img src={s.userPhoto || `https://api.dicebear.com/7.x/avataaars/svg?seed=${s.userId}`} className="w-full h-full object-cover" alt="" />
+                                       {isSelected && (
+                                         <div className="absolute inset-0 bg-black/20" />
+                                       )}
+                                    </div>
+                                    <span className="text-white text-[10px] w-12 truncate text-center">{s.userName?.split(' ')[0] || 'Guest'}</span>
+                                 </button>
+                               );
+                            })}
+                          </>
+                       )}
+                   </div>
                </div>
 
-               {/* Tabs */}
+               {/* Tabs & Admin */}
                <div className="flex items-center px-6 pt-4 gap-6 relative">
                    {['HOT', 'Privileges'].map(tab => (
                        <button 
@@ -611,17 +749,13 @@ function GiftUI({ onClose, onSendGift }: { onClose: () => void; onSendGift: (gif
                    <button onClick={() => setShowAdminPanel(true)} className="w-6 h-6 flex items-center justify-center bg-white/10 rounded-full border border-white/20 ml-2">
                        <Plus size={14} className="text-white/60" />
                    </button>
-                   <div className="ml-auto p-1.5 bg-white/10 rounded-md">
-                       <div className="w-4 h-4 border border-white/50 rounded-sm" />
-                   </div>
                </div>
 
-               {/* Recipient */}
+               {/* Recipient info strip below tabs */}
                <div className="bg-[#241f1c] px-6 py-2.5 flex justify-between items-center text-sm font-bold mt-2">
                    <div className="flex items-center gap-2 text-white/50">
                        The recipient: 
-                       <span className="text-white flex items-center gap-1 ml-1">🌻 +3</span>
-                       <span className="text-white flex items-center gap-1"><Coins size={12} className="text-yellow-400" /> +1</span>
+                       <span className="text-white flex items-center gap-1 ml-1">{selectedSeats.length > 0 ? `${selectedSeats.length} Users` : 'None'}</span>
                    </div>
                    <div className="w-4 h-4 rounded-full border border-white/30 flex items-center justify-center text-white/50 text-[10px]">?</div>
                </div>
@@ -636,7 +770,6 @@ function GiftUI({ onClose, onSendGift }: { onClose: () => void; onSendGift: (gif
                         onClick={() => setSelectedGiftId(gift.id)}
                         className={`flex flex-col items-center justify-between px-1 py-2 rounded-2xl relative cursor-pointer transition-all ${isSelected ? 'bg-white/5 shadow-inner border border-white/5' : ''}`}
                       >
-                          {activeTab === 'HOT' && <div className="absolute top-1 left-1 bg-[#8e44ad] rounded flex items-center justify-center text-white px-[2px] py-[2px] shadow-sm"><span className="text-[8px] leading-none">🎵</span></div>}
                           <div className="w-[72px] h-[72px] rounded-xl overflow-hidden drop-shadow-md relative bg-transparent">
                              <img src={gift.image} className="w-full h-full object-cover mix-blend-lighten pointer-events-none" alt={gift.name} />
                           </div>
@@ -646,8 +779,12 @@ function GiftUI({ onClose, onSendGift }: { onClose: () => void; onSendGift: (gif
                           {isSelected && (
                              <div className="absolute inset-x-0 bottom-0 pointer-events-none flex flex-col justify-end translate-y-3">
                                  <button 
-                                   onClick={(e) => { e.stopPropagation(); onSendGift(gift); }}
-                                   className="w-full bg-[#ff7242] text-white text-[14px] font-black py-1.5 rounded-full shadow-lg pointer-events-auto active:bg-[#e46433] transition-colors"
+                                   onClick={(e) => { 
+                                      e.stopPropagation(); 
+                                      if (selectedSeats.length === 0) { alert('Please select a receiver on mic'); return; }
+                                      onSendGift({ ...gift, targetSeats: selectedSeats }); 
+                                   }}
+                                   className="w-full bg-gradient-to-r from-purple-500 to-indigo-500 text-white text-[14px] font-black py-1.5 rounded-full shadow-lg pointer-events-auto active:scale-95 transition-all"
                                  >
                                     Send
                                  </button>
@@ -661,7 +798,7 @@ function GiftUI({ onClose, onSendGift }: { onClose: () => void; onSendGift: (gif
                {/* Bottom Quick Select */}
                <div className="px-4 pb-8 pt-2 flex items-center justify-between border-t border-white/5 absolute bottom-0 inset-x-0 bg-[#1c1815]">
                    <div className="flex items-center gap-1 bg-white/10 rounded-full px-3 py-1.5 shadow-inner">
-                       <span className="text-yellow-500 text-sm font-black flex items-center gap-1 mr-1"><Coins size={14} className="text-yellow-400" /> 160 <ChevronLeft className="rotate-180" size={14} /></span>
+                       <span className="text-yellow-500 text-sm font-black flex items-center gap-1 mr-1"><Coins size={14} className="text-yellow-400" /> {profile?.chips || 0} <ChevronLeft className="rotate-180" size={14} /></span>
                        <Gift size={16} className="text-[#ff6b9e]" />
                    </div>
                    
