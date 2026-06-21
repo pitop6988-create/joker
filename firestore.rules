@@ -19,13 +19,17 @@ service cloud.firestore {
 
     function isValidUser(data) {
       return (!('displayName' in data) || (data.displayName is string && data.displayName.size() <= 100))
-        && (!('chips' in data) || data.chips is number);
+        && (!('chips' in data) || data.chips is number)
+        && (!('vipExp' in data) || data.vipExp is number)
+        && (!('level' in data) || data.level is number)
+        && (!('friends' in data) || data.friends is list)
+        && (!('friendRequests' in data) || data.friendRequests is list);
     }
 
     function isValidClub(data) {
       return data.name is string && data.name.size() <= 64
         && data.ownerId is string && data.ownerId.size() <= 128
-        && data.members is list && data.members.size() <= 30
+        && data.members is list && data.members.size() <= 60
         && (data.createdAt is int || data.createdAt is timestamp);
     }
 
@@ -52,7 +56,11 @@ service cloud.firestore {
 
     function isValidPartyRoomBanner(data) {
       return data.senderId is string && data.senderId.size() <= 128
+        && data.senderName is string && data.senderName.size() <= 100
+        && data.giftName is string && data.giftName.size() <= 100
         && data.giftPrice is number
+        && (!('giftId' in data) || data.giftId is number || data.giftId is string)
+        && (!('giftImage' in data) || data.giftImage is string)
         && (data.createdAt is int || data.createdAt is timestamp);
     }
     function isValidGame(data) {
@@ -201,12 +209,16 @@ service cloud.firestore {
 
       match /banners/{bannerId} {
         allow read: if isSignedIn();
-        allow create: if isSignedIn() && isValidId(bannerId) && isValidPartyRoomBanner(incoming()) && incoming().senderId == request.auth.uid;
+        allow create: if isSignedIn() && isValidPartyRoomBanner(incoming()) && incoming().senderId == request.auth.uid;
       }
 
       match /messages/{messageId} {
         allow read: if isSignedIn();
         allow create: if isSignedIn() && incoming().userId == request.auth.uid && incoming().text is string;
+      }
+
+      match /superWinner/{docId} {
+        allow read, write: if isSignedIn();
       }
     }
   }

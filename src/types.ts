@@ -26,6 +26,8 @@ export interface UserProfile {
   ownedTableSkins?: string[];
   activeTableSkinId?: string | null;
   isAdmin?: boolean;
+  bio?: string;
+  isOnline?: boolean;
 }
 
 export interface TableSkin {
@@ -86,8 +88,9 @@ export interface Club {
   members: string[]; // List of user UIDs
   password?: string;
   isPrivate: boolean;
-  maxMembers: number; // 1-30
+  maxMembers: number; 
   chipsPool: number;
+  level?: number;
   createdAt: number;
 }
 

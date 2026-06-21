@@ -26,8 +26,10 @@ import {
   Copy,
   UserPlus,
   ChevronRight,
+  ChevronUp,
+  Trophy,
 } from "lucide-react";
-import { db } from "../lib/firebase";
+import { db, auth } from "../lib/firebase";
 import {
   doc,
   collection,
@@ -41,10 +43,57 @@ import {
   orderBy,
   limit,
 } from "firebase/firestore";
+import { SuperWinnerUI } from "./SuperWinnerUI";
+
+enum OperationType {
+  CREATE = "create",
+  UPDATE = "update",
+  DELETE = "delete",
+  LIST = "list",
+  GET = "get",
+  WRITE = "write",
+}
+
+interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId?: string | null;
+    email?: string | null;
+    emailVerified?: boolean | null;
+  };
+}
+
+function handleFirestoreError(
+  error: unknown,
+  operationType: OperationType,
+  path: string | null,
+) {
+  const errorMessage = error instanceof Error ? error.message : String(error);
+  const errInfo: FirestoreErrorInfo = {
+    error: errorMessage,
+    authInfo: {
+      userId: auth.currentUser?.uid,
+      email: auth.currentUser?.email,
+      emailVerified: auth.currentUser?.emailVerified,
+    },
+    operationType,
+    path,
+  };
+  console.error("Firestore Error: ", JSON.stringify(errInfo));
+
+  if (errorMessage.includes("Quota limit exceeded") || errorMessage.includes("resource-exhausted")) {
+    alert("Database limit reached. Please try again later today or tomorrow when the free quota resets.");
+  } else {
+    alert("An error occurred with the database. Please try again.");
+  }
+}
 import { RoomLevelView } from "./RoomLevelView";
 
 export function PartyRoomView({ user, profile, roomId, onBack }: any) {
   const [showGift, setShowGift] = useState(false);
+  const [showSuperWinner, setShowSuperWinner] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [showRoomLevel, setShowRoomLevel] = useState(false);
   const [showPKTimes, setShowPKTimes] = useState(false);
@@ -78,7 +127,7 @@ export function PartyRoomView({ user, profile, roomId, onBack }: any) {
       (doc) => {
         setRoomData(doc.data());
       },
-      (error) => console.error(error),
+      (error) => handleFirestoreError(error, OperationType.GET, `partyRooms/${roomId}`),
     );
 
     // Seats
@@ -98,7 +147,7 @@ export function PartyRoomView({ user, profile, roomId, onBack }: any) {
         }
         setMySeat(mySet);
       },
-      (error) => console.error(error),
+      (error) => handleFirestoreError(error, OperationType.LIST, `partyRooms/${roomId}/seats`),
     );
 
     // Banners
@@ -120,7 +169,7 @@ export function PartyRoomView({ user, profile, roomId, onBack }: any) {
         );
         setBanners(recent);
       },
-      (error) => console.error(error),
+      (error) => handleFirestoreError(error, OperationType.LIST, `partyRooms/${roomId}/banners`),
     );
 
     // Messages
@@ -148,7 +197,7 @@ export function PartyRoomView({ user, profile, roomId, onBack }: any) {
           },
         ]);
       },
-      (error) => console.error(error),
+      (error) => handleFirestoreError(error, OperationType.LIST, `partyRooms/${roomId}/messages`),
     );
 
     return () => {
@@ -210,7 +259,7 @@ export function PartyRoomView({ user, profile, roomId, onBack }: any) {
       });
       setChatInput("");
     } catch (err) {
-      console.error(err);
+      handleFirestoreError(err, OperationType.WRITE, `partyRooms/${roomId}/messages`);
     }
   };
 
@@ -244,11 +293,20 @@ export function PartyRoomView({ user, profile, roomId, onBack }: any) {
           giftImage: gift.image,
           createdAt: Date.now(), // Transaction requires integer here instead of serverTimestamp sometimes to easily sort if fallback
         });
+
+        const newMessageRef = doc(
+          collection(db, `partyRooms/${roomId}/messages`),
+        );
+        trans.set(newMessageRef, {
+          type: "event",
+          text: `${profile.displayName || "Guest"} sent ${gift.name}`,
+          senderId: user.uid,
+          createdAt: Date.now(),
+        });
       });
       setShowGift(false);
     } catch (err) {
-      console.error("Gifting failed", err);
-      alert("Requires more coins!");
+      handleFirestoreError(err, OperationType.WRITE, `transaction:gift`);
     }
   };
 
@@ -663,7 +721,7 @@ export function PartyRoomView({ user, profile, roomId, onBack }: any) {
           </button>
         </div>
 
-        <div className="overflow-y-auto max-h-[160px] flex flex-col gap-2 mask-image-b pb-2 pointer-events-auto">
+        <div className="overflow-y-auto max-h-[160px] flex flex-col-reverse gap-2 mask-image-b pb-2 pointer-events-auto">
           {messages.map((msg, i) => (
             <div
               key={i}
@@ -837,6 +895,13 @@ export function PartyRoomView({ user, profile, roomId, onBack }: any) {
         </div>
 
         <button
+          onClick={() => setShowSuperWinner(true)}
+          className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center shrink-0 relative pointer-events-auto active:scale-95"
+        >
+          <Trophy className="text-[#ffb300]" size={22} />
+        </button>
+
+        <button
           onClick={() => setShowGift(true)}
           className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center shrink-0 relative pointer-events-auto active:scale-95"
         >
@@ -862,6 +927,14 @@ export function PartyRoomView({ user, profile, roomId, onBack }: any) {
       )}
       {showMusicModal && (
         <MusicModal onClose={() => setShowMusicModal(false)} />
+      )}
+      {showSuperWinner && (
+        <SuperWinnerUI
+          onClose={() => setShowSuperWinner(false)}
+          roomId={roomId}
+          user={user}
+          profile={profile}
+        />
       )}
       {showRoomLevel && (
         <RoomLevelView

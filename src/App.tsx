@@ -4,7 +4,7 @@ import type { User } from 'firebase/auth';
 import { doc, getDoc, getDocs, setDoc, onSnapshot, collection, query, where, documentId, limit, addDoc, updateDoc, deleteDoc, orderBy } from 'firebase/firestore';
 import { auth, db, signIn, signOut, signInEmail, signUpEmail } from './lib/firebase';
 import { motion, AnimatePresence } from 'motion/react';
-import { LogIn, LogOut, Play, Trophy, Users, RefreshCcw, Hand, Plus, Lock, MoreVertical, Coins, ShoppingBag, X, Mail, Key, User as UserIcon, Menu, Settings, MessageSquare, Gift, MoreHorizontal, ChevronUp, ChevronRight, ChevronLeft, ChevronDown, Edit, Camera, Save, Check, Image as ImageIcon, Crown, ShieldCheck, Star, Eye, EyeOff, LayoutGrid, ArrowLeft, Radio, Music, Volume2, VolumeX, Smile, Send, Copy, Search, Trash, UserPlus, List } from 'lucide-react';
+import { LogIn, LogOut, Play, Trophy, Users, RefreshCcw, Hand, Plus, Lock, MoreVertical, Coins, ShoppingBag, X, Mail, Key, User as UserIcon, Menu, Settings, MessageSquare, Gift, MoreHorizontal, ChevronUp, ChevronRight, ChevronLeft, ChevronDown, Edit, Camera, Save, Check, Image as ImageIcon, Crown, ShieldCheck, Star, Eye, EyeOff, LayoutGrid, ArrowLeft, Radio, Music, Volume2, VolumeX, Smile, Send, Copy, Search, Trash, UserPlus, List, Gamepad2, Hexagon, AudioLines, BarChart3 } from 'lucide-react';
 import DobbleBoard from './DobbleBoard';
 import LudoBoard from './LudoBoard';
 import { Game, GameStatus, Card, UserProfile, CardSkin, Club, ClubMessage, RadioTrack, EmojiItem, TableSkin } from './types';
@@ -764,6 +764,8 @@ export default function App() {
         ownerId: user.uid,
         members: [user.uid],
         chipsPool: 0,
+        level: 1,
+        maxMembers: 30,
         createdAt: Date.now()
       });
 
@@ -789,8 +791,10 @@ export default function App() {
     const clubSnap = await getDoc(clubRef);
     if (!clubSnap.exists()) return;
     const clubData = clubSnap.data() as Club;
+    const level = clubData.level || 1;
+    const maxMembers = level >= 5 ? 60 : (level >= 2 ? 40 : (clubData.maxMembers || 30));
 
-    if (clubData.members.length >= (clubData.maxMembers || 30)) {
+    if (clubData.members.length >= maxMembers) {
        alert("Club is full!");
        return;
     }
@@ -3248,6 +3252,9 @@ function ProfileView({ user, profile, onBack, onLogout, setActiveTab, language, 
              ))}
           </div>
 
+          <div className="mt-8 text-center text-zinc-600 text-xs font-bold tracking-widest pb-4">
+            v1.3.3
+          </div>
       </div>
       <TapBar activeTab="profile" setActiveTab={setActiveTab} language={language} />
     </div>
@@ -3337,50 +3344,39 @@ function LeaderboardView({ profile, setActiveTab, language }: { profile: UserPro
 }
 
 function TapBar({ activeTab, setActiveTab, language }: { activeTab: string, setActiveTab: (tab: any) => void, language: Language }) {
-  const t = translations[language];
   const tabs = [
-    { id: 'shop', icon: <ShoppingBag size={24} />, label: t.store },
-    { id: 'explore', icon: <Radio size={24} />, label: "Live" },
-    { id: 'home', icon: <div className="p-3 bg-gradient-to-b from-green-500 to-green-700 rounded-full shadow-[0_0_20px_rgba(26,123,62,0.6)] border-2 border-white/20 -translate-y-4 relative">
-       <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-4xl mb-1 filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]">🤡</div>
-       <Play size={24} className="text-white fill-current translate-y-0.5" />
-    </div>, label: t.home },
-    { id: 'leaderboard', icon: <LayoutGrid size={24} />, label: t.games },
-    { id: 'profile', icon: <UserIcon size={24} />, label: t.vault },
+    { id: 'home', icon: <Gamepad2 size={26} strokeWidth={2} />, label: "Home" },
+    { id: 'explore', icon: <Hexagon size={26} strokeWidth={2} className="relative"><AudioLines size={14} className="absolute inset-0 m-auto" strokeWidth={3} /></Hexagon>, label: "Live" },
+    { id: 'shop', icon: <ShoppingBag size={26} strokeWidth={2} />, label: "Store" },
+    { id: 'leaderboard', icon: <div className="relative"><BarChart3 size={26} strokeWidth={2} /><Star size={10} className="absolute -top-1 -right-1" strokeWidth={2} /><Star size={8} className="absolute -top-2 right-1.5 opacity-80" strokeWidth={2} /><Star size={7} className="absolute top-0 right-3 opacity-60" strokeWidth={2} /></div>, label: "Game" },
+    { id: 'profile', icon: <UserIcon size={26} strokeWidth={2} />, label: "Me" },
   ];
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-[300] bg-[#121212]/95 backdrop-blur-xl border-t border-white/5 pb-8 pt-2">
+    <div className="fixed bottom-0 left-0 right-0 z-[300] bg-[#1a1614] pb-6 pt-2">
       <div className="max-w-md mx-auto flex justify-between items-center px-4">
-        {tabs.map(tab => (
-          <button 
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`
-              relative flex flex-col items-center gap-1 transition-all duration-300 flex-1
-              ${activeTab === tab.id ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'}
-            `}
-          >
-            <div className="relative">
-               {tab.id === 'home' ? (
-                 tab.icon
-               ) : (
-                 <motion.div animate={{ scale: activeTab === tab.id ? 1.1 : 1 }}>
-                    {tab.icon}
-                 </motion.div>
-               )}
-            </div>
-            <span className={`text-[10px] font-bold uppercase tracking-tight transition-all ${tab.id === 'home' ? '-mt-2' : ''}`}>
-              {tab.label}
-            </span>
-            {activeTab === tab.id && tab.id !== 'home' && (
-              <motion.div 
-                layoutId="activeTabIndicator"
-                className="absolute -bottom-1 w-8 h-1 bg-white rounded-full blur-[2px]"
-              />
-            )}
-          </button>
-        ))}
+        {tabs.map(tab => {
+          const isActive = activeTab === tab.id;
+          return (
+            <button 
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`
+                relative flex flex-col items-center gap-1.5 transition-all duration-300 flex-1
+                ${isActive ? 'text-[#ff6b4a]' : 'text-[#8c8582] hover:text-[#a8a19e]'}
+              `}
+            >
+              <div className="relative">
+                <motion.div animate={{ scale: isActive ? 1.05 : 1 }}>
+                   {tab.icon}
+                </motion.div>
+              </div>
+              <span className={`text-[12px] font-bold tracking-tight transition-all`}>
+                {tab.label}
+              </span>
+            </button>
+          );
+        })}
       </div>
     </div>
   );
@@ -5084,6 +5080,7 @@ function ProfileEditor({ profile, user, onSave, onCancel }: { profile: UserProfi
   const [displayName, setDisplayName] = useState(profile.displayName);
   const [photoURL, setPhotoURL] = useState(profile.photoURL);
   const [country, setCountry] = useState(profile.country || '');
+  const [bio, setBio] = useState(profile.bio || '');
   const [zoom, setZoom] = useState(1);
   const [isUploading, setIsUploading] = useState(false);
 
@@ -5192,11 +5189,16 @@ function ProfileEditor({ profile, user, onSave, onCancel }: { profile: UserProfi
            </div>
 
            {/* Self-Introduction */}
-           <div className="flex justify-between items-center py-5 border-b border-gray-100/50 cursor-pointer">
-              <span className="font-bold text-gray-800 tracking-tight">Self-Introduction</span>
-              <div className="flex items-center gap-2 text-gray-900 font-bold text-sm">
-                 <ChevronRight size={18} className="text-gray-300 ml-1" />
-              </div>
+           <div className="flex flex-col py-5 border-b border-gray-100/50">
+              <span className="font-bold text-gray-800 tracking-tight mb-2">Self-Introduction</span>
+              <input
+                 type="text"
+                 value={bio}
+                 onChange={(e) => setBio(e.target.value)}
+                 className="outline-none text-gray-900 font-bold text-sm bg-transparent w-full"
+                 placeholder="Add a bio or comment..."
+                 maxLength={50}
+              />
            </div>
 
            {/* My hometown */}
@@ -5216,9 +5218,9 @@ function ProfileEditor({ profile, user, onSave, onCancel }: { profile: UserProfi
            </div>
          </div>
 
-         <div className="p-4 bg-white/90 backdrop-blur-md absolute bottom-0 left-0 right-0 border-t border-gray-100 flex items-center justify-center pointer-events-auto shrink-0 w-full">
+           <div className="p-4 bg-white/90 backdrop-blur-md absolute bottom-0 left-0 right-0 border-t border-gray-100 flex items-center justify-center pointer-events-auto shrink-0 w-full">
            <button 
-              onClick={() => onSave({ displayName, photoURL })}
+              onClick={() => onSave({ displayName, photoURL, bio })}
               disabled={isUploading}
               className="w-full py-4 bg-[#8b0000] text-white rounded-full font-black tracking-widest hover:bg-[#a00000] transition-all shadow-md active:scale-95 disabled:opacity-50"
            >
@@ -5336,7 +5338,7 @@ function ClubsView({ user, profile, onJoinClub, onCreateClub, onBack }: { user: 
                       <h3 className="text-black font-black text-[17px]">{club.name}</h3>
                       <p className="text-gray-500 font-medium text-[13px]">{club.description || "بەخێربێیت بۆ هۆزەکەم"}</p>
                       <div className="flex items-center text-gray-400 text-xs font-bold mt-0.5">
-                         <UserIcon size={12} className="mr-1" /> {club.members?.length || 0}/{club.maxMembers || 50}
+                         <UserIcon size={12} className="mr-1" /> {club.members?.length || 0}/{club.level ? (club.level >= 5 ? 60 : (club.level >= 2 ? 40 : 30)) : (club.maxMembers || 30)}
                       </div>
                    </div>
                 </div>
@@ -5427,21 +5429,17 @@ function ClubCreateForm({ chips, clubLogos = [], onSubmit }: any) {
              </div>
           )}
 
-          <div className="grid grid-cols-2 gap-4">
-             <div className="space-y-2">
-                <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] ml-4">Capacity (1-30)</label>
-                <input type="number" min="1" max="30" value={max} onChange={e => setMax(parseInt(e.target.value))} className="w-full bg-gray-50 border border-gray-200 rounded-2xl px-6 py-4 text-black font-bold outline-none focus:border-blue-500" />
-             </div>
+          <div className="flex flex-col gap-4">
              <div className="space-y-2">
                 <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] ml-4">Entry Code</label>
-                <input type="password" value={pass} onChange={e => { setPass(e.target.value); setIsPrivate(!!e.target.value); }} placeholder="Optional" className="w-full bg-gray-50 border border-gray-200 rounded-2xl px-6 py-4 text-black font-bold outline-none focus:border-blue-500" />
+                <input type="password" value={pass} onChange={e => { setPass(e.target.value); setIsPrivate(!!e.target.value); }} placeholder="Optional (Leave blank for public)" className="w-full bg-gray-50 border border-gray-200 rounded-2xl px-6 py-4 text-black font-bold outline-none focus:border-blue-500" />
              </div>
           </div>
        </div>
 
        <button 
          disabled={chips < 30000 || !name}
-         onClick={() => onSubmit({ name, description: desc, maxMembers: max, password: pass, isPrivate, logo: selectedLogo })}
+         onClick={() => onSubmit({ name, description: desc, password: pass, isPrivate, logo: selectedLogo })}
          className={`w-full py-5 rounded-2xl font-black uppercase text-[11px] tracking-[0.3em] shadow-lg transition-all
            ${chips < 30000 || !name ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-blue-500 text-white hover:bg-blue-600 hover:scale-[1.02]'}
          `}
@@ -5462,20 +5460,50 @@ function ClubDetailView({ club, user, profile, onLeave, onPostMessage, onBack, e
   emojiItems: EmojiItem[]
 }) {
   const [messages, setMessages] = useState<ClubMessage[]>([]);
+  const [memberProfiles, setMemberProfiles] = useState<Record<string, UserProfile>>({});
   const [text, setText] = useState('');
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const ownedEmojis = emojiItems.filter(e => profile.ownedEmojis?.includes(e.id));
 
   useEffect(() => {
+    let unsubscribeMembers: (() => void) | null = null;
+    if (club.members?.length > 0) {
+       const subs: string[] = club.members;
+       const chunks = [];
+       for (let i = 0; i < subs.length; i += 30) {
+          chunks.push(subs.slice(i, i + 30));
+       }
+       
+       const unsubscribes = chunks.map(chunk => {
+          const q = query(collection(db, 'users'), where(documentId(), 'in', chunk));
+          return onSnapshot(q, (snapshot) => {
+             setMemberProfiles(prev => {
+                const updated = { ...prev };
+                snapshot.docs.forEach(doc => {
+                   updated[doc.id] = doc.data() as UserProfile;
+                });
+                return updated;
+             });
+          });
+       });
+       
+       unsubscribeMembers = () => {
+          unsubscribes.forEach(unsub => unsub());
+       };
+    }
+
     const path = `clubs/${club.id}/messages`;
-    const q = query(collection(db, path), orderBy('createdAt', 'desc'), limit(50));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    const qMsg = query(collection(db, path), orderBy('createdAt', 'desc'), limit(50));
+    const unsubscribeMsg = onSnapshot(qMsg, (snapshot) => {
       setMessages(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ClubMessage)).reverse());
     }, (error) => {
       handleFirestoreError(error, OperationType.GET, path);
     });
-    return unsubscribe;
-  }, [club.id]);
+    return () => {
+      unsubscribeMsg();
+      if (unsubscribeMembers) unsubscribeMembers();
+    };
+  }, [club.id, club.members]);
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -5509,7 +5537,7 @@ function ClubDetailView({ club, user, profile, onLeave, onPostMessage, onBack, e
                 <div className="flex items-center gap-4 mt-2">
                    <div className="flex items-center gap-2">
                       <Users size={14} className="text-[#8b0000]" />
-                      <span className="text-xs font-bold text-white/40">{club.members.length} / {club.maxMembers} Elite Members</span>
+                      <span className="text-xs font-bold text-white/40">{club.members.length} / {club.level ? (club.level >= 5 ? 60 : (club.level >= 2 ? 40 : 30)) : (club.maxMembers || 30)} Elite Members</span>
                    </div>
                    <div className="w-1 h-1 bg-white/10 rounded-full" />
                    <p className="text-xs font-medium text-white/40 italic">{club.description}</p>
@@ -5586,20 +5614,28 @@ function ClubDetailView({ club, user, profile, onLeave, onPostMessage, onBack, e
                 Active Rosters
              </h3>
              <div className="flex-1 overflow-y-auto space-y-5 pr-2">
-                {club.members.map((memberId: string) => (
-                   <div key={memberId} className="flex items-center gap-4 group cursor-pointer">
-                      <div className="relative">
-                         <div className="w-11 h-11 rounded-full overflow-hidden border-2 border-white/10 group-hover:border-[#8b0000] transition-colors">
-                            <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${memberId}`} alt="" className="w-full h-full object-cover" />
-                         </div>
-                         <div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-[#111]" />
-                      </div>
-                      <div className="flex flex-col">
-                         <span className="text-xs font-black text-white uppercase tracking-tight">{memberId === club.ownerId ? '👑 Owner' : 'Associate'}</span>
-                         <span className="text-[10px] font-bold text-white/30 truncate w-32">#{memberId.slice(0, 8)}</span>
-                      </div>
-                   </div>
-                ))}
+                {club.members.map((memberId: string) => {
+                   const memberProfile = memberProfiles[memberId];
+                   const photoUrl = memberProfile?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${memberId}`;
+                   const displayName = memberProfile?.displayName || `User ${memberId.slice(0, 4)}`;
+                   const isOnline = memberProfile?.isOnline;
+                   const bio = memberProfile?.bio || "";
+                   
+                   return (
+                     <div key={memberId} className="flex items-center gap-4 group cursor-pointer">
+                        <div className="relative">
+                           <div className="w-11 h-11 rounded-full overflow-hidden border-2 border-white/10 group-hover:border-[#8b0000] transition-colors relative bg-black/20">
+                              <img src={photoUrl} alt="" className="w-full h-full object-cover" />
+                           </div>
+                           {isOnline && <div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-[#111] z-10" />}
+                        </div>
+                        <div className="flex flex-col">
+                           <span className="text-xs font-black text-white uppercase tracking-tight">{(memberId === club.ownerId ? '👑 ' : '') + displayName}</span>
+                           <span className="text-[10px] font-bold text-white/40 truncate w-32">{bio || (memberId === club.ownerId ? 'Owner' : 'Associate')}</span>
+                        </div>
+                     </div>
+                   );
+                })}
              </div>
           </div>
        </div>
