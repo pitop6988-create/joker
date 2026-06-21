@@ -23,6 +23,9 @@ import {
   Pause,
   SkipForward,
   SkipBack,
+  Copy,
+  UserPlus,
+  ChevronRight,
 } from "lucide-react";
 import { db } from "../lib/firebase";
 import {
@@ -53,6 +56,7 @@ export function PartyRoomView({ user, profile, roomId, onBack }: any) {
   const [banners, setBanners] = useState<any[]>([]);
   const [messages, setMessages] = useState<any[]>([]);
   const [chatInput, setChatInput] = useState("");
+  const [selectedSeatUser, setSelectedSeatUser] = useState<any>(null);
 
   useEffect(() => {
     if (!roomId || !user) return;
@@ -127,19 +131,21 @@ export function PartyRoomView({ user, profile, roomId, onBack }: any) {
         limit(30),
       ),
       (snapshot) => {
-        const serverMessages = snapshot.docs
-          .map((d) => ({ id: d.id, ...d.data() }))
-          .reverse();
+        const serverMessages = snapshot.docs.map((d) => ({
+          id: d.id,
+          ...d.data(),
+        }));
+
         setMessages([
-          {
-            type: "announcement",
-            text: "بەخێربێیت! با بەیەکەوە گفتوگۆ بکەین!",
-          },
+          ...serverMessages,
           {
             type: "system",
             text: "Welcome to Yari Konkan. Please respect each other and chat politely.",
           },
-          ...serverMessages,
+          {
+            type: "announcement",
+            text: "بەخێربێیت! با بەیەکەوە گفتوگۆ بکەین!",
+          },
         ]);
       },
       (error) => console.error(error),
@@ -216,8 +222,15 @@ export function PartyRoomView({ user, profile, roomId, onBack }: any) {
         const uSnap = await trans.get(userRef);
         if (!uSnap.exists()) return;
         const currentChips = uSnap.data().chips || 0;
+        const currentExp = uSnap.data().vipExp || 0;
+        const newExp = currentExp + gift.price;
+        const newLevel = Math.floor(newExp / 1000) + 1;
         if (currentChips < gift.price) throw new Error("Not enough chips");
-        trans.update(userRef, { chips: currentChips - gift.price });
+        trans.update(userRef, {
+          chips: currentChips - gift.price,
+          vipExp: newExp,
+          level: newLevel,
+        });
 
         const newBannerRef = doc(
           collection(db, `partyRooms/${roomId}/banners`),
@@ -242,9 +255,22 @@ export function PartyRoomView({ user, profile, roomId, onBack }: any) {
   const [isMicOn, setIsMicOn] = useState(true);
   const [showMusicModal, setShowMusicModal] = useState(false);
 
-  const handleToggleMic = (e: React.MouseEvent) => {
+  const handleToggleMic = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    setIsMicOn(!isMicOn);
+    const newStatus = !isMicOn;
+    setIsMicOn(newStatus);
+    if (mySeat !== null && roomId) {
+      try {
+        await updateDoc(
+          doc(db, `partyRooms/${roomId}/seats`, mySeat.toString()),
+          {
+            isMicOn: newStatus,
+          },
+        );
+      } catch (e) {
+        console.error(e);
+      }
+    }
   };
 
   const handleTakeSeat = async (seatId: number) => {
@@ -255,7 +281,9 @@ export function PartyRoomView({ user, profile, roomId, onBack }: any) {
         userId: user.uid,
         userName: profile?.displayName || "Guest",
         userPhoto: profile?.photoURL || "",
+        level: profile?.level || 0,
         createdAt: Date.now(),
+        isMicOn: isMicOn,
       });
     } catch (err) {
       console.error(err);
@@ -307,7 +335,21 @@ export function PartyRoomView({ user, profile, roomId, onBack }: any) {
           >
             <ChevronLeft size={28} />
           </button>
-          <div className="flex items-center gap-2 bg-black/20 rounded-full pr-4 pl-1 py-1 backdrop-blur-sm border border-white/5">
+          <div
+            className="flex items-center gap-2 bg-black/20 rounded-full pr-4 pl-1 py-1 backdrop-blur-sm border border-white/5 cursor-pointer active:scale-95 transition-transform"
+            onClick={() => {
+              const ownerData = {
+                userId: formatId,
+                userName: profile?.displayName || "ONLY ONE",
+                userPhoto:
+                  profile?.photoURL ||
+                  `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.uid}`,
+                level: profile?.level || 1,
+                isMicOn: false,
+              };
+              setSelectedSeatUser(ownerData);
+            }}
+          >
             <div className="w-9 h-9 rounded-full overflow-hidden bg-white/20 shrink-0 border border-white/30">
               <img
                 src={
@@ -427,49 +469,90 @@ export function PartyRoomView({ user, profile, roomId, onBack }: any) {
             className="flex flex-col items-center gap-2 relative"
           >
             {seat.id === 1 ? (
-              <div className="relative">
-                <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full overflow-hidden border-2 border-[#ffcc00] shadow-[0_0_15px_rgba(255,204,0,0.4)] relative p-0.5 bg-black">
+              <div
+                className="relative cursor-pointer"
+                onClick={() =>
+                  seat.data && mySeat !== 1 && setSelectedSeatUser(seat.data)
+                }
+              >
+                {seat.data?.isMicOn && (
+                  <div
+                    className="absolute inset-x-0 w-12 h-12 sm:w-16 sm:h-16 mx-auto rounded-full border-[3px] border-green-400 opacity-50 animate-ping shadow-[0_0_15px_rgba(34,197,94,0.8)] pointer-events-none"
+                    style={{ animationDuration: "1.5s" }}
+                  />
+                )}
+                <div
+                  className={`w-12 h-12 sm:w-16 sm:h-16 rounded-full overflow-hidden border-2 ${seat.data?.isMicOn ? "border-green-400" : "border-[#ffcc00]"} shadow-[0_0_15px_rgba(255,204,0,0.4)] relative p-0.5 bg-black`}
+                >
                   <img
                     src={
                       roomData?.image ||
                       "https://images.unsplash.com/photo-1574267432553-4b4628081524?w=150&h=150&fit=crop"
                     }
-                    className="w-full h-full object-cover rounded-full"
+                    className={`w-full h-full object-cover rounded-full ${seat.data?.isMicOn ? "scale-[1.05] transition-transform" : ""}`}
                     alt="Host"
                   />
                 </div>
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-8 h-8 flex items-center justify-center">
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-8 h-8 flex items-center justify-center z-10">
                   <span className="text-2xl drop-shadow-md">👑</span>
                 </div>
-                <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-black/60 backdrop-blur-sm rounded-full flex items-center justify-center border border-white/20 shadow-md">
-                  <MicOff
-                    size={12}
-                    className="text-white/80"
-                    strokeWidth={2.5}
-                  />
+                <div className="absolute -bottom-1 -right-1 w-6 h-6 z-10 flex items-center justify-center">
+                  {mySeat === 1 ? (
+                    <button
+                      onClick={handleToggleMic}
+                      className="w-full h-full bg-black/80 backdrop-blur-sm rounded-full flex items-center justify-center border border-white/20 shadow-md active:scale-90 transition-transform"
+                    >
+                      {isMicOn ? (
+                        <Mic size={12} className="text-green-400" />
+                      ) : (
+                        <MicOff size={12} className="text-red-400" />
+                      )}
+                    </button>
+                  ) : (
+                    <div className="w-5 h-5 bg-black/60 backdrop-blur-sm rounded-full flex items-center justify-center border border-white/20 shadow-md">
+                      {seat.data?.isMicOn ? (
+                        <Mic
+                          size={10}
+                          className="text-green-400 animate-pulse"
+                        />
+                      ) : (
+                        <MicOff size={10} className="text-white/50" />
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             ) : seat.data ? (
               <div
                 className="relative cursor-pointer active:scale-95 transition-transform"
-                onClick={() => mySeat === seat.id && handleLeaveSeat(seat.id)}
+                onClick={() =>
+                  mySeat === seat.id
+                    ? handleLeaveSeat(seat.id)
+                    : setSelectedSeatUser(seat.data)
+                }
               >
+                {seat.data.isMicOn && (
+                  <div
+                    className="absolute inset-0 rounded-full border-[3px] border-green-400 opacity-50 animate-ping shadow-[0_0_15px_rgba(34,197,94,0.8)] pointer-events-none"
+                    style={{ animationDuration: "1.5s" }}
+                  />
+                )}
                 <div
-                  className={`w-12 h-12 sm:w-16 sm:h-16 rounded-full overflow-hidden border-2 flex items-center justify-center ${mySeat === seat.id ? "border-green-500 shadow-[0_0_15px_rgba(34,197,94,0.3)]" : "border-white/20"} relative bg-black`}
+                  className={`w-12 h-12 sm:w-16 sm:h-16 rounded-full overflow-hidden border-2 flex items-center justify-center ${mySeat === seat.id ? "border-green-500 shadow-[0_0_15px_rgba(34,197,94,0.3)]" : seat.data.isMicOn ? "border-green-400" : "border-white/20"} relative bg-black`}
                 >
                   <img
                     src={
                       seat.data.userPhoto ||
                       "https://api.dicebear.com/7.x/avataaars/svg?seed=U"
                     }
-                    className="w-full h-full object-cover"
+                    className={`w-full h-full object-cover ${seat.data.isMicOn ? "scale-[1.05] transition-transform" : ""}`}
                     alt="User"
                   />
                 </div>
                 {mySeat === seat.id ? (
                   <button
                     onClick={handleToggleMic}
-                    className="absolute -bottom-1 -right-1 w-6 h-6 bg-black/80 backdrop-blur-sm rounded-full flex items-center justify-center border border-white/20 shadow-md active:scale-90 transition-transform"
+                    className="absolute -bottom-1 -right-1 w-6 h-6 bg-black/80 backdrop-blur-sm rounded-full flex items-center justify-center border border-white/20 shadow-md active:scale-90 transition-transform z-10"
                   >
                     {isMicOn ? (
                       <Mic size={12} className="text-green-400" />
@@ -478,8 +561,12 @@ export function PartyRoomView({ user, profile, roomId, onBack }: any) {
                     )}
                   </button>
                 ) : (
-                  <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-black/60 backdrop-blur-sm rounded-full flex items-center justify-center border border-white/20 shadow-md">
-                    <MicOff size={10} className="text-white/50" />
+                  <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-black/60 backdrop-blur-sm rounded-full flex items-center justify-center border border-white/20 shadow-md z-10">
+                    {seat.data.isMicOn ? (
+                      <Mic size={10} className="text-green-400 animate-pulse" />
+                    ) : (
+                      <MicOff size={10} className="text-white/50" />
+                    )}
                   </div>
                 )}
               </div>
@@ -576,7 +663,7 @@ export function PartyRoomView({ user, profile, roomId, onBack }: any) {
           </button>
         </div>
 
-        <div className="overflow-y-auto max-h-[160px] flex flex-col-reverse gap-2 mask-image-b pb-2 pointer-events-auto">
+        <div className="overflow-y-auto max-h-[160px] flex flex-col gap-2 mask-image-b pb-2 pointer-events-auto">
           {messages.map((msg, i) => (
             <div
               key={i}
@@ -783,6 +870,113 @@ export function PartyRoomView({ user, profile, roomId, onBack }: any) {
           roomData={roomData}
         />
       )}
+
+      {selectedSeatUser && (
+        <div className="fixed inset-0 z-[500] bg-black/60 flex flex-col justify-end">
+          <div
+            className="h-[20vh] w-full"
+            onClick={() => setSelectedSeatUser(null)}
+          />
+          <div className="bg-white rounded-t-3xl min-h-[50vh] flex flex-col relative w-full font-sans max-w-lg mx-auto overflow-hidden">
+            <div className="h-32 bg-[#2d1b4e] relative flex items-center justify-center overflow-hidden">
+              <div
+                className="absolute inset-0 bg-cover bg-center opacity-30"
+                style={{
+                  backgroundImage:
+                    "url('https://images.unsplash.com/photo-1574267432553-4b4628081524?w=800&h=1600&fit=crop')",
+                }}
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#2d1b4e] to-transparent pointer-events-none" />
+            </div>
+
+            <div className="absolute top-[60px] left-6 z-10">
+              <div className="w-[88px] h-[88px] rounded-full border-4 border-white overflow-hidden bg-gray-200 shadow-md">
+                <img
+                  src={
+                    selectedSeatUser.userPhoto ||
+                    "https://api.dicebear.com/7.x/avataaars/svg?seed=X"
+                  }
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            </div>
+
+            <div
+              className="absolute top-[16px] left-4 z-10 cursor-pointer p-2"
+              onClick={() => setSelectedSeatUser(null)}
+            >
+              <ChevronLeft className="text-white drop-shadow-md" size={28} />
+            </div>
+            <div className="absolute top-[16px] right-4 z-10 cursor-pointer p-2">
+              <MoreHorizontal className="text-white drop-shadow-md" size={24} />
+            </div>
+
+            <div className="px-6 pt-12 flex flex-col flex-1 pb-8">
+              <div className="flex items-center gap-2">
+                <h2 className="text-[22px] font-black tracking-tight text-black">
+                  {selectedSeatUser.userName}
+                </h2>
+              </div>
+              <div className="flex items-center gap-2 text-gray-400 mt-1">
+                <span className="text-[14px] font-bold">
+                  ID:{selectedSeatUser.userId?.substring(0, 8) || "28643239"}
+                </span>
+                <Copy
+                  size={12}
+                  className="cursor-pointer hover:text-gray-600 active:scale-95"
+                  onClick={(e) => {
+                     e.stopPropagation();
+                     const el = document.createElement('textarea');
+                     el.value = selectedSeatUser.userId?.substring(0, 8) || "28643239";
+                     document.body.appendChild(el);
+                     el.select();
+                     document.execCommand('copy');
+                     document.body.removeChild(el);
+                  }}
+                />
+              </div>
+
+              <div className="flex items-center flex-wrap gap-2 mt-8">
+                <div className="bg-[#00b0ff] px-2 py-0.5 rounded-full text-white text-[11px] font-extrabold shadow-sm flex items-center gap-1">
+                  <span className="text-[9px]">♂</span> 18
+                </div>
+                <div className="bg-[#b388ff] px-2 py-0.5 rounded-full text-white text-[11px] font-extrabold shadow-sm tracking-wide">
+                  ENTP
+                </div>
+                <div className="bg-gray-100 px-2 py-0.5 rounded-full border border-gray-200 text-gray-500 text-[11px] font-bold flex items-center gap-1">
+                  <span className="mb-[1px]">📍</span> Arbil
+                </div>
+                <div className="bg-gray-100 px-2 py-0.5 rounded-full border border-gray-200 text-gray-500 text-[11px] font-bold flex items-center gap-1">
+                  <span className="mb-[1px]">🕒</span> 12 Days
+                </div>
+                <ChevronRight size={14} className="text-gray-300 ml-auto" />
+              </div>
+
+              <div className="mt-4 flex pb-8 border-b border-gray-100">
+                <div className="bg-gradient-to-r from-purple-500 via-indigo-500 to-purple-600 rounded-lg p-0.5 pr-8 pl-1 pb-1 pt-1 flex items-center shadow-sm border border-purple-400">
+                  <div className="w-7 h-7 bg-green-500 rounded-full border border-white shadow-sm flex items-center justify-center relative">
+                    <span className="text-white text-[10px] font-black drop-shadow-md">
+                      👑
+                    </span>
+                  </div>
+                  <span className="text-white font-black text-[13px] ml-2 drop-shadow-sm">
+                    Lv.{selectedSeatUser.level || 0}
+                  </span>
+                </div>
+              </div>
+
+              <div className="mt-auto pt-8 flex items-center gap-4 w-full">
+                <button className="flex-1 bg-[#ff6b4a] py-[14px] rounded-full text-white font-black flex items-center justify-center gap-2 shadow-[0_4px_15px_rgba(255,107,74,0.3)] active:bg-[#e05638] transition-colors text-[16px]">
+                  <UserPlus size={20} strokeWidth={2.5} /> Add
+                </button>
+                <button className="flex-1 bg-[#ff6b4a] py-[14px] rounded-full text-white font-black flex items-center justify-center gap-2 shadow-[0_4px_15px_rgba(255,107,74,0.3)] active:bg-[#e05638] transition-colors text-[16px]">
+                  <MessageSquare size={20} strokeWidth={2.5} /> Chat
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -923,7 +1117,7 @@ function GiftUI({
   user: any;
   profile?: any;
 }) {
-  const [activeTab, setActiveTab] = useState("Gift");
+  const [activeTab, setActiveTab] = useState("HOT");
   const [selectedGiftId, setSelectedGiftId] = useState<number>(1);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [password, setPassword] = useState("");
@@ -964,60 +1158,90 @@ function GiftUI({
 
   const defaultGifts = [
     {
-      name: "Dollar Gun",
-      price: 7777,
+      name: "tea pot",
+      price: 3,
       image:
-        "https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?w=200&h=200&fit=crop",
+        "https://images.unsplash.com/photo-1579933560647-cb0eb92af9a9?w=200&h=200&fit=crop",
       id: 1,
     },
     {
-      name: "Golden Castle",
-      price: 37777,
+      name: "love box",
+      price: 29,
       image:
-        "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=200&h=200&fit=crop",
+        "https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=200&h=200&fit=crop",
+      videoUrl: "yes",
       id: 2,
     },
     {
-      name: "Donkey",
-      price: 377,
+      name: "Rosaline",
+      price: 199,
       image:
-        "https://images.unsplash.com/photo-1584844623136-15e71e72e18b?w=200&h=200&fit=crop",
+        "https://images.unsplash.com/photo-1559563158-827b500bc7bb?w=200&h=200&fit=crop",
       id: 3,
     },
     {
-      name: "Female Star",
-      price: 27777,
+      name: "99 roses",
+      price: 99,
       image:
-        "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200&h=200&fit=crop",
+        "https://images.unsplash.com/photo-1562690868-60bbe7293e94?w=200&h=200&fit=crop",
       id: 4,
     },
     {
-      name: "Male Star",
-      price: 27777,
+      name: "Magical Jewel",
+      price: 199,
       image:
-        "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=200&h=200&fit=crop",
+        "https://images.unsplash.com/photo-1515405295579-ba7b45403062?w=200&h=200&fit=crop",
       id: 5,
     },
     {
-      name: "World Cup",
-      price: 27777,
+      name: "Balloons",
+      price: 299,
       image:
-        "https://images.unsplash.com/photo-1614632537190-23e4146777db?w=200&h=200&fit=crop",
+        "https://images.unsplash.com/photo-1530103862676-de8892bf309c?w=200&h=200&fit=crop",
       id: 6,
     },
     {
-      name: "Football Fan",
-      price: 27777,
+      name: "Snack bucket",
+      price: 499,
       image:
-        "https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=200&h=200&fit=crop",
+        "https://images.unsplash.com/photo-1621939514649-280e2ee25f60?w=200&h=200&fit=crop",
+      videoUrl: "yes",
       id: 7,
     },
     {
-      name: "Match Whistle",
-      price: 27777,
+      name: "hands in a heart",
+      price: 599,
       image:
-        "https://images.unsplash.com/photo-1549488344-1f9b8d2bd1f3?w=200&h=200&fit=crop",
+        "https://images.unsplash.com/photo-1518047053526-bf318eb7ac6e?w=200&h=200&fit=crop",
       id: 8,
+    },
+    {
+      name: "Amour Balloon",
+      price: 699,
+      image:
+        "https://images.unsplash.com/photo-1582234032138-000c2834b6e5?w=200&h=200&fit=crop",
+      id: 9,
+    },
+    {
+      name: "Star Jar",
+      price: 899,
+      image:
+        "https://images.unsplash.com/photo-1518531933067-c851fc00aff5?w=200&h=200&fit=crop",
+      id: 10,
+    },
+    {
+      name: "tulips",
+      price: 999,
+      image:
+        "https://images.unsplash.com/photo-1520763185298-1b434c919102?w=200&h=200&fit=crop",
+      id: 11,
+    },
+    {
+      name: "rsea pearls",
+      price: 1222,
+      image:
+        "https://images.unsplash.com/photo-1588698124239-0bd3717fcba4?w=200&h=200&fit=crop",
+      id: 12,
     },
   ];
 
@@ -1235,134 +1459,172 @@ function GiftUI({
             onClose();
           }
         }}
-        className="absolute inset-x-0 bottom-0 z-50 bg-[#141f1c] bg-opacity-95 backdrop-blur-xl rounded-t-[20px] flex flex-col pt-4 overflow-hidden"
+        className="absolute inset-x-0 bottom-0 z-50 bg-[#1a1c29] bg-opacity-95 backdrop-blur-xl rounded-t-[24px] flex flex-col pt-4 overflow-hidden shadow-2xl"
         style={{ height: "55vh" }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* 🪙 Coins */}
-        <div className="px-5 mb-4 font-black flex items-center gap-1.5 self-start">
-          <div className="w-5 h-5 bg-gradient-to-tr from-yellow-400 to-yellow-300 rounded-full flex items-center justify-center font-bold text-black border border-yellow-500 shadow text-[10px]">
-            <Coins size={12} />
+        {/* Drag Handle */}
+        <div className="w-12 h-1.5 bg-white/10 rounded-full mx-auto mb-4 shrink-0" />
+
+        {/* No other one on mic strip */}
+        <div className="px-5 mb-4 shrink-0">
+          <div className="bg-[#2a2c3a] rounded-full px-4 py-2 flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full border border-white/10 flex items-center justify-center shrink-0">
+              <div className="w-3.5 h-4 border-2 border-white/40 rounded-t-full border-b-0 relative">
+                <div className="absolute top-1/2 left-[-6px] right-[-6px] border-b-2 border-white/40" />
+              </div>
+            </div>
+            <span className="text-white/40 text-sm font-semibold tracking-wide">
+              No other one on mic
+            </span>
           </div>
-          <span className="text-yellow-400 text-[16px]">
-            {profile?.chips || 0}
-          </span>
         </div>
 
         {/* Tabs */}
-        <div className="flex items-center px-5 gap-7 font-black overflow-x-auto no-scrollbar pb-3">
-          {["Gift", "CP", "SVIP", "Country", "Celebrity"].map((tab) => (
+        <div className="flex items-center px-5 gap-6 font-bold pb-0 border-b border-white/5 relative shrink-0">
+          {["HOT", "Privileges"].map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`text-[15px] whitespace-nowrap transition-colors flex items-center gap-1 relative ${activeTab === tab ? "text-white" : "text-white/40"}`}
+              className={`text-[15px] whitespace-nowrap pb-3 transition-colors relative ${activeTab === tab ? "text-white font-black" : "text-white/40 font-semibold"}`}
             >
               {tab}
-              {tab === "Gift" && activeTab === tab && (
-                <div className="flex flex-col gap-[2px] ml-1">
-                  <ChevronUp size={10} className="mb-[-6px]" />
-                  <ChevronDown size={10} />
-                </div>
+              {activeTab === tab && (
+                <motion.div
+                  layoutId="giftTab"
+                  className="absolute bottom-0 inset-x-0 h-0.5 bg-white rounded-full"
+                />
               )}
             </button>
           ))}
-          <div className="h-4 w-[1px] bg-white/20 mx-1 shrink-0" />
-          <button className="text-white/40 ml-1 shrink-0">
-            <ShoppingBag size={18} />
-          </button>
           <button
+            className="ml-auto text-white/50 mb-3"
             onClick={() => setShowAdminPanel(true)}
-            className="ml-auto w-6 h-6 shrink-0 flex items-center justify-center bg-white/10 rounded-full text-white/50 border border-white/20"
           >
-            <Plus size={14} />
+            <div className="w-5 h-5 border-[1.5px] border-current rounded flex items-center justify-center rotate-45 transform scale-90">
+              <div className="w-full h-[1.5px] bg-current"></div>
+              <div className="h-full w-[1.5px] bg-current absolute"></div>
+            </div>
           </button>
         </div>
 
+        {/* Recipient Info */}
+        <div className="px-5 py-2.5 flex items-center justify-between text-white/50 text-[13px] font-semibold bg-[#1a1c29] shrink-0 border-b border-white/5">
+          <div className="flex items-center gap-1">
+            The recipient:{" "}
+            <span className="ml-1 text-white flex items-center gap-1">
+              🌻 +3 <span className="text-yellow-400 font-black ml-1">$</span>{" "}
+              +1
+            </span>
+          </div>
+          <div className="w-4 h-4 rounded-full border border-white/40 flex items-center justify-center text-[10px] text-white/50 shrink-0">
+            ?
+          </div>
+        </div>
+
         {/* Gifts Grid */}
-        <div className="flex-1 overflow-y-auto no-scrollbar grid grid-cols-4 gap-x-1 gap-y-4 px-3 py-2 pb-24">
+        <div className="flex-1 overflow-y-auto no-scrollbar grid grid-cols-4 gap-x-2 gap-y-4 px-3 py-4 pb-24">
           {gifts.map((gift) => {
             const isSelected = selectedGiftId === gift.id;
             return (
               <div
                 key={gift.id}
                 onClick={() => setSelectedGiftId(gift.id)}
-                className={`flex flex-col items-center justify-start py-2 pt-3 rounded-xl relative cursor-pointer ${isSelected ? "bg-white/5 border border-[#18e3c8] shadow-[0_0_10px_rgba(24,227,200,0.1)]" : "border border-transparent"}`}
+                className={`flex flex-col items-center justify-start pt-3 pb-[18px] rounded-xl relative cursor-pointer overflow-hidden ${isSelected ? "bg-[#2a2c3a] border border-[#2a2c3a]" : "bg-transparent border border-transparent"}`}
               >
-                {/* 3D Badge */}
-                {gift.price > 100 && (
+                {/* 3D Badge or Music Note */}
+                {gift.videoUrl ? (
+                  <div className="absolute top-1 left-1 bg-[#7b3df1] w-4 h-4 rounded shadow-sm flex items-center justify-center z-10">
+                    <Music size={10} className="text-white" />
+                  </div>
+                ) : gift.price > 100 ? (
                   <div
-                    className="absolute top-1 right-1 bg-gradient-to-b from-yellow-300 to-yellow-600 px-1 py-0.5 rounded text-[#3e2702] font-black leading-none shadow shadow-black/50"
+                    className="absolute top-1 right-1 bg-gradient-to-b from-yellow-300 to-yellow-600 px-1 py-0.5 rounded text-[#3e2702] font-black leading-none shadow shadow-black/50 z-10"
                     style={{ fontSize: "9px" }}
                   >
                     3D
                   </div>
-                )}
+                ) : null}
 
-                <div className="w-16 h-16 rounded-xl overflow-hidden drop-shadow-md relative bg-transparent shrink-0">
+                <div className="w-[60px] h-[60px] rounded-xl overflow-hidden drop-shadow-md relative bg-transparent shrink-0 flex items-center justify-center z-10">
                   <img
                     src={gift.image}
-                    className="w-full h-full object-contain pointer-events-none"
+                    className="w-[90%] h-[90%] object-contain pointer-events-none drop-shadow-[0_4px_4px_rgba(0,0,0,0.4)]"
                     alt={gift.name}
                   />
                 </div>
-                <span className="text-white text-xs font-bold mt-2 whitespace-nowrap truncate max-w-[90%] drop-shadow-md">
+                <span className="text-white text-xs font-semibold mt-2 whitespace-nowrap truncate max-w-[90%] drop-shadow-md z-10">
                   {gift.name}
                 </span>
-                <span className="text-yellow-400 text-[10px] font-black tracking-wide flex items-center gap-1 drop-shadow-md mt-0.5">
-                  <div className="w-[10px] h-[10px] bg-yellow-400 rounded-full flex items-center justify-center shrink-0 border-[0.5px] border-yellow-600">
-                    <span className="text-[6px] text-yellow-900 font-extrabold leading-none">
+                <span
+                  className={`text-[10px] font-black tracking-wide flex items-center gap-1 drop-shadow-md mt-0.5 z-10 ${isSelected ? "text-yellow-400" : "text-yellow-500"}`}
+                >
+                  <div className="w-3 h-3 bg-gradient-to-br from-yellow-300 to-yellow-500 rounded-full flex items-center justify-center shrink-0 shadow-sm relative pt-[0.5px]">
+                    <span className="text-[8px] text-[#5e3800] font-extrabold leading-none">
                       $
                     </span>
                   </div>{" "}
                   {gift.price}
                 </span>
+
+                {isSelected && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const targetSeats =
+                        selectedSeats.length > 0
+                          ? selectedSeats
+                          : Object.keys(seats).map(Number);
+                      if (targetSeats.length === 0) {
+                        alert("No users on mic");
+                        return;
+                      }
+                      onSendGift({ ...gift, targetSeats });
+                    }}
+                    className="absolute inset-x-0 bottom-0 bg-[#ff6b4a] w-full py-[6px] text-white text-[13px] font-bold z-20 active:bg-[#e05638]"
+                  >
+                    Send
+                  </button>
+                )}
               </div>
             );
           })}
         </div>
 
         {/* Bottom Control Bar */}
-        <div className="px-4 pb-8 pt-3 flex items-center justify-between border-t border-white/5 absolute bottom-0 inset-x-0 bg-[#0f1816]/90 backdrop-blur-md">
-          {/* Receiver selector pill */}
-          <button
-            onClick={() =>
-              setSelectedSeats(
-                selectedSeats.length > 0 ? [] : Object.keys(seats).map(Number),
-              )
-            }
-            className="flex items-center gap-2 bg-[#1b2624] border border-white/10 rounded-lg px-3 py-2 shrink-0 active:scale-95 transition-transform"
-          >
-            <span className="text-white/60 text-[13px] font-bold">To</span>
-            <span className="text-[#18e3c8] text-[13px] font-bold truncate max-w-[120px]">
-              {selectedSeats.length > 0
-                ? `${selectedSeats.length} guest(s)`
-                : "All guest on seat"}
-            </span>
-            <ChevronUp size={14} className="text-white/40 ml-1" />
-          </button>
+        <div className="px-5 pb-8 pt-3 flex items-center justify-between border-t border-white/5 absolute bottom-0 inset-x-0 bg-[#1a1c29]">
+          {/* Left Box */}
+          <div className="flex items-center gap-3 bg-transparent">
+            <div className="flex items-center gap-1 font-black">
+              <div className="w-[18px] h-[18px] bg-gradient-to-br from-yellow-300 to-yellow-500 rounded-full flex items-center justify-center text-[10px] text-[#5e3800] shadow-sm relative pt-[0.5px]">
+                <span className="text-[10px] font-extrabold leading-none">
+                  $
+                </span>
+              </div>
+              <span className="text-white/80 text-[14px] ml-0.5 mr-0.5">
+                {profile?.chips || 160}
+              </span>
+              <ChevronUp size={14} className="text-white/50 rotate-90" />
+            </div>
+            <div className="relative">
+              <Gift size={22} className="text-[#ff98ca]" />
+              <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-[#1a1c29]" />
+            </div>
+          </div>
 
-          {/* Send Button Group */}
-          <div className="flex border border-[#18e3c8] rounded-lg overflow-hidden shrink-0">
-            <button className="bg-[#1b2624] px-4 py-2 flex items-center gap-2">
-              <span className="text-white text-[15px] font-black">1</span>
-              <ChevronUp size={14} className="text-white/60" />
+          {/* Right Box - 1 7 77 777 */}
+          <div className="flex items-center gap-[18px] text-white/50 font-bold text-sm bg-[#2a2c3a] rounded-full px-4 py-1.5 h-[38px] shadow-inner">
+            <button className="w-6 h-6 bg-white text-black rounded-full flex items-center justify-center font-black">
+              1
             </button>
-            <button
-              onClick={() => {
-                const targetSeats =
-                  selectedSeats.length > 0
-                    ? selectedSeats
-                    : Object.keys(seats).map(Number);
-                if (targetSeats.length === 0) {
-                  alert("No users on mic");
-                  return;
-                }
-                const selectedGift = gifts.find((g) => g.id === selectedGiftId);
-                if (selectedGift) onSendGift({ ...selectedGift, targetSeats });
-              }}
-              className="bg-[#18e3c8] hover:bg-[#38c2ac] transition-colors text-black px-6 py-2 text-[15px] font-black"
-            >
-              Send
+            <button className="hover:text-white transition-colors">7</button>
+            <button className="hover:text-white transition-colors">77</button>
+            <button className="hover:text-white transition-colors pr-1">
+              777
+            </button>
+            <div className="w-[1px] h-4 bg-white/20"></div>
+            <button className="text-white/40 rotate-[135deg]">
+              <div className="w-2.5 h-2.5 border-t-2 border-r-2 border-current"></div>
             </button>
           </div>
         </div>

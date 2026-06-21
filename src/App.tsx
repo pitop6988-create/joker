@@ -20,6 +20,7 @@ import { ExploreView } from './components/ExploreView';
 import { PartyRoomView } from './components/PartyRoomView';
 import { PublicProfileView } from './components/PublicProfileView';
 import { CharmLevelView } from './components/CharmLevelView';
+import { WalletView } from './components/WalletView';
 
 function dataUrlToBlobUrl(dataUrl: string): string {
   if (!dataUrl || !dataUrl.startsWith('data:')) {
@@ -1292,6 +1293,10 @@ export default function App() {
         />
       </>
     );
+  }
+
+  if (activeTab === 'wallet') {
+    return <WalletView onClose={() => setActiveTab('profile')} profile={profile!} user={user} />;
   }
 
   if (activeTab === 'my-items') {
@@ -3150,7 +3155,7 @@ function ProfileView({ user, profile, onBack, onLogout, setActiveTab, language, 
 
   const menuItems = [
     { id: 'viewed', icon: <Eye size={20} className="text-[#3fc0e8]" />, label: 'Viewed me' },
-    { id: 'wallet', icon: <Coins size={20} className="text-[#ff9800]" />, label: 'My wallet' },
+    { id: 'wallet', icon: <Coins size={20} className="text-[#ff9800]" />, label: 'My wallet', onClick: () => setActiveTab('wallet') },
     { id: 'offer', icon: <Gift size={20} className="text-[#ff5252]" />, label: 'Offer Center', value: 'To be activated: 0' },
     { id: 'vip', icon: <Crown size={20} className="text-[#ffb300]" />, label: 'VIP', value: 'Not VIP yet' },
     { id: 'mine', icon: <ShieldCheck size={20} className="text-[#ff8a65]" />, label: 'Mine Investment', value: 'Not Invested' },
@@ -3187,9 +3192,9 @@ function ProfileView({ user, profile, onBack, onLogout, setActiveTab, language, 
                    </button>
                 </div>
                 <div className="flex items-center gap-3 mt-1 text-zinc-400 text-sm">
-                   <div className="flex items-center gap-1">
+                   <div className="flex items-center gap-1 cursor-pointer hover:text-white" onClick={handleCopyId} title="Copy ID">
                       <span>ID:{profile.shortId || '-------'}</span>
-                      <button onClick={handleCopyId} className="hover:text-white" title="Copy ID">
+                      <button className="flex items-center" >
                          {copied ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
                       </button>
                    </div>
@@ -3462,7 +3467,7 @@ function SettingsView({ language, setLanguage, onBack, user, profile }: { langua
           {/* Version */}
           <div className="pt-8 border-t border-white/5 text-center flex flex-col items-center">
              <span className="text-[10px] font-black tracking-[0.2em] text-white/30 uppercase">BUILD SYSTEM ACTIVE</span>
-             <span className="text-xs font-mono text-[#8b0000] font-bold mt-1 tracking-widest uppercase">Version 1.2.5</span>
+             <span className="text-xs font-mono text-[#8b0000] font-bold mt-1 tracking-widest uppercase">Version 1.3.1</span>
           </div>
        </div>
     </div>

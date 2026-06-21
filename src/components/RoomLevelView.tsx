@@ -144,10 +144,154 @@ export function RoomLevelView({ onBack, profile, roomData }: any) {
         )}
 
         {activeTab === "privileges" && (
-          <div className="mt-8 px-1">
-            <p className="text-gray-400 font-bold">
-              Reach Level 2 to unlock privileges
-            </p>
+          <div className="mt-6 flex flex-col gap-6 px-1">
+            <div className="flex flex-col gap-5">
+              <h2 className="text-[18px] font-black text-gray-900 border-none m-0 shadow-none">
+                Lv.1
+              </h2>
+
+              <div className="flex items-center gap-4">
+                <div className="w-[52px] h-[52px] rounded-xl relative flex items-center justify-center shrink-0">
+                  <div className="w-10 h-6 bg-gradient-to-r from-yellow-100 to-green-100 shadow-sm border border-green-200 rounded-full flex items-center justify-center relative">
+                    <div className="absolute -left-2 w-5 h-5 bg-gradient-to-br from-green-400 to-green-500 rounded-full border-2 border-white flex items-center justify-center shadow-sm">
+                      <div className="w-2 h-2 bg-white rounded-full opacity-50" />
+                    </div>
+                    <span className="text-green-600 font-black text-[10px] ml-2">
+                      Lv.X
+                    </span>
+                  </div>
+                </div>
+                <span className="text-gray-900 font-extrabold text-[15px]">
+                  Primary green badge
+                </span>
+              </div>
+
+              <div className="flex items-center gap-4">
+                <div className="w-[52px] h-[52px] rounded-xl relative flex items-center justify-center shrink-0">
+                  <div className="w-12 h-12 relative flex items-center justify-center scale-[0.85]">
+                    <svg
+                      viewBox="0 0 100 100"
+                      className="w-full h-full drop-shadow-md"
+                    >
+                      <path
+                        d="M50 15 L85 45 L85 85 L15 85 L15 45 Z"
+                        fill="#ffca28"
+                      />
+                      <path
+                        d="M50 10 L90 45 L85 45 L50 15 L15 45 L10 45 Z"
+                        fill="#ffeb3b"
+                      />
+                    </svg>
+                    <div className="absolute inset-0 flex items-center justify-center pt-5">
+                      <div className="w-7 h-4 bg-green-500 rounded text-white text-[9px] font-bold flex items-center justify-center shadow-inner">
+                        Lv.X
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <span className="text-gray-900 font-extrabold text-[15px]">
+                  Room Level badge shows in the room
+                </span>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-5 mt-4">
+              <h2 className="text-[18px] font-black text-gray-900 border-none m-0 shadow-none">
+                Lv.5
+              </h2>
+
+              <div className="flex items-center gap-4">
+                <div className="w-[52px] h-[52px] rounded-xl bg-gradient-to-b from-blue-200 to-blue-400 relative flex items-center justify-center shrink-0 shadow-sm overflow-hidden">
+                  <div className="w-8 h-6 bg-white rounded-md shadow-sm border border-blue-100 flex items-center justify-center">
+                    <div className="w-6 h-4 bg-yellow-100 rounded-sm flex items-center justify-center relative">
+                      <div className="w-1 h-1 bg-yellow-500 rounded-full mr-1" />
+                      <div className="w-1 h-1 bg-yellow-500 rounded-full" />
+                    </div>
+                  </div>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-gray-900 font-extrabold text-[15px]">
+                    Dynamic room cover
+                  </span>
+                  <span className="text-gray-600 font-semibold text-[13px]">
+                    Able to upload dynamic room cover
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-4">
+                <div className="w-[52px] h-[52px] rounded-xl bg-gradient-to-b from-blue-200 to-blue-400 relative flex items-center justify-center shrink-0 shadow-sm overflow-hidden">
+                  <div className="w-8 h-6 bg-white rounded-md shadow-sm border border-blue-100 flex flex-col items-center justify-center overflow-hidden">
+                    <div className="w-full h-1/2 bg-yellow-100"></div>
+                    <div className="w-3 h-3 bg-white rounded-full shadow-sm mt-[-6px]" />
+                  </div>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-gray-900 font-extrabold text-[15px]">
+                    Customized Room Background
+                  </span>
+                  <span className="text-gray-600 font-semibold text-[13px]">
+                    You can upload the room backgrounds.
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-5 mt-4 pb-12">
+              <h2 className="text-[18px] font-black text-gray-900 border-none m-0 shadow-none">
+                Lv.10
+              </h2>
+
+              <div className="flex items-center gap-4">
+                <div className="w-[52px] h-[52px] rounded-xl relative flex items-center justify-center shrink-0">
+                  <div className="w-10 h-6 bg-gradient-to-r from-blue-100 to-indigo-100 shadow-sm border border-indigo-200 rounded-full flex items-center justify-center relative">
+                    <div className="absolute -left-2 w-5 h-5 bg-gradient-to-br from-blue-400 to-blue-500 rounded-full border-2 border-white flex items-center justify-center shadow-sm">
+                      <div className="w-2 h-2 bg-white rounded-full opacity-50" />
+                    </div>
+                    <span className="text-blue-600 font-black text-[10px] ml-2">
+                      Lv.X
+                    </span>
+                  </div>
+                </div>
+                <span className="text-gray-900 font-extrabold text-[15px]">
+                  Intermediate blue badge
+                </span>
+              </div>
+
+              <div className="flex items-center gap-4">
+                <div className="w-[52px] h-[52px] rounded-xl relative flex items-center justify-center shrink-0">
+                  <div className="flex flex-col gap-1">
+                    <div className="w-8 h-4 bg-gradient-to-r from-blue-100 to-indigo-100 shadow-sm border border-indigo-200 rounded-full flex items-center justify-center relative">
+                      <div className="absolute -left-1 w-3 h-3 bg-gradient-to-br from-blue-400 to-blue-500 rounded-full border border-white" />
+                      <span className="text-blue-600 font-black text-[7px] ml-1">
+                        Lv.X
+                      </span>
+                    </div>
+                    <div className="w-8 h-4 bg-gradient-to-r from-blue-100 to-indigo-100 shadow-sm border border-indigo-200 rounded-full flex items-center justify-center relative">
+                      <div className="absolute -left-1 w-3 h-3 bg-gradient-to-br from-blue-400 to-blue-500 rounded-full border border-white" />
+                      <span className="text-blue-600 font-black text-[7px] ml-1">
+                        Lv.X
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <span className="text-gray-900 font-extrabold text-[15px] leading-tight">
+                  Room Level badge shows on the <br /> room list
+                </span>
+              </div>
+
+              <div className="flex items-center gap-4">
+                <div className="w-[52px] h-[52px] rounded-xl relative flex items-center justify-center shrink-0 bg-green-500 overflow-hidden shadow-sm">
+                  <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/30" />
+                  <div className="text-white font-black text-[10px] relative z-10 bottom-[-12px]">
+                    Lv.10
+                  </div>
+                </div>
+                <span className="text-gray-900 font-extrabold text-[15px]">
+                  Exclusive dynamic room background
+                </span>
+              </div>
+            </div>
           </div>
         )}
       </div>
