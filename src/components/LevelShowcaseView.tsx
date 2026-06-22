@@ -16,9 +16,11 @@ export const levelRanges = [
 export function AvatarFrame({
   level,
   className = "w-[60px] h-[60px]",
+  src,
 }: {
   level: number;
   className?: string;
+  src?: string;
 }) {
   let theme = {
     outer: "border-[#82a4a1] bg-[#a1c4c1]",
@@ -68,10 +70,14 @@ export function AvatarFrame({
       className={`relative flex items-center justify-center ${className} shrink-0`}
     >
       <div
-        className={`w-full h-full rounded-full border-[2.5px] ${theme.outer} flex items-center justify-center bg-transparent shrink-0 shadow-[0_4px_10px_rgba(0,0,0,0.5)] z-10`}
+        className={`w-full h-full rounded-full border-[2.5px] ${theme.outer} flex items-center justify-center bg-transparent shrink-0 shadow-[0_4px_10px_rgba(0,0,0,0.5)] z-10 p-0.5`}
       >
-        <div className="w-[85%] h-[85%] bg-white/90 rounded-full flex items-center justify-center">
-          <div className="w-5 h-5 bg-gray-200 rounded-full border border-gray-100" />
+        <div className="w-full h-full bg-white/90 rounded-full flex items-center justify-center overflow-hidden bg-black">
+          {src ? (
+            <img src={src} className="w-full h-full object-cover" alt="" />
+          ) : (
+            <div className="w-5 h-5 bg-gray-200 rounded-full border border-gray-100" />
+          )}
         </div>
       </div>
 

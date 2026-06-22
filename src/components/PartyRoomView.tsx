@@ -97,6 +97,8 @@ function handleFirestoreError(
 }
 import { RoomLevelView } from "./RoomLevelView";
 
+import { AvatarFrame, ChatBubble } from "./LevelShowcaseView";
+
 export function PartyRoomView({ user, profile, roomId, onBack }: any) {
   const [showGift, setShowGift] = useState(false);
   const [showSuperWinner, setShowSuperWinner] = useState(false);
@@ -691,18 +693,14 @@ export function PartyRoomView({ user, profile, roomId, onBack }: any) {
                     style={{ animationDuration: "1.5s" }}
                   />
                 )}
-                <div
-                  className={`w-12 h-12 sm:w-16 sm:h-16 rounded-full overflow-hidden border-2 flex items-center justify-center ${mySeat === seat.id ? "border-green-500 shadow-[0_0_15px_rgba(34,197,94,0.3)]" : seat.data.isMicOn ? "border-green-400" : "border-white/20"} relative bg-black`}
-                >
-                  <img
-                    src={
-                      seat.data.userPhoto ||
-                      "https://api.dicebear.com/7.x/avataaars/svg?seed=U"
-                    }
-                    className={`w-full h-full object-cover ${seat.data.isMicOn ? "scale-[1.05] transition-transform" : ""}`}
-                    alt="User"
-                  />
-                </div>
+                <AvatarFrame
+                  level={seat.data.level || 1}
+                  className={`w-14 h-14 sm:w-[72px] sm:h-[72px] ${mySeat === seat.id ? "drop-shadow-[0_0_15px_rgba(34,197,94,0.3)]" : ""} ${seat.data.isMicOn ? "scale-[1.05] transition-transform" : ""}`}
+                  src={
+                    seat.data.userPhoto ||
+                    "https://api.dicebear.com/7.x/avataaars/svg?seed=U"
+                  }
+                />
                 {mySeat === seat.id ? (
                   <button
                     onClick={handleToggleMic}
@@ -854,9 +852,11 @@ export function PartyRoomView({ user, profile, roomId, onBack }: any) {
                     <span className="text-white/60 text-[10px] font-bold ml-1 mb-0.5">
                       {msg.userName}
                     </span>
-                    <div className="bg-black/40 backdrop-blur-md border border-white/10 text-white rounded-2xl rounded-tl-sm px-4 py-2 text-[13px] font-medium leading-relaxed">
-                      {msg.text}
-                    </div>
+                    <ChatBubble level={msg.userLevel || 1}>
+                      <span className="text-white text-[13px] font-medium leading-relaxed">
+                        {msg.text}
+                      </span>
+                    </ChatBubble>
                   </div>
                 </div>
               )}
@@ -1694,18 +1694,51 @@ function GiftUI({
         {/* Drag Handle */}
         <div className="w-12 h-1.5 bg-white/10 rounded-full mx-auto mb-4 shrink-0" />
 
-        {/* No other one on mic strip */}
-        <div className="px-5 mb-4 shrink-0">
-          <div className="bg-[#2a2c3a] rounded-full px-4 py-2 flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full border border-white/10 flex items-center justify-center shrink-0">
-              <div className="w-3.5 h-4 border-2 border-white/40 rounded-t-full border-b-0 relative">
-                <div className="absolute top-1/2 left-[-6px] right-[-6px] border-b-2 border-white/40" />
+        {/* Users on mic strip */}
+        <div className="px-5 mb-4 shrink-0 flex items-center gap-2 overflow-x-auto no-scrollbar pb-2">
+          {Object.keys(seats).length === 0 ? (
+            <div className="bg-[#2a2c3a] rounded-full px-4 py-2 flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full border border-white/10 flex items-center justify-center shrink-0">
+                <div className="w-3.5 h-4 border-2 border-white/40 rounded-t-full border-b-0 relative">
+                  <div className="absolute top-1/2 left-[-6px] right-[-6px] border-b-2 border-white/40" />
+                </div>
               </div>
+              <span className="text-white/40 text-sm font-semibold tracking-wide">
+                No other one on mic
+              </span>
             </div>
-            <span className="text-white/40 text-sm font-semibold tracking-wide">
-              No other one on mic
-            </span>
-          </div>
+          ) : (
+            <>
+              <button
+                onClick={() => {
+                   if (selectedSeats.length === Object.keys(seats).length) setSelectedSeats([]);
+                   else setSelectedSeats(Object.keys(seats).map(Number));
+                }}
+                className={`shrink-0 h-10 px-4 rounded-full border ${selectedSeats.length === Object.keys(seats).length ? "bg-[#ff6b4a] border-[#ff6b4a]" : "bg-[#2a2c3a] border-white/10"} text-white font-bold text-sm flex items-center gap-2 transition-colors`}
+              >
+                All
+              </button>
+              {Object.entries(seats).map(([seatId, seat]) => {
+                const sId = Number(seatId);
+                const isSelected = selectedSeats.includes(sId);
+                return (
+                  <button
+                    key={seatId}
+                    onClick={() => {
+                       if (isSelected) setSelectedSeats(selectedSeats.filter(id => id !== sId));
+                       else setSelectedSeats([...selectedSeats, sId]);
+                    }}
+                    className={`shrink-0 bg-[#2a2c3a] rounded-full p-1 pr-3 flex items-center gap-2 border transition-colors ${isSelected ? "border-[#ff6b4a] bg-[#ff6b4a]/20" : "border-white/10"}`}
+                  >
+                    <div className="w-8 h-8 rounded-full overflow-hidden shrink-0 bg-black">
+                      <img src={seat.userPhoto || `https://api.dicebear.com/7.x/avataaars/svg?seed=${seat.userId}`} alt="" className="w-full h-full object-cover" />
+                    </div>
+                    <span className="text-white text-xs font-bold max-w-[60px] truncate">{seat.userName}</span>
+                  </button>
+                );
+              })}
+            </>
+          )}
         </div>
 
         {/* Tabs */}

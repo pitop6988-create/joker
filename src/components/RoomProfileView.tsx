@@ -1,8 +1,23 @@
 import React from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { ChevronRight, Image as ImageIcon, AlertCircle } from "lucide-react";
+import { doc, updateDoc, increment } from "firebase/firestore";
+import { db } from "../lib/firebase";
 
 export function RoomProfileView({ onClose, roomData, profile, user }: any) {
+  const handleJoin = async () => {
+    if (roomData?.id) {
+       try {
+         await updateDoc(doc(db, "partyRooms", roomData.id), {
+           viewers: increment(1)
+         });
+         alert("Joined successfully! Members +1");
+       } catch (e) {
+         console.error(e);
+       }
+    }
+  };
+
   return (
     <AnimatePresence>
       <motion.div
@@ -50,10 +65,10 @@ export function RoomProfileView({ onClose, roomData, profile, user }: any) {
                 />
               </div>
               <p className="text-gray-400 text-sm mb-2.5 font-medium tracking-wide">
-                ID:{roomData?.id || "6806470"}
+                ID: {roomData?.id || "---"}
               </p>
               <div className="bg-[#00d632] text-white pl-2 pr-1.5 py-[2px] rounded-full inline-flex font-black text-[11px] items-center gap-0.5 shadow-sm">
-                Lv.0{" "}
+                Lv.{roomData?.level || 1}{" "}
                 <ChevronRight
                   size={12}
                   strokeWidth={3}
@@ -64,7 +79,7 @@ export function RoomProfileView({ onClose, roomData, profile, user }: any) {
           </div>
 
           <div className="flex justify-between items-center mb-5 pb-1 border-b border-gray-100">
-            <span className="font-bold text-black text-[15px]">Members: 0</span>
+            <span className="font-bold text-black text-[15px]">Members: {roomData?.viewers || 0}</span>
             <button className="text-gray-400 text-[13px] font-medium flex items-center gap-0.5 active:scale-95 transition-transform">
               All <ChevronRight size={14} />
             </button>
@@ -73,9 +88,9 @@ export function RoomProfileView({ onClose, roomData, profile, user }: any) {
           <div className="flex flex-col gap-2 mb-8">
             <div className="flex flex-col items-center w-fit relative border-b border-gray-100 pb-5">
               <div className="w-[60px] h-[60px] bg-gray-200 rounded-full flex flex-col items-center justify-end overflow-hidden border-2 border-white shadow-sm shrink-0">
-                {roomData?.ownerPhoto ? (
+                {roomData?.ownerPhoto || user?.photoURL ? (
                   <img
-                    src={roomData.ownerPhoto}
+                    src={roomData?.ownerPhoto || user?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${roomData?.ownerId || "owner"}`}
                     alt="Owner"
                     className="w-full h-full object-cover"
                   />
@@ -168,7 +183,7 @@ export function RoomProfileView({ onClose, roomData, profile, user }: any) {
               </svg>
               Follow
             </button>
-            <button className="flex-1 py-[14px] rounded-[14px] font-bold active:translate-y-[2px] transition-all flex items-center justify-center gap-1.5 text-white bg-[#00d632] shadow-sm text-[16px] border-b-[3px] border-[#00b029] active:border-b-0 relative overflow-hidden group">
+            <button onClick={handleJoin} className="flex-1 py-[14px] rounded-[14px] font-bold active:translate-y-[2px] transition-all flex items-center justify-center gap-1.5 text-white bg-[#00d632] shadow-sm text-[16px] border-b-[3px] border-[#00b029] active:border-b-0 relative overflow-hidden group">
               <div className="absolute inset-0 bg-black/10 opacity-0 group-active:opacity-100 transition-opacity" />
               <svg
                 width="20"

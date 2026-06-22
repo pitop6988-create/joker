@@ -21,7 +21,7 @@ import { PartyRoomView } from './components/PartyRoomView';
 import { PublicProfileView } from './components/PublicProfileView';
 import { CharmLevelView } from './components/CharmLevelView';
 import { WalletView } from './components/WalletView';
-import { LevelShowcaseView } from './components/LevelShowcaseView';
+import { LevelShowcaseView, AvatarFrame, ChatBubble } from './components/LevelShowcaseView';
 
 function dataUrlToBlobUrl(dataUrl: string): string {
   if (!dataUrl || !dataUrl.startsWith('data:')) {
@@ -2973,9 +2973,10 @@ function ShopView({ user, profile, onBack, setActiveTab, language, lobbyBg }: { 
       </header>
 
       <div className="flex px-4 gap-6 text-[15px] font-black text-gray-400 overflow-x-auto no-scrollbar shrink-0 bg-white relative pb-0 z-10">
-        <button onClick={() => setActiveShopTab('skins')} className={`py-3 relative whitespace-nowrap transition-colors ${activeShopTab === 'skins' ? 'text-black' : ''}`}>Headframe{activeShopTab === 'skins' && <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-6 h-1 rounded-full bg-[#1b5df2]" />}</button>
-        <button onClick={() => setActiveShopTab('tables')} className={`py-3 relative whitespace-nowrap transition-colors ${activeShopTab === 'tables' ? 'text-black' : ''}`}>Fantasy profile{activeShopTab === 'tables' && <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-6 h-1 rounded-full bg-[#1b5df2]" />}</button>
-        <button onClick={() => setActiveShopTab('emojis')} className={`py-3 relative whitespace-nowrap transition-colors ${activeShopTab === 'emojis' ? 'text-black' : ''}`}>Entrance{activeShopTab === 'emojis' && <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-6 h-1 rounded-full bg-[#1b5df2]" />}</button>
+        <button onClick={() => setActiveShopTab('skins')} className={`py-3 relative whitespace-nowrap transition-colors ${activeShopTab === 'skins' ? 'text-black' : ''}`}>Cards{activeShopTab === 'skins' && <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-6 h-1 rounded-full bg-[#1b5df2]" />}</button>
+        <button onClick={() => setActiveShopTab('frames' as any)} className={`py-3 relative whitespace-nowrap transition-colors ${activeShopTab === 'frames' as any ? 'text-black' : ''}`}>Frames{activeShopTab === 'frames' as any && <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-6 h-1 rounded-full bg-[#1b5df2]" />}</button>
+        <button onClick={() => setActiveShopTab('tables')} className={`py-3 relative whitespace-nowrap transition-colors ${activeShopTab === 'tables' ? 'text-black' : ''}`}>Tables{activeShopTab === 'tables' && <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-6 h-1 rounded-full bg-[#1b5df2]" />}</button>
+        <button onClick={() => setActiveShopTab('emojis')} className={`py-3 relative whitespace-nowrap transition-colors ${activeShopTab === 'emojis' ? 'text-black' : ''}`}>Emojis{activeShopTab === 'emojis' && <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-6 h-1 rounded-full bg-[#1b5df2]" />}</button>
         <button onClick={() => setActiveShopTab('chips')} className={`py-3 relative whitespace-nowrap transition-colors flex items-center gap-1 ${activeShopTab === 'chips' ? 'text-black' : ''}`}>Chips <ChevronDown size={14} className="ml-0.5" />{activeShopTab === 'chips' && <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-6 h-1 rounded-full bg-[#1b5df2]" />}</button>
       </div>
 
@@ -3017,6 +3018,32 @@ function ShopView({ user, profile, onBack, setActiveTab, language, lobbyBg }: { 
                    <div className="w-full bg-white rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] py-2.5 flex items-center justify-center gap-1.5 mt-2">
                       <Star size={16} weight="fill" className="text-[#ffcc00]" />
                       <span className="text-[#ff9500] font-bold text-[15px]">{emoji.price}</span>
+                   </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {activeShopTab === 'frames' as any && (
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-4 pt-4 px-2">
+              {[
+                { id: '1', name: 'Starter Frame', level: 17, price: 1000 },
+                { id: '2', name: 'Pro Frame', level: 49, price: 5000 },
+                { id: '3', name: 'Elite Frame', level: 81, price: 15000 },
+                { id: '4', name: 'Legendary Frame', level: 101, price: 50000 },
+              ].map(frame => (
+                <div key={frame.id} className="flex flex-col items-center">
+                   <div 
+                     className="w-full aspect-[9/10] bg-[#1a203f] rounded-2xl relative flex items-center justify-center overflow-hidden cursor-pointer"
+                     onClick={() => alert('Frames implementation placeholder')}
+                   >
+                     <div className="scale-[1.5]">
+                        <AvatarFrame level={frame.level} className="w-16 h-16" src={`https://api.dicebear.com/7.x/avataaars/svg?seed=F${frame.id}`} />
+                     </div>
+                   </div>
+                   <div className="w-full bg-white rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] py-2.5 flex items-center justify-center gap-1.5 mt-2">
+                      <Star size={16} weight="fill" className="text-[#ffcc00]" />
+                      <span className="text-[#ff9500] font-bold text-[15px]">{frame.price}</span>
                    </div>
                 </div>
               ))}
@@ -4306,7 +4333,7 @@ function GameView({ user, game, onLeave, profile, skinsMap, emojiItems, onOpenSe
            <button className="text-white/60 hover:text-white"><RefreshCcw size={18} /></button>
         </div>
         <div className="text-white font-black tracking-[0.2em] italic uppercase text-sm">
-           {game.gameType === 'uno' ? 'OONO' : game.gameType === 'joker' ? 'JOKER' : 'DAMA'}
+           {game.gameType === 'uno' ? 'OONO' : game.gameType === 'joker' ? 'JOKER' : game.gameType === 'ludo' ? 'LUDO' : 'DAMA'}
         </div>
         <div className="flex items-center gap-3">
            <button 
@@ -5573,18 +5600,18 @@ function ClubDetailView({ club, user, profile, onLeave, onPostMessage, onBack, e
              <div ref={scrollRef} className="flex-1 overflow-y-auto p-8 space-y-6 scroll-smooth">
                 {messages.map((msg) => (
                    <div key={msg.id} className={`flex gap-4 ${msg.userId === user.uid ? 'flex-row-reverse' : ''}`}>
-                      <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-white/10 shrink-0">
-                         <img src={msg.userPhoto || `https://api.dicebear.com/7.x/avataaars/svg?seed=${msg.userId}`} alt="" className="w-full h-full object-cover" />
-                      </div>
+                      <AvatarFrame level={memberProfiles[msg.userId]?.level || 1} className="w-12 h-12 shrink-0" src={msg.userPhoto || `https://api.dicebear.com/7.x/avataaars/svg?seed=${msg.userId}`} />
                       <div className={`flex flex-col gap-1.5 max-w-[70%] ${msg.userId === user.uid ? 'items-end' : ''}`}>
                          <span className="text-[9px] font-black text-white/20 uppercase tracking-widest px-1">
                             {msg.userId === user.uid ? 'You' : msg.userName}
                          </span>
-                         <div className={`px-5 py-3 rounded-3xl text-sm font-medium ${msg.userId === user.uid ? 'bg-[#8b0000] text-white rounded-tr-none' : 'bg-white/5 text-white/80 rounded-tl-none'}`}>
-                            {msg.text?.startsWith('emoji:') ? (
-                              <img src={msg.text.split('emoji:')[1]} alt="" className="w-20 h-20 object-contain" />
-                            ) : msg.text}
-                         </div>
+                         <ChatBubble level={memberProfiles[msg.userId]?.level || 1}>
+                            <div className={`text-sm font-medium ${msg.userId === user.uid ? 'text-white' : 'text-white/80'}`}>
+                               {msg.text?.startsWith('emoji:') ? (
+                                 <img src={msg.text.split('emoji:')[1]} alt="" className="w-20 h-20 object-contain" />
+                               ) : msg.text}
+                            </div>
+                         </ChatBubble>
                       </div>
                    </div>
                 ))}
