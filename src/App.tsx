@@ -21,6 +21,7 @@ import { PartyRoomView } from './components/PartyRoomView';
 import { PublicProfileView } from './components/PublicProfileView';
 import { CharmLevelView } from './components/CharmLevelView';
 import { WalletView } from './components/WalletView';
+import { LevelShowcaseView } from './components/LevelShowcaseView';
 
 function dataUrlToBlobUrl(dataUrl: string): string {
   if (!dataUrl || !dataUrl.startsWith('data:')) {
@@ -1297,6 +1298,10 @@ export default function App() {
         />
       </>
     );
+  }
+
+  if (activeTab === 'levels') {
+    return <LevelShowcaseView onBack={() => setActiveTab('profile')} />;
   }
 
   if (activeTab === 'wallet') {
@@ -3158,6 +3163,7 @@ function ProfileView({ user, profile, onBack, onLogout, setActiveTab, language, 
   };
 
   const menuItems = [
+    { id: 'levels', icon: <Crown size={20} className="text-[#a1c4c1]" />, label: 'Level Assets', onClick: () => setActiveTab('levels') },
     { id: 'viewed', icon: <Eye size={20} className="text-[#3fc0e8]" />, label: 'Viewed me' },
     { id: 'wallet', icon: <Coins size={20} className="text-[#ff9800]" />, label: 'My wallet', onClick: () => setActiveTab('wallet') },
     { id: 'offer', icon: <Gift size={20} className="text-[#ff5252]" />, label: 'Offer Center', value: 'To be activated: 0' },

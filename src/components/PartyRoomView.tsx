@@ -44,6 +44,7 @@ import {
   limit,
 } from "firebase/firestore";
 import { SuperWinnerUI } from "./SuperWinnerUI";
+import { RoomProfileView } from "./RoomProfileView";
 
 enum OperationType {
   CREATE = "create",
@@ -83,8 +84,13 @@ function handleFirestoreError(
   };
   console.error("Firestore Error: ", JSON.stringify(errInfo));
 
-  if (errorMessage.includes("Quota limit exceeded") || errorMessage.includes("resource-exhausted")) {
-    alert("Database limit reached. Please try again later today or tomorrow when the free quota resets.");
+  if (
+    errorMessage.includes("Quota limit exceeded") ||
+    errorMessage.includes("resource-exhausted")
+  ) {
+    alert(
+      "Database limit reached. Please try again later today or tomorrow when the free quota resets.",
+    );
   } else {
     alert("An error occurred with the database. Please try again.");
   }
@@ -94,11 +100,16 @@ import { RoomLevelView } from "./RoomLevelView";
 export function PartyRoomView({ user, profile, roomId, onBack }: any) {
   const [showGift, setShowGift] = useState(false);
   const [showSuperWinner, setShowSuperWinner] = useState(false);
+  const [showRoomProfile, setShowRoomProfile] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [showRoomLevel, setShowRoomLevel] = useState(false);
   const [showPKTimes, setShowPKTimes] = useState(false);
   const [isPKMode, setIsPKMode] = useState(false);
   const [pkTime, setPkTime] = useState(0);
+  const [pkLeftScore, setPkLeftScore] = useState(0);
+  const [pkRightScore, setPkRightScore] = useState(0);
+  const [pkSendersLeft, setPkSendersLeft] = useState<any[]>([]);
+  const [pkSendersRight, setPkSendersRight] = useState<any[]>([]);
   const [mySeat, setMySeat] = useState<number | null>(null);
   const [roomData, setRoomData] = useState<any>(null);
   const [seats, setSeats] = useState<Record<string, any>>({});
@@ -127,7 +138,8 @@ export function PartyRoomView({ user, profile, roomId, onBack }: any) {
       (doc) => {
         setRoomData(doc.data());
       },
-      (error) => handleFirestoreError(error, OperationType.GET, `partyRooms/${roomId}`),
+      (error) =>
+        handleFirestoreError(error, OperationType.GET, `partyRooms/${roomId}`),
     );
 
     // Seats
@@ -147,7 +159,12 @@ export function PartyRoomView({ user, profile, roomId, onBack }: any) {
         }
         setMySeat(mySet);
       },
-      (error) => handleFirestoreError(error, OperationType.LIST, `partyRooms/${roomId}/seats`),
+      (error) =>
+        handleFirestoreError(
+          error,
+          OperationType.LIST,
+          `partyRooms/${roomId}/seats`,
+        ),
     );
 
     // Banners
@@ -169,7 +186,12 @@ export function PartyRoomView({ user, profile, roomId, onBack }: any) {
         );
         setBanners(recent);
       },
-      (error) => handleFirestoreError(error, OperationType.LIST, `partyRooms/${roomId}/banners`),
+      (error) =>
+        handleFirestoreError(
+          error,
+          OperationType.LIST,
+          `partyRooms/${roomId}/banners`,
+        ),
     );
 
     // Messages
@@ -197,7 +219,12 @@ export function PartyRoomView({ user, profile, roomId, onBack }: any) {
           },
         ]);
       },
-      (error) => handleFirestoreError(error, OperationType.LIST, `partyRooms/${roomId}/messages`),
+      (error) =>
+        handleFirestoreError(
+          error,
+          OperationType.LIST,
+          `partyRooms/${roomId}/messages`,
+        ),
     );
 
     return () => {
@@ -259,7 +286,11 @@ export function PartyRoomView({ user, profile, roomId, onBack }: any) {
       });
       setChatInput("");
     } catch (err) {
-      handleFirestoreError(err, OperationType.WRITE, `partyRooms/${roomId}/messages`);
+      handleFirestoreError(
+        err,
+        OperationType.WRITE,
+        `partyRooms/${roomId}/messages`,
+      );
     }
   };
 
@@ -305,17 +336,47 @@ export function PartyRoomView({ user, profile, roomId, onBack }: any) {
         });
       });
       setShowGift(false);
+      if (isPKMode) {
+        if (Math.random() > 0.5) {
+          setPkLeftScore((prev) => prev + gift.price);
+          setPkSendersLeft((prev) => [...prev, profile]);
+        } else {
+          setPkRightScore((prev) => prev + gift.price);
+          setPkSendersRight((prev) => [...prev, profile]);
+        }
+      }
     } catch (err) {
       handleFirestoreError(err, OperationType.WRITE, `transaction:gift`);
     }
   };
 
-  const [isMicOn, setIsMicOn] = useState(true);
+  const [isMicOn, setIsMicOn] = useState(false);
   const [showMusicModal, setShowMusicModal] = useState(false);
 
-  const handleToggleMic = async (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const requestMicPermission = async () => {
+    try {
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        await navigator.mediaDevices.getUserMedia({ audio: true });
+        return true;
+      }
+    } catch (e) {
+      console.error("Microphone permission denied", e);
+    }
+    return false;
+  };
+
+  const handleToggleMic = async (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
     const newStatus = !isMicOn;
+
+    if (newStatus) {
+      const granted = await requestMicPermission();
+      if (!granted) {
+        alert("Please grant microphone permissions to speak.");
+        return;
+      }
+    }
+
     setIsMicOn(newStatus);
     if (mySeat !== null && roomId) {
       try {
@@ -334,6 +395,14 @@ export function PartyRoomView({ user, profile, roomId, onBack }: any) {
   const handleTakeSeat = async (seatId: number) => {
     if (!user || !roomId) return;
     if (mySeat !== null) return;
+
+    let initialMicStatus = isMicOn;
+    if (initialMicStatus) {
+      const granted = await requestMicPermission();
+      if (!granted) initialMicStatus = false;
+      setIsMicOn(initialMicStatus);
+    }
+
     try {
       await setDoc(doc(db, `partyRooms/${roomId}/seats`, seatId.toString()), {
         userId: user.uid,
@@ -341,7 +410,7 @@ export function PartyRoomView({ user, profile, roomId, onBack }: any) {
         userPhoto: profile?.photoURL || "",
         level: profile?.level || 0,
         createdAt: Date.now(),
-        isMicOn: isMicOn,
+        isMicOn: initialMicStatus,
       });
     } catch (err) {
       console.error(err);
@@ -395,18 +464,7 @@ export function PartyRoomView({ user, profile, roomId, onBack }: any) {
           </button>
           <div
             className="flex items-center gap-2 bg-black/20 rounded-full pr-4 pl-1 py-1 backdrop-blur-sm border border-white/5 cursor-pointer active:scale-95 transition-transform"
-            onClick={() => {
-              const ownerData = {
-                userId: formatId,
-                userName: profile?.displayName || "ONLY ONE",
-                userPhoto:
-                  profile?.photoURL ||
-                  `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.uid}`,
-                level: profile?.level || 1,
-                isMicOn: false,
-              };
-              setSelectedSeatUser(ownerData);
-            }}
+            onClick={() => setShowRoomProfile(true)}
           >
             <div className="w-9 h-9 rounded-full overflow-hidden bg-white/20 shrink-0 border border-white/30">
               <img
@@ -488,14 +546,33 @@ export function PartyRoomView({ user, profile, roomId, onBack }: any) {
                   Math.floor(Object.keys(seats).length * 84 + 172)}
               </span>
             </div>
-            <div className="flex items-center w-full justify-between">
-              <div className="flex-1 bg-gradient-to-r from-red-600 to-red-500 h-8 rounded-l-full flex items-center px-4 border border-red-400/50 shadow-[0_0_15px_rgba(220,38,38,0.5)]">
-                <span className="text-white font-black text-sm drop-shadow-md">
-                  LV4
-                </span>
-                <span className="text-yellow-400 font-bold ml-2 flex items-center gap-1 text-xs shadow-sm">
-                  <Coins size={12} className="fill-current" /> 140K
-                </span>
+            <div className="flex items-center w-full justify-between items-start">
+              <div className="flex-1 flex flex-col items-start gap-1">
+                <div className="w-full bg-gradient-to-r from-red-600 to-red-500 h-8 rounded-l-full flex items-center px-4 border border-red-400/50 shadow-[0_0_15px_rgba(220,38,38,0.5)]">
+                  <span className="text-white font-black text-sm drop-shadow-md">
+                    LV4
+                  </span>
+                  <span className="text-yellow-400 font-bold ml-2 flex items-center gap-1 text-xs shadow-sm">
+                    <Coins size={12} className="fill-current" />{" "}
+                    {pkLeftScore.toLocaleString()}
+                  </span>
+                </div>
+                <div className="flex px-2 -space-x-2 w-full mt-1 overflow-visible">
+                  {pkSendersLeft.slice(-5).map((p, i) => (
+                    <div
+                      key={i}
+                      className="w-6 h-6 rounded-full overflow-hidden border border-white shrink-0 relative z-[1] shadow-sm"
+                    >
+                      <img
+                        src={
+                          p.photoURL ||
+                          `https://api.dicebear.com/7.x/avataaars/svg?seed=${p.displayName}`
+                        }
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  ))}
+                </div>
               </div>
 
               <div className="px-3 md:px-6 relative z-10 font-black italic text-xl text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] shrink-0 flex flex-col items-center">
@@ -506,13 +583,32 @@ export function PartyRoomView({ user, profile, roomId, onBack }: any) {
                 {(pkTime % 60).toString().padStart(2, "0")}
               </div>
 
-              <div className="flex-1 bg-gradient-to-l from-blue-600 to-blue-500 h-8 rounded-r-full flex items-center justify-end px-4 border border-blue-400/50 shadow-[0_0_15px_rgba(37,99,235,0.5)]">
-                <span className="text-yellow-400 font-bold mr-2 flex items-center gap-1 text-xs shadow-sm">
-                  <Coins size={12} className="fill-current" /> 3.6K
-                </span>
-                <span className="text-white font-black text-sm drop-shadow-md">
-                  LV2
-                </span>
+              <div className="flex-1 flex flex-col items-end gap-1">
+                <div className="w-full bg-gradient-to-l from-blue-600 to-blue-500 h-8 rounded-r-full flex items-center justify-end px-4 border border-blue-400/50 shadow-[0_0_15px_rgba(37,99,235,0.5)]">
+                  <span className="text-yellow-400 font-bold mr-2 flex items-center gap-1 text-xs shadow-sm">
+                    <Coins size={12} className="fill-current" />{" "}
+                    {pkRightScore.toLocaleString()}
+                  </span>
+                  <span className="text-white font-black text-sm drop-shadow-md">
+                    LV2
+                  </span>
+                </div>
+                <div className="flex px-2 -space-x-2 w-full mt-1 overflow-visible justify-end">
+                  {pkSendersRight.slice(-5).map((p, i) => (
+                    <div
+                      key={i}
+                      className="w-6 h-6 rounded-full overflow-hidden border border-white shrink-0 relative z-[1] shadow-sm"
+                    >
+                      <img
+                        src={
+                          p.photoURL ||
+                          `https://api.dicebear.com/7.x/avataaars/svg?seed=${p.displayName}`
+                        }
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
@@ -775,8 +871,15 @@ export function PartyRoomView({ user, profile, roomId, onBack }: any) {
           <Volume2 size={20} className="text-white" />
         </button>
 
-        <button className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center shrink-0">
-          <MicOff size={20} className="text-white" />
+        <button
+          onClick={handleToggleMic}
+          className={`w-10 h-10 rounded-full bg-black/40 backdrop-blur-md border ${isMicOn ? "border-green-400 border-2 shadow-[0_0_10px_rgba(34,197,94,0.3)]" : "border-white/10"} flex items-center justify-center shrink-0 active:scale-95 transition-transform`}
+        >
+          {isMicOn ? (
+            <Mic size={20} className="text-green-400" />
+          ) : (
+            <MicOff size={20} className="text-white" />
+          )}
         </button>
 
         <button
@@ -807,92 +910,16 @@ export function PartyRoomView({ user, profile, roomId, onBack }: any) {
           )}
         </form>
 
-        <div className="relative">
-          <button
-            onClick={() => setShowMenu(!showMenu)}
-            className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center shrink-0"
-          >
-            <Menu size={20} className="text-white" />
-          </button>
-
-          <AnimatePresence>
-            {showMenu && (
-              <motion.div
-                initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                className="absolute bottom-14 right-0 bg-[#1c1815] border border-white/10 rounded-2xl shadow-2xl p-2 w-48 flex flex-col gap-1 z-50 backdrop-blur-xl"
-              >
-                {showPKTimes ? (
-                  <>
-                    <div className="flex items-center justify-between px-3 py-2 border-b border-white/10 mb-1">
-                      <span className="text-white font-bold text-sm">
-                        PK Duration
-                      </span>
-                      <button
-                        onClick={() => setShowPKTimes(false)}
-                        className="text-white/50 hover:text-white"
-                      >
-                        <X size={16} />
-                      </button>
-                    </div>
-                    <button
-                      onClick={() => {
-                        setIsPKMode(true);
-                        setPkTime(5 * 60);
-                        setShowMenu(false);
-                        setShowPKTimes(false);
-                      }}
-                      className="px-4 py-2 hover:bg-white/10 rounded-xl text-left text-white text-sm flex items-center gap-2"
-                    >
-                      <Clock size={16} className="text-yellow-400" /> 5:00
-                    </button>
-                    <button
-                      onClick={() => {
-                        setIsPKMode(true);
-                        setPkTime(10 * 60);
-                        setShowMenu(false);
-                        setShowPKTimes(false);
-                      }}
-                      className="px-4 py-2 hover:bg-white/10 rounded-xl text-left text-white text-sm flex items-center gap-2"
-                    >
-                      <Clock size={16} className="text-yellow-400" /> 10:00
-                    </button>
-                    <button
-                      onClick={() => {
-                        setIsPKMode(true);
-                        setPkTime(15 * 60);
-                        setShowMenu(false);
-                        setShowPKTimes(false);
-                      }}
-                      className="px-4 py-2 hover:bg-white/10 rounded-xl text-left text-white text-sm flex items-center gap-2"
-                    >
-                      <Clock size={16} className="text-yellow-400" /> 15:00
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <button
-                      onClick={() => setShowPKTimes(true)}
-                      className="px-4 py-2 hover:bg-white/10 rounded-xl text-left text-white text-sm transition-colors flex items-center gap-3"
-                    >
-                      <Swords size={18} className="text-[#ff5252]" />
-                      Start PK Target
-                    </button>
-                    <button className="px-4 py-2 hover:bg-white/10 rounded-xl text-left text-white/50 text-sm transition-colors flex items-center gap-3">
-                      <Smile size={18} />
-                      Effects
-                    </button>
-                    <button className="px-4 py-2 hover:bg-white/10 rounded-xl text-left text-white/50 text-sm transition-colors flex items-center gap-3">
-                      <Volume2 size={18} />
-                      Sound Settings
-                    </button>
-                  </>
-                )}
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
+        {user?.uid === roomData?.ownerId && (
+          <div className="relative">
+            <button
+              onClick={() => setShowMenu(true)}
+              className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center shrink-0"
+            >
+              <Menu size={20} className="text-white" />
+            </button>
+          </div>
+        )}
 
         <button
           onClick={() => setShowSuperWinner(true)}
@@ -927,6 +954,133 @@ export function PartyRoomView({ user, profile, roomId, onBack }: any) {
       )}
       {showMusicModal && (
         <MusicModal onClose={() => setShowMusicModal(false)} />
+      )}
+      {showMenu && (
+        <div className="fixed inset-0 z-[600] flex flex-col justify-end bg-black/60 backdrop-blur-sm pointer-events-auto">
+          <div className="flex-1 w-full" onClick={() => setShowMenu(false)} />
+          <motion.div
+            initial={{ y: "100%" }}
+            animate={{ y: 0 }}
+            exit={{ y: "100%" }}
+            transition={{ type: "spring", damping: 25, stiffness: 300 }}
+            className="bg-white rounded-t-3xl w-full p-6 pb-12 shadow-2xl relative max-h-[85vh] overflow-y-auto"
+          >
+            <h2 className="text-black font-black text-lg mb-6">Tools</h2>
+            <div className="grid grid-cols-4 gap-4 mb-8">
+              <button className="flex flex-col items-center gap-2">
+                <div className="w-14 h-14 bg-gray-50 rounded-full flex items-center justify-center border border-gray-100 shadow-sm relative overflow-hidden">
+                  <div className="absolute inset-0 bg-[#fff5ea] opacity-50" />
+                  <img
+                    src="https://api.dicebear.com/7.x/notionists/svg?seed=Lucky"
+                    alt="lucky bag"
+                    className="w-8 h-8 z-10"
+                  />
+                </div>
+                <span className="text-xs font-bold text-gray-500">
+                  Lucky bag
+                </span>
+              </button>
+              <button
+                className="flex flex-col items-center gap-2"
+                onClick={() => {
+                  setShowMusicModal(true);
+                  setShowMenu(false);
+                }}
+              >
+                <div className="w-14 h-14 bg-gray-50 rounded-full flex items-center justify-center border border-gray-100 shadow-sm">
+                  <Music size={24} className="text-[#00e676]" />
+                </div>
+                <span className="text-xs font-bold text-gray-500">Music</span>
+              </button>
+              <button className="flex flex-col items-center gap-2">
+                <div className="w-14 h-14 bg-gray-50 rounded-full flex items-center justify-center border border-gray-100 shadow-sm">
+                  <svg
+                    width="28"
+                    height="28"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="text-blue-400"
+                  >
+                    <circle cx="12" cy="12" r="3" />
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                  </svg>
+                </div>
+                <span className="text-xs font-bold text-gray-500">Effect</span>
+              </button>
+            </div>
+
+            <h2 className="text-black font-black text-lg mb-6">
+              Interactive Features
+            </h2>
+            <div className="grid grid-cols-4 gap-4">
+              <button
+                className="flex flex-col items-center gap-2"
+                onClick={() => {
+                  setIsPKMode(true);
+                  setPkTime(5 * 60);
+                  setShowMenu(false);
+                }}
+              >
+                <div className="w-16 h-16 rounded-[1.2rem] overflow-hidden shadow-md bg-gradient-to-br from-blue-600 to-purple-600 p-[2px]">
+                  <div className="w-full h-full bg-gradient-to-b from-[#ff8a65] to-[#f4511e] rounded-[1rem] flex items-center justify-center p-2 relative overflow-hidden">
+                    <span className="text-white font-black text-2xl drop-shadow-md z-10 italic tracking-tighter">
+                      PK
+                    </span>
+                    <div className="absolute -right-2 -bottom-2 w-8 h-8 bg-white/20 rounded-full blur-md" />
+                  </div>
+                </div>
+                <span className="text-xs font-bold text-gray-600 mt-1">PK</span>
+              </button>
+              <button className="flex flex-col items-center gap-2">
+                <div className="w-16 h-16 rounded-[1.2rem] overflow-hidden shadow-md bg-gradient-to-br from-orange-400 to-red-500 p-[2px]">
+                  <div className="w-full h-full bg-gradient-to-b from-[#fcd34d] to-[#fb923c] rounded-[1rem] flex flex-col items-center justify-center relative overflow-hidden">
+                    <span className="text-white font-black text-sm drop-shadow-md z-10 italic">
+                      Score
+                    </span>
+                    <div className="absolute inset-0 bg-[#fbbf24]/50 rounded-[1rem]" />
+                  </div>
+                </div>
+                <span className="text-xs font-bold text-gray-600 mt-1">
+                  Scoreboard
+                </span>
+              </button>
+              <button
+                className="flex flex-col items-center gap-2"
+                onClick={() => {
+                  setShowSuperWinner(true);
+                  setShowMenu(false);
+                }}
+              >
+                <div className="w-16 h-16 rounded-[1.2rem] overflow-hidden shadow-md bg-gradient-to-br from-violet-500 to-fuchsia-600 p-[2px]">
+                  <div className="w-full h-full bg-gradient-to-b from-[#8b5cf6] to-[#6d28d9] rounded-[1rem] flex items-center justify-center relative overflow-hidden">
+                    <div className="w-8 h-8 rounded-full border-[3px] border-[#fbbf24] flex items-center justify-center relative shadow-[0_0_8px_rgba(251,191,36,0.8)]">
+                      <div className="w-3 h-3 bg-[#fbbf24] rounded-full shadow-inner" />
+                      <div className="absolute -top-1 w-1 h-3 bg-[#fcd34d] rounded-full" />
+                      <div className="absolute top-1/2 -right-1 w-3 h-1 bg-[#fcd34d] rounded-full" />
+                      <div className="absolute -bottom-1 w-1 h-3 bg-[#fcd34d] rounded-full" />
+                      <div className="absolute top-1/2 -left-1 w-3 h-1 bg-[#fcd34d] rounded-full" />
+                    </div>
+                  </div>
+                </div>
+                <span className="text-xs font-bold text-gray-600 mt-1">
+                  Super Winner
+                </span>
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+      {showRoomProfile && (
+        <RoomProfileView
+          onClose={() => setShowRoomProfile(false)}
+          roomData={roomData}
+          profile={profile}
+          user={user}
+        />
       )}
       {showSuperWinner && (
         <SuperWinnerUI
@@ -998,13 +1152,14 @@ export function PartyRoomView({ user, profile, roomId, onBack }: any) {
                   size={12}
                   className="cursor-pointer hover:text-gray-600 active:scale-95"
                   onClick={(e) => {
-                     e.stopPropagation();
-                     const el = document.createElement('textarea');
-                     el.value = selectedSeatUser.userId?.substring(0, 8) || "28643239";
-                     document.body.appendChild(el);
-                     el.select();
-                     document.execCommand('copy');
-                     document.body.removeChild(el);
+                    e.stopPropagation();
+                    const el = document.createElement("textarea");
+                    el.value =
+                      selectedSeatUser.userId?.substring(0, 8) || "28643239";
+                    document.body.appendChild(el);
+                    el.select();
+                    document.execCommand("copy");
+                    document.body.removeChild(el);
                   }}
                 />
               </div>
