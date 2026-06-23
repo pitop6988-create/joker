@@ -131,6 +131,12 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // Live Gifts
+    match /liveGifts/{giftId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
     // Clubs
     match /clubs/{clubId} {
       function isClubMember() {

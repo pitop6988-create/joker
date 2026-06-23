@@ -28,6 +28,9 @@ export interface UserProfile {
   isAdmin?: boolean;
   bio?: string;
   isOnline?: boolean;
+  gender?: 'Male' | 'Female';
+  age?: number;
+  setupComplete?: boolean;
 }
 
 export interface TableSkin {
@@ -55,6 +58,15 @@ export interface EmojiItem {
   url: string;
   price: number;
   type: 'emoji' | 'gif';
+  createdAt: number;
+}
+
+export interface LiveGift {
+  id: string;
+  name: string;
+  imageUrl: string;
+  videoUrl?: string;
+  price: number;
   createdAt: number;
 }
 

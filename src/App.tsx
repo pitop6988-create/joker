@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { LogIn, LogOut, Play, Trophy, Users, RefreshCcw, Hand, Plus, Lock, MoreVertical, Coins, ShoppingBag, X, Mail, Key, User as UserIcon, Menu, Settings, MessageSquare, Gift, MoreHorizontal, ChevronUp, ChevronRight, ChevronLeft, ChevronDown, Edit, Camera, Save, Check, Image as ImageIcon, Crown, ShieldCheck, Star, Eye, EyeOff, LayoutGrid, ArrowLeft, Radio, Music, Volume2, VolumeX, Smile, Send, Copy, Search, Trash, UserPlus, List, Gamepad2, Hexagon, AudioLines, BarChart3 } from 'lucide-react';
 import DobbleBoard from './DobbleBoard';
 import LudoBoard from './LudoBoard';
-import { Game, GameStatus, Card, UserProfile, CardSkin, Club, ClubMessage, RadioTrack, EmojiItem, TableSkin } from './types';
+import { Game, GameStatus, Card, UserProfile, CardSkin, Club, ClubMessage, RadioTrack, EmojiItem, TableSkin, LiveGift } from './types';
 import { createDeck, shuffle } from './gameLogic';
 import confetti from 'canvas-confetti';
 // @ts-ignore
@@ -22,6 +22,10 @@ import { PublicProfileView } from './components/PublicProfileView';
 import { CharmLevelView } from './components/CharmLevelView';
 import { WalletView } from './components/WalletView';
 import { LevelShowcaseView, AvatarFrame, ChatBubble } from './components/LevelShowcaseView';
+import { RoomUpgradeView } from './components/RoomUpgradeView';
+import { WelcomeSetupView } from './components/WelcomeSetupView';
+import { MessagesView } from './components/MessagesView';
+import { DailyCheckInView } from './components/DailyCheckInView';
 
 function dataUrlToBlobUrl(dataUrl: string): string {
   if (!dataUrl || !dataUrl.startsWith('data:')) {
@@ -468,6 +472,8 @@ export default function App() {
   const [showProfileEditor, setShowProfileEditor] = useState(false);
   const [showFriendSearch, setShowFriendSearch] = useState(false);
   const [showFriendRequests, setShowFriendRequests] = useState(false);
+  const [showAdminPrompt, setShowAdminPrompt] = useState(false);
+  const [adminPasswordInput, setAdminPasswordInput] = useState('');
   const [incomingRequests, setIncomingRequests] = useState<any[]>([]);
 
   useEffect(() => {
@@ -1114,6 +1120,25 @@ export default function App() {
     return <AuthView onGoogleSignIn={signIn} onEmailSignIn={signInEmail} onEmailSignUp={signUpEmail} />;
   }
 
+  if (profile && !profile.setupComplete && profile.shortId) {
+    return <WelcomeSetupView 
+             defaultPhotoUrl={profile.photoURL} 
+             onComplete={async (data) => {
+               try {
+                 await updateDoc(doc(db, 'users', user.uid), {
+                   displayName: data.name,
+                   gender: data.gender,
+                   age: data.age,
+                   setupComplete: true
+                 });
+                 setProfile({ ...profile, displayName: data.name, gender: data.gender, age: data.age, setupComplete: true });
+               } catch (e) {
+                 handleFirestoreError(e, OperationType.UPDATE, `users/${user.uid}`);
+               }
+             }} 
+           />;
+  }
+
   if (isSearching) {
     return (
       <>
@@ -1189,6 +1214,14 @@ export default function App() {
     return <PartyRoomView user={user} profile={profile!} roomId={activePartyRoomId} onBack={() => { setActivePartyRoomId(null); setActiveTab('explore'); }} />;
   }
 
+  if (activeTab === 'roomUpgrade') {
+    return <RoomUpgradeView language={language} onBack={() => setActiveTab('explore')} />;
+  }
+
+  if (activeTab === 'admin') {
+    return <AdminView onBack={() => setActiveTab('home')} lobbyBg={lobbyBg} />;
+  }
+
   if (activeTab === 'shop') {
     return (
       <>
@@ -1259,7 +1292,7 @@ export default function App() {
   if (activeTab === 'profile') {
     return (
       <>
-        <ProfileView user={user} profile={profile!} onBack={() => setActiveTab('home')} onLogout={signOut} setActiveTab={setActiveTab} language={language} onOpenSettings={() => setActiveTab('settings')} onEditProfile={() => setShowProfileEditor(true)} onOpenSearch={() => setShowFriendSearch(true)} />
+        <ProfileView user={user} profile={profile!} onBack={() => setActiveTab('home')} onLogout={signOut} setActiveTab={setActiveTab} language={language} onOpenSettings={() => setActiveTab('settings')} onEditProfile={() => setShowProfileEditor(true)} onOpenSearch={() => setShowFriendSearch(true)} onOpenAdmin={() => setShowAdminPrompt(true)} />
         {showProfileEditor && (
           <ProfileEditor 
             profile={profile!} 
@@ -1332,6 +1365,28 @@ export default function App() {
     );
   }
 
+  if (activeTab === 'messages') {
+    return (
+      <>
+        <MessagesView 
+          language={language}
+          setActiveTab={setActiveTab}
+          onOpenInvite={() => alert('Invite friends feature coming soon!')}
+        />
+        <TapBar activeTab="messages" setActiveTab={setActiveTab} language={language} />
+        <RadioHub 
+          tracks={radioTracks} 
+          active={showRadioHub} 
+          onClose={() => setShowRadioHub(false)} 
+          isMusicOn={isMusicOn} 
+          toggleMusic={() => setIsMusicOn(!isMusicOn)} 
+          currentTrackIndex={currentTrackIndex} 
+          setCurrentTrackIndex={setCurrentTrackIndex} 
+        />
+      </>
+    );
+  }
+
   if (activeTab === 'settings') {
     return (
       <>
@@ -1378,6 +1433,24 @@ export default function App() {
           onAddFriend={() => { alert('Friend request sent!'); setSelectedPublicUid(null); }} 
           onChat={() => { alert('Chat feature coming soon!'); setSelectedPublicUid(null); }} 
         />
+      )}
+      {showAdminPrompt && (
+         <div className="fixed inset-0 bg-black/80 z-[1000] flex items-center justify-center p-6 backdrop-blur-sm">
+            <div className="bg-[#1e1a19] border border-white/10 rounded-3xl p-6 w-full max-w-sm flex flex-col items-center">
+               <h3 className="text-white font-black text-lg mb-4">Admin Access</h3>
+               <input 
+                 type="password" 
+                 value={adminPasswordInput}
+                 onChange={(e) => setAdminPasswordInput(e.target.value)}
+                 className="w-full bg-black/50 text-white px-4 py-3 rounded-xl border border-white/10 outline-none focus:border-[#ff6b6b] mb-4 text-center font-black tracking-[0.2em]"
+                 placeholder="PASSWORD"
+               />
+               <div className="flex gap-3 w-full">
+                  <button onClick={() => { setShowAdminPrompt(false); setAdminPasswordInput(''); }} className="flex-1 py-3 rounded-xl bg-white/10 text-white font-bold">Cancel</button>
+                  <button onClick={() => { if(adminPasswordInput === 'EMAD8912') { setShowAdminPrompt(false); setAdminPasswordInput(''); setActiveTab('admin'); } else { alert('Incorrect password!'); } }} className="flex-1 py-3 rounded-xl bg-[#ff6b6b] text-white font-bold">Verify</button>
+               </div>
+            </div>
+         </div>
       )}
       <RadioHub 
         tracks={radioTracks} 
@@ -1912,7 +1985,7 @@ function AdminView({ onBack, lobbyBg }: { onBack: () => void, lobbyBg?: string }
   const [skinIsNew, setSkinIsNew] = useState(false);
   const [saving, setSaving] = useState(false);
   const [users, setUsers] = useState<UserProfile[]>([]);
-  const [activeTab, setActiveAdminTab] = useState<'skins' | 'users' | 'radio' | 'emojis' | 'tables' | 'logos' | 'sandbox'>('skins');
+  const [activeTab, setActiveAdminTab] = useState<'skins' | 'users' | 'radio' | 'emojis' | 'tables' | 'logos' | 'sandbox' | 'live-gifts'>('skins');
   const [tempBgUrl, setTempBgUrl] = useState('');
   const [lobbyBgState, setLobbyBgState] = useState(lobbyBg || '');
   const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -1943,39 +2016,50 @@ function AdminView({ onBack, lobbyBg }: { onBack: () => void, lobbyBg?: string }
   const [tracks, setTracks] = useState<RadioTrack[]>([]);
   const [emojis, setEmojis] = useState<EmojiItem[]>([]);
   const [tableSkins, setTableSkins] = useState<TableSkin[]>([]);
+  const [liveGifts, setLiveGifts] = useState<LiveGift[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
+
+  const [giftName, setGiftName] = useState('');
+  const [giftImage, setGiftImage] = useState('');
+  const [giftVideo, setGiftVideo] = useState('');
+  const [giftPrice, setGiftPrice] = useState(10);
+
 
   useEffect(() => {
     // Realtime sync for users
     const qUsers = query(collection(db, 'users'), limit(100));
     const unsubUsers = onSnapshot(qUsers, (snap) => {
       setUsers(snap.docs.map(d => ({ ...d.data(), uid: d.id } as any as UserProfile)));
-    });
+    }, (error) => console.warn('users fetch error', error));
 
     // Realtime sync for card skins
     const unsubSkins = onSnapshot(collection(db, 'cardSkins'), (snap) => {
       setSkins(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as CardSkin)));
-    });
+    }, (error) => console.warn('cardSkins fetch error', error));
 
     // Realtime sync for radio tracks
     const unsubTracks = onSnapshot(collection(db, 'radioTracks'), (snap) => {
       setTracks(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as RadioTrack)));
-    });
+    }, (error) => console.warn('radioTracks fetch error', error));
 
     // Realtime sync for emoji items
     const unsubEmojis = onSnapshot(collection(db, 'emojiItems'), (snap) => {
       setEmojis(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as EmojiItem)));
-    });
+    }, (error) => console.warn('emojiItems fetch error', error));
 
     // Realtime sync for table skins
     const unsubTables = onSnapshot(collection(db, 'tableSkins'), (snap) => {
       setTableSkins(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as TableSkin)));
-    });
+    }, (error) => console.warn('tableSkins fetch error', error));
 
     // Realtime sync for club logos
     const unsubClubLogos = onSnapshot(query(collection(db, 'clubLogos'), orderBy('createdAt', 'desc')), (snap) => {
       setClubLogos(snap.docs.map(doc => ({ id: doc.id, url: doc.data().url || '', createdAt: doc.data().createdAt || 0 })));
-    });
+    }, (error) => console.warn('clubLogos fetch error', error));
+
+    const unsubLiveGifts = onSnapshot(collection(db, 'liveGifts'), (snap) => {
+      setLiveGifts(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as LiveGift)));
+    }, (error) => console.warn('liveGifts fetch error', error));
 
     return () => {
       unsubUsers();
@@ -1984,6 +2068,7 @@ function AdminView({ onBack, lobbyBg }: { onBack: () => void, lobbyBg?: string }
       unsubEmojis();
       unsubTables();
       unsubClubLogos();
+      unsubLiveGifts();
     };
   }, []);
 
@@ -2020,14 +2105,15 @@ function AdminView({ onBack, lobbyBg }: { onBack: () => void, lobbyBg?: string }
     }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, isGiftVideo?: boolean) => {
     const file = e.target.files?.[0];
     if (file) {
       const isRadio = activeTab === 'radio';
-      const maxAllowedSize = isRadio ? 10 * 1024 * 1024 : 2 * 1024 * 1024;
+      const isVideo = isGiftVideo;
+      const maxAllowedSize = isVideo ? 20 * 1024 * 1024 : (isRadio ? 10 * 1024 * 1024 : 2 * 1024 * 1024);
       
       if (file.size > maxAllowedSize) {
-        alert(isRadio ? "Audio file too large! Max 10MB." : "File too large! Try < 2MB");
+        alert(isVideo ? "Video file too large! Max 20MB." : (isRadio ? "Audio file too large! Max 10MB." : "File too large! Try < 2MB"));
         return;
       }
 
@@ -2047,6 +2133,13 @@ function AdminView({ onBack, lobbyBg }: { onBack: () => void, lobbyBg?: string }
         }
         if (activeTab === 'emojis') setEmojiUrl(result);
         if (activeTab === 'radio') setTrackUrl(result);
+        if (activeTab === 'live-gifts') {
+          if (isGiftVideo) {
+            setGiftVideo(result);
+          } else {
+            setGiftImage(result);
+          }
+        }
       };
       reader.readAsDataURL(file);
     }
@@ -2291,6 +2384,55 @@ function AdminView({ onBack, lobbyBg }: { onBack: () => void, lobbyBg?: string }
     }
   };
 
+  // Live Gifts Handlers
+  const handleEditGift = (gift: LiveGift) => {
+    setEditingId(gift.id);
+    setGiftName(gift.name);
+    setGiftPrice(gift.price);
+    setGiftImage(gift.imageUrl || '');
+    setGiftVideo(gift.videoUrl || '');
+  };
+
+  const handleSaveGift = async () => {
+    if (!giftName || !giftImage) return;
+    setSaving(true);
+    try {
+      if (editingId) {
+        await updateDoc(doc(db, 'liveGifts', editingId), {
+          name: giftName,
+          price: giftPrice,
+          imageUrl: giftImage,
+          videoUrl: giftVideo || null
+        });
+        alert("Live gift updated!");
+      } else {
+        await addDoc(collection(db, 'liveGifts'), {
+          name: giftName,
+          price: giftPrice,
+          imageUrl: giftImage,
+          videoUrl: giftVideo || null,
+          createdAt: Date.now()
+        });
+        alert("Live gift added!");
+      }
+      handleCancelEdit();
+    } catch (e) {
+      handleFirestoreError(e, OperationType.CREATE, 'liveGifts');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteGift = async (id: string) => {
+    if (!window.confirm("Delete this live gift?")) return;
+    try {
+      await deleteDoc(doc(db, 'liveGifts', id));
+      alert("Deleted!");
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   const handleSaveGameLogo = async () => {
     if (!gameLogoUrl) {
       alert("Please upload a logo file first!");
@@ -2402,6 +2544,11 @@ function AdminView({ onBack, lobbyBg }: { onBack: () => void, lobbyBg?: string }
     setClubLogoUrl('');
     setTempBgUrl('');
     setLogoScope('game');
+
+    setGiftName('');
+    setGiftImage('');
+    setGiftVideo('');
+    setGiftPrice(10);
   };
 
   return (
@@ -2423,7 +2570,7 @@ function AdminView({ onBack, lobbyBg }: { onBack: () => void, lobbyBg?: string }
               )}
            </div>
            <div className="flex bg-white/10 rounded-xl p-1 overflow-x-auto">
-              {['skins', 'tables', 'logos', 'users', 'radio', 'emojis', 'sandbox'].map(tab => (
+              {['skins', 'tables', 'logos', 'users', 'radio', 'emojis', 'live-gifts', 'sandbox'].map(tab => (
                 <button 
                   key={tab}
                   onClick={() => {
@@ -2791,6 +2938,67 @@ function AdminView({ onBack, lobbyBg }: { onBack: () => void, lobbyBg?: string }
               </div>
             )}
           </div>
+        ) : activeTab === 'live-gifts' ? (
+          <div className="space-y-6 animate-fade-in">
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-5 space-y-4">
+              <h2 className="text-sm font-black uppercase text-yellow-500 tracking-wider">
+                {editingId ? 'Modify Live Gift' : 'Deploy New Live Gift'}
+              </h2>
+              <div>
+                <label className="block text-[10px] font-black uppercase text-white/40 mb-2">Gift Name</label>
+                <input type="text" value={giftName} onChange={(e) => setGiftName(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-yellow-500 text-sm font-bold" />
+              </div>
+              <div>
+                <label className="block text-[10px] font-black uppercase text-white/40 mb-2">Price (Coins/Chips)</label>
+                <input type="number" value={giftPrice} onChange={(e) => setGiftPrice(Number(e.target.value))} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-yellow-500 text-sm font-bold" />
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div onClick={() => fileInputRef.current?.click()} className="w-full aspect-[1/1] bg-black/40 border-2 border-dashed border-white/10 rounded-2xl flex flex-col items-center justify-center cursor-pointer hover:border-yellow-500/55 transition-colors overflow-hidden relative">
+                   {giftImage ? <img src={giftImage} alt="" className="w-full h-full object-cover" /> : <Camera size={32} className="opacity-20" />}
+                   {!giftImage && <span className="text-[10px] font-bold text-white/40 mt-2 text-center px-2">Upload Fixed Image<br/>(Required)</span>}
+                </div>
+                <div className="w-full aspect-[1/1] bg-black/40 border-2 border-dashed border-white/10 rounded-2xl flex flex-col items-center justify-center relative overflow-hidden">
+                   {giftVideo ? (
+                      <video src={giftVideo} autoPlay loop muted className="w-full h-full object-cover" />
+                   ) : (
+                      <div className="flex flex-col items-center justify-center opacity-40 hover:opacity-80 transition-opacity">
+                         <Play size={32} className="mb-2" />
+                         <span className="text-[10px] font-bold text-center px-1">Upload Animation/Video<br/>(Optional)</span>
+                      </div>
+                   )}
+                   <input type="file" onChange={(e) => handleFileChange(e, true)} className="absolute inset-0 opacity-0 cursor-pointer" accept="video/*" title="Upload Video" />
+                </div>
+              </div>
+              <input ref={fileInputRef} type="file" onChange={(e) => handleFileChange(e, false)} className="hidden" accept="image/*" />
+              
+              <button onClick={handleSaveGift} disabled={saving} className={`w-full py-4 text-xs font-black uppercase tracking-widest rounded-2xl shadow transition-all ${editingId ? 'bg-emerald-500 text-white hover:bg-emerald-400' : 'bg-yellow-500 text-black hover:bg-yellow-400'} disabled:opacity-50`}>
+                 {saving ? 'SAVING...' : editingId ? 'UPDATE LIVE GIFT' : 'CREATE LIVE GIFT'}
+              </button>
+            </div>
+
+            <div className="pt-6 border-t border-white/10 space-y-4">
+              <h3 className="text-xs font-black uppercase tracking-wider text-white/40">Registered Live Gifts ({liveGifts.length})</h3>
+              <div className="grid grid-cols-2 gap-4">
+                {liveGifts.map(gift => (
+                  <div key={gift.id} className="bg-white/5 border border-white/10 rounded-2xl p-3 flex flex-col gap-2 relative">
+                    <div className="aspect-[1/1] bg-black border border-white/10 rounded-xl overflow-hidden relative">
+                       {gift.imageUrl && <img src={gift.imageUrl} alt="" className="w-full h-full object-cover" />}
+                       {gift.videoUrl && <div className="absolute top-1 right-1 bg-black/60 rounded px-1 text-[8px] font-bold text-white uppercase backdrop-blur-sm">Anim</div>}
+                    </div>
+                    <div className="min-w-0 text-center">
+                      <p className="font-bold text-xs truncate leading-none mb-1">{gift.name}</p>
+                      <span className="text-xs font-black text-yellow-500">${gift.price}</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-1 mt-1">
+                      <button onClick={() => handleEditGift(gift)} className="py-2 bg-white/5 hover:bg-white/10 rounded-lg text-[10px] font-black uppercase tracking-wider">Edit</button>
+                      <button onClick={() => handleDeleteGift(gift.id)} className="py-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-lg border border-red-500/20 flex items-center justify-center"><Trash size={12} /></button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
         ) : activeTab === 'sandbox' ? (
           <GameSandbox />
         ) : (
@@ -2967,7 +3175,7 @@ function ShopView({ user, profile, onBack, setActiveTab, language, lobbyBg }: { 
            <button onClick={onBack} className="p-1 -ml-1 text-gray-900 border-none outline-none"><ChevronLeft size={28} weight="bold" /></button>
            <h1 className="text-xl font-black font-sans tracking-tight">Decoration shop</h1>
          </div>
-         <button className="flex items-center gap-1.5 bg-[#ff6b57] text-white px-3 py-1.5 rounded-full text-sm font-bold shadow-sm relative overflow-hidden" onClick={() => setActiveTab && setActiveTab('profile')}>
+         <button className="flex items-center gap-1.5 bg-[#ff6b57] text-white px-3 py-1.5 rounded-full text-sm font-bold shadow-sm relative overflow-hidden" onClick={() => setActiveTab && setActiveTab('my-items')}>
             <UserIcon size={16} /> Mine<span className="w-2 h-2 bg-[#ff3a3a] border border-white rounded-full absolute top-1 right-1 shadow-sm" />
          </button>
       </header>
@@ -3169,7 +3377,7 @@ function CardBack({ skinUrl, className = "", style = {} }: { skinUrl?: string, c
   );
 }
 
-function ProfileView({ user, profile, onBack, onLogout, setActiveTab, language, onOpenSettings, onEditProfile, onOpenSearch }: { user: User, profile: UserProfile, onBack: () => void, onLogout: () => void, setActiveTab: (tab: any) => void, language: Language, onOpenSettings: () => void, onEditProfile: () => void, onOpenSearch: () => void }) {
+function ProfileView({ user, profile, onBack, onLogout, setActiveTab, language, onOpenSettings, onEditProfile, onOpenSearch, onOpenAdmin }: { user: User, profile: UserProfile, onBack: () => void, onLogout: () => void, setActiveTab: (tab: any) => void, language: Language, onOpenSettings: () => void, onEditProfile: () => void, onOpenSearch: () => void, onOpenAdmin?: () => void }) {
   const t = translations[language];
   const [copied, setCopied] = useState(false);
 
@@ -3200,6 +3408,7 @@ function ProfileView({ user, profile, onBack, onLogout, setActiveTab, language, 
     { id: 'invite', icon: <UserPlus size={20} className="text-[#4dd0e1]" />, label: 'Invite Friends' },
     { id: 'help', icon: <Star size={20} className="text-[#ffd54f]" />, label: 'Help' },
     { id: 'settings', icon: <Settings size={20} className="text-[#90a4ae]" />, label: 'Settings', onClick: onOpenSettings },
+    { id: 'admin', icon: <Lock size={20} className="text-[#e2e8f0]" />, label: 'Admin', onClick: onOpenAdmin },
   ];
 
   return (
@@ -3286,7 +3495,7 @@ function ProfileView({ user, profile, onBack, onLogout, setActiveTab, language, 
           </div>
 
           <div className="mt-8 text-center text-zinc-600 text-xs font-bold tracking-widest pb-4">
-            v1.3.3
+            v1.3.7
           </div>
       </div>
       <TapBar activeTab="profile" setActiveTab={setActiveTab} language={language} />
@@ -3380,8 +3589,8 @@ function TapBar({ activeTab, setActiveTab, language }: { activeTab: string, setA
   const tabs = [
     { id: 'home', icon: <Gamepad2 size={26} strokeWidth={2} />, label: "Home" },
     { id: 'explore', icon: <Hexagon size={26} strokeWidth={2} className="relative"><AudioLines size={14} className="absolute inset-0 m-auto" strokeWidth={3} /></Hexagon>, label: "Live" },
+    { id: 'messages', icon: <MessageSquare size={26} strokeWidth={2} />, label: "Message" },
     { id: 'shop', icon: <ShoppingBag size={26} strokeWidth={2} />, label: "Store" },
-    { id: 'leaderboard', icon: <div className="relative"><BarChart3 size={26} strokeWidth={2} /><Star size={10} className="absolute -top-1 -right-1" strokeWidth={2} /><Star size={8} className="absolute -top-2 right-1.5 opacity-80" strokeWidth={2} /><Star size={7} className="absolute top-0 right-3 opacity-60" strokeWidth={2} /></div>, label: "Game" },
     { id: 'profile', icon: <UserIcon size={26} strokeWidth={2} />, label: "Me" },
   ];
 
@@ -3578,6 +3787,7 @@ function LobbyView({ user, profile, onStartSearch, onJoin, onLogout, onCreate, s
   const [password, setPassword] = useState('');
   const [selectedType, setSelectedType] = useState<'uno' | 'joker' | 'dama' | 'dobble' | 'tictactoe' | 'airhockey' | 'ludo'>('uno');
   const [showRoomList, setShowRoomList] = useState(false);
+  const [showDailyCheckIn, setShowDailyCheckIn] = useState(false);
 
   useEffect(() => {
     const q = query(collection(db, 'games'), where('status', '==', 'waiting'), limit(10));
@@ -3627,7 +3837,10 @@ function LobbyView({ user, profile, onStartSearch, onJoin, onLogout, onCreate, s
          <button onClick={() => setShowRoomList(true)} className="w-9 h-9 bg-white/10 hover:bg-white/20 transition-all rounded-full flex items-center justify-center text-white border border-white/5 shadow-md">
             <List size={18} strokeWidth={2} />
          </button>
-         <button onClick={() => { setCreateStep(1); setShowCreateModal(true); }} className="px-4 py-2 bg-white/10 hover:bg-white/20 transition-all rounded-full text-white text-sm font-medium flex items-center gap-1 border border-white/5 shadow-md">
+         <button onClick={() => setShowDailyCheckIn(true)} className="w-9 h-9 bg-white/10 hover:bg-white/20 transition-all rounded-full flex items-center justify-center text-[#ffd700] border border-white/5 shadow-md">
+            <Gift size={18} strokeWidth={2} />
+         </button>
+         <button onClick={() => { setCreateStep(1); setShowCreateModal(true); }} className="px-3 py-2 bg-white/10 hover:bg-white/20 transition-all rounded-full text-white text-xs sm:text-sm font-medium flex items-center gap-1 border border-white/5 shadow-md">
             Private room <Plus size={16} />
          </button>
       </header>
@@ -3965,6 +4178,12 @@ function LobbyView({ user, profile, onStartSearch, onJoin, onLogout, onCreate, s
               </div>
             </motion.div>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showDailyCheckIn && (
+           <DailyCheckInView onClose={() => setShowDailyCheckIn(false)} />
         )}
       </AnimatePresence>
 
@@ -5998,7 +6217,7 @@ function MyItemsView({
 
       <div className="w-full max-w-lg px-4 gap-6 text-[16px] font-bold text-gray-400 flex items-center relative mb-4 mt-2">
         <button onClick={() => setActiveTabTab('skins')} className={`py-3 relative whitespace-nowrap transition-colors ${activeTab === 'skins' ? 'text-black' : ''}`}>
-          Headframe
+          Frame
           {activeTab === 'skins' && <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-4 h-1 bg-[#00a8ff] rounded-t-full rounded-b-full shadow-[0_1px_3px_rgba(0,168,255,0.4)]" />}
         </button>
         <button onClick={() => setActiveTabTab('tables')} className={`py-3 relative whitespace-nowrap transition-colors ${activeTab === 'tables' ? 'text-black' : ''}`}>

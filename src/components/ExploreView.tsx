@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Plus } from 'lucide-react';
+import { Search, Plus, ArrowUp } from 'lucide-react';
 import { collection, onSnapshot, addDoc, getDocs, where, query, orderBy } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 
@@ -175,9 +175,14 @@ export function ExploreView({ onBack, setActiveTab, language, onJoinRoom, user, 
                  <h2 className="text-white font-black text-[22px] mb-0 tracking-wide drop-shadow-sm">My party room</h2>
                  <p className="text-white/50 text-[15px] font-bold">Chat with anyone</p>
               </div>
-              <button className="w-11 h-11 bg-[#f97b4b] hover:bg-[#e46433] active:scale-95 transition-all rounded-full flex items-center justify-center shrink-0 z-10 shadow-lg border border-[#ff916a]">
-                 <Plus size={26} strokeWidth={3} className="text-white" />
-              </button>
+              <div className="flex items-center gap-2 z-10 shrink-0">
+                 <button onClick={(e) => { e.stopPropagation(); setActiveTab('roomUpgrade'); }} className="w-11 h-11 bg-white/10 hover:bg-white/20 active:scale-95 transition-all rounded-full flex items-center justify-center shadow-lg border border-white/20">
+                    <ArrowUp size={24} strokeWidth={2.5} className="text-[#00e676]" />
+                 </button>
+                 <button className="w-11 h-11 bg-[#f97b4b] hover:bg-[#e46433] active:scale-95 transition-all rounded-full flex items-center justify-center shadow-lg border border-[#ff916a]">
+                    <Plus size={26} strokeWidth={3} className="text-white" />
+                 </button>
+              </div>
             </div>
           </div>
           
