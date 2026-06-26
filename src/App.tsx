@@ -3380,6 +3380,7 @@ function CardBack({ skinUrl, className = "", style = {} }: { skinUrl?: string, c
 function ProfileView({ user, profile, onBack, onLogout, setActiveTab, language, onOpenSettings, onEditProfile, onOpenSearch, onOpenAdmin }: { user: User, profile: UserProfile, onBack: () => void, onLogout: () => void, setActiveTab: (tab: any) => void, language: Language, onOpenSettings: () => void, onEditProfile: () => void, onOpenSearch: () => void, onOpenAdmin?: () => void }) {
   const t = translations[language];
   const [copied, setCopied] = useState(false);
+  const [showLevel, setShowLevel] = useState(false);
 
   const handleCopyId = () => {
     const idToCopy = profile.shortId || user.uid;
@@ -3426,11 +3427,14 @@ function ProfileView({ user, profile, onBack, onLogout, setActiveTab, language, 
              <div className="flex flex-col justify-center">
                 <div className="flex items-center gap-2">
                    <h2 className="text-xl font-bold uppercase">{profile.displayName}</h2>
-                   <div className="w-auto inline-flex h-5 items-center bg-gradient-to-r from-[#7b3df1] to-[#b357f8] rounded-xl pr-2 pl-0.5 shadow-sm">
+                   <div 
+                      onClick={() => setShowLevel(true)}
+                      className="w-auto inline-flex h-5 items-center bg-gradient-to-r from-[#7b3df1] to-[#b357f8] rounded-xl pr-2 pl-0.5 shadow-sm cursor-pointer hover:opacity-90 active:scale-95 transition-all"
+                   >
                       <div className="bg-blue-300 w-4 h-4 rounded-full flex items-center justify-center mr-1 shadow-sm">
                         <svg className="w-2.5 h-2.5 text-blue-700" fill="currentColor" viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/></svg>
                       </div>
-                      <span className="text-white font-bold text-[10px]">Lv.54</span>
+                      <span className="text-white font-bold text-[10px]">Lv.{profile.level || 1}</span>
                    </div>
                    <div className="w-4 h-4 rounded-full bg-[#1da1f2] text-white flex items-center justify-center text-[10px]">♂</div>
                    <button onClick={onEditProfile} className="ml-2 px-3 py-1 rounded-full border border-zinc-700 text-zinc-400 text-xs font-medium flex items-center gap-1 hover:bg-zinc-800">
@@ -3498,6 +3502,7 @@ function ProfileView({ user, profile, onBack, onLogout, setActiveTab, language, 
             v1.3.7
           </div>
       </div>
+      {showLevel && <LevelShowcaseView onBack={() => setShowLevel(false)} />}
       <TapBar activeTab="profile" setActiveTab={setActiveTab} language={language} />
     </div>
   );

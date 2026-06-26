@@ -63,6 +63,16 @@ service cloud.firestore {
         && (!('giftImage' in data) || data.giftImage is string)
         && (data.createdAt is int || data.createdAt is timestamp);
     }
+
+    function isValidLuckyBag(data) {
+      return data.senderId is string
+        && data.total is number
+        && data.qty is number
+        && data.duration is number
+        && data.condition in ['All', 'Fans', 'On mic']
+        && data.type in ['Room', 'World']
+        && (data.createdAt is int || data.createdAt is timestamp);
+    }
     function isValidGame(data) {
       return data.status in ['waiting', 'active', 'finished']
         && data.players is list && data.players.size() <= 2
@@ -225,6 +235,11 @@ service cloud.firestore {
 
       match /superWinner/{docId} {
         allow read, write: if isSignedIn();
+      }
+      
+      match /luckyBags/{bagId} {
+        allow read: if true;
+        allow write: if isSignedIn();
       }
     }
   }
